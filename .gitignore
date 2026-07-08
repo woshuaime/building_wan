@@ -1,0 +1,38 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments and local environment files
+.venv/
+venv/
+env/
+*.env
+
+# IDE / editor state
+.idea/
+.vscode/
+
+# Build outputs
+build/
+dist/
+src/build/
+src/dist/
+*.spec.bak
+
+# PyInstaller runtime artifacts
+*.manifest
+
+# Generated capture outputs and local datasets
+res/
+model*/
+src/model*/
+src/test/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Local scratch scripts
+_test_norm.py
