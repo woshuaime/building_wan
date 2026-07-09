@@ -121,10 +121,38 @@ src/
 最重要的硬规则：
 
 ```text
-normalize once, split after normalization, never renormalize split meshes
+prepare and freeze once, split frozen mesh, render frozen triplet without transform
 ```
 
-也就是：完整 OBJ 只标准化、摆正、居中、缩放一次；残缺模型和被切掉的部分必须在这个统一坐标系里生成，并继承原始位置。切完后不能重新计算中心、不能重新缩放、不能重新摆正。这样 `complete_rgb`、`incomplete_rgb`、`missing_mask`、`visible_mask` 才能在像素和几何上严格对齐。
+也就是：普通 OBJ 模式负责摆正、居中、对齐底面和朝向，并导出冻结后的 `aligned_complete.obj`；Blender 只基于这个冻结模型切分出 `complete.obj`、`incomplete.obj`、`removed.obj`；Dataset Mode 只读取三元组，不再 normalize、recenter、rescale、reorient，也不根据任何一个 mesh 重新计算 transform。这样 `complete_rgb`、`incomplete_rgb`、`missing_mask`、`visible_mask` 才能在像素和几何上严格对齐。
+
+当前 Dataset Mode 默认使用 `prealigned_triplet`：选择一个同时包含 `complete.obj`、`incomplete.obj`、`removed.obj` 的文件夹，软件只做读取和批量渲染。如果内部需要 OBJ 到 PyVista 的固定坐标转换，也必须对三者完全相同地应用：
+
+```text
+(x, y, z) -> (z, x, y)
+```
+
+因此 Dataset Mode 输出的 `camera_poses.json` 使用的是软件拍摄坐标，不是原始 OBJ 语义坐标。四类输出 `complete_rgb`、`incomplete_rgb`、`missing_mask`、`visible_mask` 必须共享同一组相机位姿。
+
+Dataset Mode 的 `camera_poses.json` 会额外记录相机模型：
+
+```json
+{
+  "camera_model": {
+    "focal_point": [0, 0, 0],
+    "view_up": [0, 0, 1],
+    "fov": 45.0,
+    "near": 0.01,
+    "far": 1000.0,
+    "parallel_projection": true,
+    "parallel_scale": 7.5,
+    "image_size": [1024, 1024]
+  },
+  "frames": []
+}
+```
+
+Dataset Mode 还会输出 `metadata.json`，记录输入三元组路径、坐标规则、相机模型、输出目录和保存失败列表。
 
 ## License
 

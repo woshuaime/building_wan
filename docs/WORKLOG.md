@@ -32,22 +32,28 @@
 最重要的不变量：
 
 ```text
-normalize once, split after normalization, never renormalize split meshes
+prepare and freeze once, split frozen mesh, render frozen triplet without transform
 ```
 
 含义：
 
-- 完整模型只做一次标准化、摆正、居中、缩放。
-- 在标准化后的同一个坐标系里切割模型。
-- `complete_mesh`、`incomplete_mesh`、`removed_mesh` 必须共享同一个世界坐标系。
-- 切掉的几何原本在哪里，切完后仍然留在原来的位置。
-- 切割后的残缺模型和 removed 部分不能重新计算中心、不能重新缩放、不能重新摆正。
+- 普通 OBJ 模式负责 Prepare / Alignment：导入原始完整模型，自动或手动摆正、居中、对齐底面和朝向，并导出 `aligned_complete.obj`。
+- Blender 基于 `aligned_complete.obj` 制造残缺，并导出 `complete.obj`、`incomplete.obj`、`removed.obj`。
+- `complete_mesh`、`incomplete_mesh`、`removed_mesh` 必须共享同一个冻结后的世界坐标系。
+- Dataset Mode 只读取冻结三元组并批量渲染，禁止重新 normalize、recenter、rescale、reorient 三元组中的任何 mesh。
+- 如果软件内部确实需要 OBJ -> PyVista 固定坐标转换，必须对 `complete.obj`、`incomplete.obj`、`removed.obj` 完全相同地应用。
+- 切掉的几何原本在哪里，冻结三元组中仍应保持相对完整模型的位置。
 
 原因：
 
 - 训练数据需要像素级和几何级严格对齐。
 - `complete_rgb`、`incomplete_rgb`、`missing_mask`、`visible_mask` 必须来自同一个 camera pose。
-- 如果切割后重新归一化，mask 会和图像错位，后续 MVS 重建也会受影响。
+- 如果 Dataset Mode 重新计算 transform，mask 会和图像错位，后续 MVS 重建也会受影响。
+
+模式区分：
+
+- `prealigned_triplet`：默认 Dataset Mode。三者已经来自冻结后的 `aligned_complete.obj`，Dataset Mode 不做旋转、平移、缩放或重定向。
+- `shared_triplet`：非默认实验模式。只有明确需要时才允许使用，不能替代冻结三元组默认流程。
 
 ### 导入摆放准则
 
@@ -377,12 +383,62 @@ Reconstruction-Oriented Multi-View Image Completion
 - 再实现 `incomplete_rgb -> pred_missing_mask` 的缺失区域识别模型。
 - 最后接入 predicted-mask pipeline、VLM 语义提示和 AnimateDiff 多视角一致性。
 
+### 2026-07-09
+
+背景：
+
+- 继续把软件从普通 OBJ 拍照工具改造成 Dataset Mode 数据集生成工具。
+- 用户重新澄清数据来源：普通模式先负责摆正并冻结完整模型，Blender 再基于冻结后的 `aligned_complete.obj` 制造三元组。
+- 用户明确要求继续遵循普通拍照模式的摆放准则：模型中心在四轨中心、底面平行灰色虚拟平面、顶面朝四轨交叉相机出发点。
+
+已确定结论：
+
+- Dataset Mode 默认模式最终确认为 `prealigned_triplet` / frozen triplet。
+- 数据集输入仍是一组三元组：`complete.obj`、`incomplete.obj`、`removed.obj`。
+- 三元组必须共享同一个冻结后的标准世界坐标系。
+- Dataset Mode 禁止 normalize、recenter、rescale、reorient，禁止根据 `complete.obj`、`incomplete.obj` 或 `removed.obj` 重新计算 transform。
+- 如果内部需要 OBJ -> PyVista 固定坐标转换，只允许对三者应用同一个固定转换。
+- `shared_triplet` 降级为非默认实验路径；默认导入数据集不走该模式。
+- Dataset Mode 输出四类图片：`complete_rgb`、`incomplete_rgb`、`missing_mask`、`visible_mask`，同一帧共享同一相机位姿和相机参数。
+- `missing_mask` 表示当前视角下 removed 几何真正可见的缺失区域；`visible_mask` 表示当前视角下 incomplete 主体的可见区域。
+- `camera_poses.json` 需要记录 `camera_model`、逐帧 `camera`、四路输出路径和 `failed_outputs`；`metadata.json` 记录数据模式、坐标规则、`alignment_report`、源文件和保存失败列表。
+
+架构变化：
+
+- 新增 `src/core/dataset_loader.py`，提供三元组读取；默认 `prealigned_triplet` 只 parse 三个 OBJ，不改动坐标。
+- `src/core/obj_loader.py` 新增 `parse_obj_file()`，用于 Dataset Mode 原样解析 OBJ，不走普通模式的缩放标准化。
+- `src/ui/tk_widget.py` 新增 Dataset Mode 导入与拍摄分支；普通 OBJ 模式仍走原来的 `OBJLoader.load()` 路径。
+- Dataset Mode 禁止“调整模型”，避免用户单独旋转三元组中的某一部分导致 mask 错位。
+- Dataset Mode 拍摄时复用四个离屏 renderer，避免每张图新建 Plotter 导致卡顿。
+- Dataset Mode 中如果截图返回 `None`，现在直接视为失败，不再静默生成空白训练样本。
+- 保存失败会写入 `camera_poses.json` 和 `metadata.json` 的 `failed_outputs`，方便后续数据清洗。
+- 文档 `README.md`、`docs/DATASET_WORKFLOW.md`、`docs/workflow.md` 已同步为“普通模式冻结模型，Dataset Mode 只读冻结三元组”新准则。
+
+技术判断：
+
+- 普通模式和 Dataset Mode 必须职责分离：普通模式用于 Prepare / Alignment，Dataset Mode 只用于批量渲染冻结三元组。
+- 不在 Dataset Mode 中做缩放、旋转或平移，能最大限度保证 Blender 切出的 `incomplete` 与 `removed` 不发生相对错位。
+- mask 与 RGB 是否像素级对齐，核心取决于三元组共享冻结坐标、同一固定 OBJ->PyVista 转换、同一 camera pose 和同一渲染参数。
+
+风险和待验证：
+
+- 此前实现过 `shared_triplet` 默认路径并经 sub agent 审查到 94/100；用户最终确认默认流程应改为冻结三元组只读，因此需要以新准则重新验证。
+- 普通模式导出 `aligned_complete.obj` 的功能还需要明确实现或确认现有“保存位置”是否已经等价于冻结导出。
+- 目前完成了 `py_compile` 和临时 cube 三元组 smoke test；仍需用真实建筑三元组做 GUI 导入、拍摄、mask 对齐检查。
+
+后续动作：
+
+- 用真实冻结三元组文件夹测试 `prealigned_triplet` 导入和四路输出。
+- 检查 `complete_rgb` / `incomplete_rgb` / `missing_mask` / `visible_mask` 是否像素级对齐。
+- 批量扫描真实 OBJ，统计哪些模型底面识别失败或姿态验收失败。
+- 后续编写三元组生成脚本：从 complete 切出 incomplete 和 removed，并记录随机种子与切割参数。
+
 ## 待办池
 
 - [ ] 设计数据集生成脚本的最小版本。
 - [ ] 确定残缺生成策略：连通面删除、球体切割、盒体切割或平面切割。
-- [ ] 设计 `camera_poses.json` 的增强字段。
-- [ ] 设计 `metadata.json` 的字段。
+- [ ] 用真实数据验证 `camera_poses.json` 的 `camera_model`、逐帧 `camera`、四路输出路径和 `failed_outputs` 是否满足训练/重建读取需求。
+- [ ] 继续完善 `metadata.json` 字段，补充残缺生成方法、随机种子、切割参数和软件版本/git commit。
 - [ ] 设计单帧 inpainting baseline。
 - [ ] 研究 AnimateDiff 如何接收 mask 和残缺图条件。
 - [ ] 研究 camera pose / depth / normal 条件如何注入补全模型。

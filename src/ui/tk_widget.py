@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, QSize, QThread, QObject, Signal
 from PySide6.QtGui import QFont, QPalette, QColor
 
+from core.dataset_loader import PREALIGNED_TRIPLET, SHARED_TRIPLET, load_dataset_triplet
 from core.obj_loader import OBJLoader
 from core.track import TrackSystem
 from utils.screenshot import ScreenshotManager
@@ -125,6 +126,11 @@ class PyVistaView(QtInteractor):
         self._model_center_lock_timer.timeout.connect(self._lock_model_actor_center)
         self._last_import_pose_report = ""
         self._loader_normalization_report = {}
+        self._dataset_triplet = None
+        self._dataset_meshes = {}
+        self._dataset_mode = None
+        self._dataset_plotters = {}
+        self._dataset_parallel_scale = None
 
         # ── 垂直基准面（UI 墙，X 轴脚底板对齐）──────────────────────────────
         self._ground_actor = None   # 垂直半透明圆盘 actor
@@ -314,6 +320,11 @@ class PyVistaView(QtInteractor):
         self._model_actor = None
         self._bottom_x = None
         self._loader_normalization_report = {}
+        self._dataset_triplet = None
+        self._dataset_meshes = {}
+        self._dataset_mode = None
+        self._destroy_dataset_plotters()
+        self._dataset_parallel_scale = None
         self._track_sys = TrackSystem()
         self._clear_scene()
 
@@ -771,6 +782,11 @@ class PyVistaView(QtInteractor):
             2) 让底面平行于灰色 YZ 虚拟平面。
             3) TrackSystem 原生轨道 + 固定正面机位。
         """
+        self._dataset_triplet = None
+        self._dataset_meshes = {}
+        self._dataset_mode = None
+        self._destroy_dataset_plotters()
+        self._dataset_parallel_scale = None
         loader = OBJLoader()
         verts, _, faces = loader.load(filepath)
         self._loader_normalization_report = loader.get_normalization_report()
@@ -835,6 +851,72 @@ class PyVistaView(QtInteractor):
             f"pos={self.camera.position}  up={self.camera.up}"
         )
         return True
+
+    def load_dataset_triplet(self, folder, mode=PREALIGNED_TRIPLET):
+        """Load complete/incomplete/removed OBJ files for Dataset Mode."""
+        triplet = load_dataset_triplet(folder, mode=mode)
+        converted = {}
+        meshes = {}
+        faces_by_role = {}
+        for role, mesh_data in (
+            ("complete", triplet.complete),
+            ("incomplete", triplet.incomplete),
+            ("removed", triplet.removed),
+        ):
+            display_verts = _obj_to_pv_coords(mesh_data.vertices)
+            converted[role] = display_verts
+            faces_by_role[role] = mesh_data.faces
+            meshes[role] = build_pyvista_mesh(display_verts, mesh_data.faces, max_tris=None)
+            if meshes[role] is None:
+                raise RuntimeError(f"无法构建 {role}.obj 的 PyVista mesh")
+
+        self._dataset_triplet = triplet
+        self._dataset_mode = mode
+        self._dataset_meshes = meshes
+
+        # Preview the incomplete input, but keep complete/removed in the same world frame.
+        self._mesh = meshes["incomplete"]
+        self._faces = faces_by_role["incomplete"]
+        self._verts_base = converted["incomplete"].copy()
+        self._bottom_x = meshes["complete"].bounds[0]
+        self._loader_normalization_report = {
+            "status": mode,
+            "fallback_used": False,
+            "reason": (
+                "Dataset triplet uses one shared alignment from complete.obj."
+                if mode == SHARED_TRIPLET
+                else "Dataset triplet is frozen/aligned before Blender and loaded without transform."
+            ),
+        }
+
+        self._track_sys = TrackSystem()
+        self._track_sys.set_center([0.0, 0.0, 0.0])
+        complete_extent = _mesh_max_extent(meshes["complete"])
+        orbit_radius = max(complete_extent * 3.5, 1.0)
+        self._dataset_parallel_scale = max(complete_extent * 0.75, 1.0)
+        for track in self._track_sys.tracks:
+            track.set_radius(orbit_radius)
+        self._track_sys.camera_distance = orbit_radius
+        self._orbit_radius = orbit_radius
+
+        self._model_actor = None
+        self._model_transform_applied = False
+        self._model_rot_elev = 0.0
+        self._model_rot_azim = 0.0
+        self._last_import_pose_report = (
+            f"{mode}: loaded frozen triplet; Dataset Mode does not compute mesh-dependent transforms"
+        )
+
+        self._render_scene()
+        self._set_initial_overview_camera()
+        self.render()
+        return True
+
+    def load_prealigned_dataset(self, folder):
+        return self.load_dataset_triplet(folder, mode=PREALIGNED_TRIPLET)
+
+    def load_shared_dataset(self, folder):
+        return self.load_dataset_triplet(folder, mode=SHARED_TRIPLET)
 
     def _add_frustum_visualization(self):
         """在模型加载后在主视口显示初始取景视锥体（静态，仅在 load_obj 后调用一次）。
@@ -990,6 +1072,115 @@ class PyVistaView(QtInteractor):
 
             self._cap_plotter = None
 
+    def _destroy_dataset_plotters(self):
+        plotters = getattr(self, "_dataset_plotters", {}) or {}
+        for name, plotter in list(plotters.items()):
+            try:
+                plotter.close()
+            except Exception as e:
+                print(f"[WARN] Dataset renderer cleanup failed for {name}: {e}")
+        self._dataset_plotters = {}
+
+    def _camera_model_dict(self):
+        return {
+            "focal_point": [0.0, 0.0, 0.0],
+            "view_up": [0.0, 0.0, 1.0],
+            "fov": float(CAMERA_FOV),
+            "near": float(CAMERA_NEAR),
+            "far": float(CAMERA_FAR),
+            "parallel_projection": True,
+            "parallel_scale": float(self._dataset_parallel_scale or 1.0),
+            "image_size": [int(CAPTURE_SIZE_PX), int(CAPTURE_SIZE_PX)],
+        }
+
+    def _apply_capture_camera(self, plotter, cam_pos, parallel_scale=None):
+        pos = np.asarray(cam_pos, dtype=np.float64)
+        if pos.shape != (3,):
+            raise ValueError(f"capture camera expected position shape (3,), got {pos.shape}")
+        cam = plotter.camera
+        cam.position = tuple(float(x) for x in pos)
+        cam.focal_point = (0.0, 0.0, 0.0)
+        cam.up = (0.0, 0.0, 1.0)
+        cam.view_angle = CAMERA_FOV
+        cam.clipping_range = (CAMERA_NEAR, CAMERA_FAR)
+        cam.ParallelProjectionOn()
+        if parallel_scale is not None:
+            cam.SetParallelScale(float(parallel_scale))
+        return cam
+
+    def _make_dataset_plotter(self, layers, background, mask):
+        plotter = pv.Plotter(
+            off_screen=True,
+            window_size=(CAPTURE_SIZE_PX, CAPTURE_SIZE_PX),
+        )
+        plotter.set_background(background)
+        for mesh, color in layers:
+            if mesh is None:
+                continue
+            plotter.add_mesh(
+                mesh.copy(deep=True),
+                color=color,
+                style="surface",
+                smooth_shading=False,
+                ambient=1.0 if mask else 0.10,
+                diffuse=0.0 if mask else 0.90,
+                specular=0.0 if mask else 0.10,
+                lighting=not mask,
+                reset_camera=False,
+            )
+        plotter.disable_anti_aliasing()
+        if not mask:
+            plotter.enable_lightkit()
+        return plotter
+
+    def _ensure_dataset_plotters(self):
+        if self._dataset_plotters:
+            return
+        meshes = self._dataset_meshes
+        specs = {
+            "complete_rgb": ([(meshes["complete"], "#c8cdd2")], "white", False),
+            "incomplete_rgb": ([(meshes["incomplete"], "#c8cdd2")], "white", False),
+            "missing_mask": ([(meshes["removed"], "white"), (meshes["incomplete"], "black")], "black", True),
+            "visible_mask": ([(meshes["incomplete"], "white")], "black", True),
+        }
+        try:
+            self._dataset_plotters = {
+                name: self._make_dataset_plotter(layers, background, is_mask)
+                for name, (layers, background, is_mask) in specs.items()
+            }
+        except Exception:
+            self._destroy_dataset_plotters()
+            raise
+
+    def capture_dataset_layer(self, layer_name, cam_pos):
+        if not self._dataset_plotters:
+            raise RuntimeError("Dataset renderers are not initialized")
+        if layer_name not in self._dataset_plotters:
+            raise KeyError(f"Unknown dataset layer: {layer_name}")
+        plotter = self._dataset_plotters[layer_name]
+        self._apply_capture_camera(
+            plotter,
+            cam_pos,
+            parallel_scale=self._dataset_parallel_scale,
+        )
+        plotter.render()
+        self._apply_capture_camera(
+            plotter,
+            cam_pos,
+            parallel_scale=self._dataset_parallel_scale,
+        )
+        img = plotter.screenshot(
+            transparent_background=False,
+            return_img=True,
+        )
+        if img is None:
+            raise RuntimeError(f"Dataset renderer returned no image for {layer_name}")
+        img = img[:, :, :3].astype(np.uint8)
+        if layer_name.endswith("_mask"):
+            gray = img.mean(axis=2)
+            img = np.repeat((gray > 127).astype(np.uint8)[:, :, None] * 255, 3, axis=2)
+        return img, plotter.camera.position
+
     def capture_frame(self, cam_pos):
         """用完全独立的隐藏 Plotter 渲染截图，UI 视图零干扰。
 
@@ -1059,6 +1250,68 @@ class PyVistaView(QtInteractor):
             print(f"[Capture] EXCEPTION: {err_msg}")
             # 渲染器在整个拍摄循环中必须存活，不在此销毁；异常抛给外层 _capture_one 处理
             raise RuntimeError(f"[Capture] 渲染异常: {err_msg}")
+
+    def capture_mesh_layers(self, cam_pos, layers, background="white", mask=False):
+        """Deprecated one-shot renderer kept only for fallback/debug use.
+
+        Dataset Mode uses reusable plotters from _ensure_dataset_plotters()
+        so large batches do not create a new VTK renderer for every output.
+        """
+        if cam_pos is None:
+            raise ValueError("capture_mesh_layers: cam_pos must not be None")
+        pos = np.asarray(cam_pos, dtype=np.float64)
+        if pos.shape != (3,):
+            raise ValueError(f"capture_mesh_layers: expected cam_pos shape (3,), got {pos.shape}")
+
+        plotter = None
+        try:
+            plotter = pv.Plotter(
+                off_screen=True,
+                window_size=(CAPTURE_SIZE_PX, CAPTURE_SIZE_PX),
+            )
+            plotter.set_background(background)
+            for mesh, color in layers:
+                if mesh is None:
+                    continue
+                plotter.add_mesh(
+                    mesh.copy(deep=True),
+                    color=color,
+                    style="surface",
+                    smooth_shading=False,
+                    ambient=1.0 if mask else 0.10,
+                    diffuse=0.0 if mask else 0.90,
+                    specular=0.0 if mask else 0.10,
+                    lighting=not mask,
+                    reset_camera=False,
+                )
+            plotter.disable_anti_aliasing()
+            if not mask:
+                plotter.enable_lightkit()
+
+            cam = self._apply_capture_camera(
+                plotter,
+                pos,
+                parallel_scale=self._dataset_parallel_scale,
+            )
+            plotter.render()
+
+            img = plotter.screenshot(
+                transparent_background=False,
+                return_img=True,
+            )
+            if img is None:
+                img = np.full((CAPTURE_SIZE_PX, CAPTURE_SIZE_PX, 3), 0 if mask else 255, dtype=np.uint8)
+            img = img[:, :, :3].astype(np.uint8)
+            if mask:
+                gray = img.mean(axis=2)
+                img = np.repeat((gray > 127).astype(np.uint8)[:, :, None] * 255, 3, axis=2)
+            return img, plotter.camera.position
+        finally:
+            if plotter is not None:
+                try:
+                    plotter.close()
+                except Exception:
+                    pass
 
     def _solidify_model_transform(self):
         """将 TrackballActor 的视觉姿态固化到 mesh 顶点数据。"""
@@ -1183,6 +1436,9 @@ class PyVistaView(QtInteractor):
     def has_model(self):
         return self._mesh is not None
 
+    def has_dataset(self):
+        return self._dataset_triplet is not None and bool(self._dataset_meshes)
+
     def get_track_system(self):
         return self._track_sys
 
@@ -1249,7 +1505,7 @@ def build_pyvista_mesh(verts, faces, max_tris=MAX_TRIANGLES):
     if not tris:
         return None
     tri_idx = np.array(tris, dtype=np.int64)
-    if len(tri_idx) > max_tris:
+    if max_tris is not None and max_tris > 0 and len(tri_idx) > max_tris:
         idx = np.linspace(0, len(tri_idx) - 1, max_tris, dtype=np.int64)
         tri_idx = tri_idx[idx]
     cells = np.concatenate([np.full((len(tri_idx), 1), 3), tri_idx], axis=1)
@@ -1262,6 +1518,18 @@ def _merge_bounds(a, b):
     return (min(a[0], b[0]), max(a[1], b[1]),
             min(a[2], b[2]), max(a[3], b[3]),
             min(a[4], b[4]), max(a[5], b[5]))
+
+
+def _mesh_max_extent(mesh):
+    if mesh is None:
+        return 1.0
+    b = mesh.bounds
+    return max(
+        float(b[1] - b[0]),
+        float(b[3] - b[2]),
+        float(b[5] - b[4]),
+        1e-4,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1341,6 +1609,10 @@ class MainWindow(QMainWindow):
         self._capture_mgr      = None
         self._capture_stopping = False
         self._camera_pose_log  = []  # [(img_name, target_pos, real_cam_pos), ...]
+        self._dataset_pose_log = []
+        self._capture_is_dataset = False
+        self._dataset_save_futures = []
+        self._dataset_failed_outputs = []
         self.save_parent_dir    = None
         self.last_obj_dir       = os.getcwd()   # 导入 OBJ 的独立记忆路径
         self.last_save_dir      = os.getcwd()   # 保存位置的独立记忆路径
@@ -1436,6 +1708,10 @@ class MainWindow(QMainWindow):
         self.btn_import = self._make_btn_big("导入 OBJ", "#4B8CC8", group=group)
         self.btn_import.clicked.connect(self._on_import)
         body_layout.addWidget(self.btn_import)
+
+        self.btn_import_dataset = self._make_btn_big("导入数据集", "#00897B", group=group)
+        self.btn_import_dataset.clicked.connect(self._on_import_dataset)
+        body_layout.addWidget(self.btn_import_dataset)
 
         self.btn_folder = self._make_btn_big("保存位置", "#7B7B7B", group=group)
         self.btn_folder.clicked.connect(self._on_folder)
@@ -1636,6 +1912,9 @@ class MainWindow(QMainWindow):
         if not self._pv_view.has_model():
             self.status_lbl.setText("请先导入 OBJ 模型，再调整模型")
             return
+        if self._pv_view.has_dataset():
+            self.status_lbl.setText("Dataset Mode 禁止单独调整模型，避免破坏三元组共享坐标系")
+            return
         if self._pv_view._mode == InteractionMode.MODEL_ADJUSTING:
             self._set_interaction_mode(InteractionMode.VIEWING)
         else:
@@ -1765,6 +2044,57 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "错误", "无法加载该 OBJ 文件")
         self._update_buttons()
 
+    def _on_import_dataset(self):
+        self._capture_stopping = True
+        self._restore_gizmos()
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "选择冻结三元组文件夹（complete/incomplete/removed）",
+            self.last_obj_dir,
+        )
+        if not folder:
+            return
+        self.last_obj_dir = folder
+        try:
+            loaded = self._pv_view.load_prealigned_dataset(folder)
+        except Exception as ex:
+            import traceback
+            traceback.print_exc()
+            loaded = False
+            self.status_lbl.setText(f"数据集导入失败: {str(ex)[:80]}")
+            QMessageBox.critical(self, "数据集导入失败", f"加载三元组时出错:\n{ex}")
+
+        if loaded:
+            self._active_track = None
+            self._set_interaction_mode(InteractionMode.TRACK_ADJUSTING)
+            self._refresh_track_btns()
+            self.prog_bar.setValue(0)
+            self.prog_lbl.setText(f"进度: 0 / {self._photo_count}")
+            triplet = self._pv_view._dataset_triplet
+            self.lbl_info.setText(
+                "Dataset Mode\n"
+                f"mode: {triplet.mode}\n"
+                f"complete: {len(triplet.complete.vertices)} vertices\n"
+                f"incomplete: {len(triplet.incomplete.vertices)} vertices\n"
+                f"removed: {len(triplet.removed.vertices)} vertices\n"
+                f"warnings: {len(triplet.validation_warnings)}"
+            )
+            if triplet.validation_warnings:
+                warning_text = "\n".join(f"- {w}" for w in triplet.validation_warnings)
+                QMessageBox.warning(
+                    self,
+                    "数据集坐标检查警告",
+                    "三元组已加载，但坐标 sanity check 发现风险：\n\n"
+                    f"{warning_text}\n\n"
+                    "软件不会自动修正坐标，请确认这组三元组确实来自同一个冻结后的 aligned_complete.obj。",
+                )
+            self.status_lbl.setText(
+                "已加载冻结三元组：Dataset Mode 不 normalize/recenter/rescale/reorient"
+            )
+        else:
+            QMessageBox.warning(self, "错误", "无法加载该数据集三元组")
+        self._update_buttons()
+
     def _on_folder(self):
         folder = QFileDialog.getExistingDirectory(
             self, "选择保存根目录", self.last_save_dir)
@@ -1776,6 +2106,9 @@ class MainWindow(QMainWindow):
     def _on_capture(self):
         if not self._pv_view.has_model():
             QMessageBox.warning(self, "提示", "请先导入 OBJ 模型")
+            return
+        if self._pv_view.has_dataset():
+            self._on_capture_dataset()
             return
 
         # 如果旧线程池还在（比如上轮拍摄已 shutdown），重新实例化
@@ -1850,10 +2183,172 @@ class MainWindow(QMainWindow):
 
         self._capture_one()
 
+    def _on_capture_dataset(self):
+        if not self._pv_view.has_dataset():
+            QMessageBox.warning(self, "提示", "请先导入数据集三元组")
+            return
+
+        if hasattr(self, '_capture_executor') and self._capture_executor is not None:
+            try:
+                self._capture_executor.shutdown(wait=False)
+            except Exception:
+                pass
+        self._capture_executor = ThreadPoolExecutor(max_workers=4)
+
+        base = self.save_parent_dir if self.save_parent_dir else os.getcwd()
+        try:
+            out_dir = allocate_next_model_folder(base)
+        except OSError as e:
+            QMessageBox.critical(self, "错误", f"无法创建保存目录:\n{e}")
+            return
+
+        subdirs = {
+            "complete_rgb": os.path.join(out_dir, "complete_rgb"),
+            "incomplete_rgb": os.path.join(out_dir, "incomplete_rgb"),
+            "missing_mask": os.path.join(out_dir, "missing_mask"),
+            "visible_mask": os.path.join(out_dir, "visible_mask"),
+        }
+        for path in subdirs.values():
+            os.makedirs(path, exist_ok=True)
+
+        track_sys = self._pv_view.get_track_system()
+        photos_per_track = self._photo_count // 4
+        all_pos = track_sys.get_all_camera_positions(
+            elev_deg=0.0, azim_deg=0.0, num_positions=photos_per_track)
+
+        flat = []
+        for t_idx, block in enumerate(all_pos):
+            positions = block.get("positions", []) if isinstance(block, dict) else block
+            for p_idx, pos in enumerate(positions):
+                flat.append((t_idx, p_idx, pos))
+
+        self._capture_stopping = False
+        self._capture_is_dataset = True
+        self._dataset_pose_log = []
+        self._dataset_save_futures = []
+        self._dataset_failed_outputs = []
+        self._capture_out_dir = out_dir
+        self._dataset_output_dirs = subdirs
+        self._capture_flat = flat
+        self._capture_total = len(flat)
+        self._capture_idx = 0
+        self._capture_mgr = ScreenshotManager(out_dir)
+
+        self._disable_ui_for_capture()
+        self.prog_bar.setValue(0)
+        self.prog_lbl.setText(f"进度: 0 / {self._capture_total}")
+        self._gizmo_visibility = self._pv_view.hide_gizmos()
+        self._pv_view.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self._pv_view.setFocusPolicy(Qt.NoFocus)
+        self.status_lbl.setText(f"Dataset Mode 正在生成数据集... 保存至 {out_dir}")
+
+        try:
+            self._pv_view._destroy_dataset_plotters()
+            self._pv_view._ensure_dataset_plotters()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            QMessageBox.critical(self, "Dataset Mode 错误", f"无法创建数据集离屏渲染器:\n{e}")
+            self._restore_gizmos()
+            self._cleanup_capture()
+            self._restore_mouse_interaction()
+            return
+
+        self._capture_dataset_one()
+
+    def _capture_dataset_one(self):
+        if getattr(self, "_capture_stopping", False):
+            self._restore_gizmos()
+            self.status_lbl.setText("正在保存已生成的数据集图片...")
+            QApplication.processEvents()
+            self._capture_executor.shutdown(wait=True)
+            self._collect_dataset_save_results()
+            self._write_dataset_camera_poses()
+            self._cleanup_capture()
+            self._restore_mouse_interaction()
+            self.status_lbl.setText("Dataset Mode 已停止")
+            return
+
+        idx = self._capture_idx
+        flat = self._capture_flat
+        if idx >= len(flat):
+            self._restore_gizmos()
+            self.status_lbl.setText("正在保存 Dataset Mode 输出...")
+            QApplication.processEvents()
+            self._capture_executor.shutdown(wait=True)
+            failures = self._collect_dataset_save_results()
+            self._write_dataset_camera_poses()
+            self._cleanup_capture()
+            self._restore_mouse_interaction()
+            self.status_lbl.setText("Dataset Mode 拍摄完成" if not failures else "Dataset Mode 完成，但有图片保存失败")
+            QMessageBox.information(
+                self,
+                "Dataset Mode 完成",
+                f"{self._capture_total} 个相机位姿已生成四路输出\n"
+                f"保存失败: {len(failures)}\n\n保存至:\n{self._capture_out_dir}",
+            )
+            return
+
+        t_idx, p_idx, pos = flat[idx]
+        img_name = f"track{t_idx + 1}_{p_idx + 1:02d}.png"
+        self.prog_bar.setValue(idx + 1)
+        self.prog_lbl.setText(f"进度: {idx + 1} / {self._capture_total}  (轨道{t_idx + 1} 第{p_idx + 1}张)")
+        QApplication.processEvents()
+
+        specs = ["complete_rgb", "incomplete_rgb", "missing_mask", "visible_mask"]
+
+        outputs = {}
+        real_pos = None
+        try:
+            for subdir in specs:
+                img, rp = self._pv_view.capture_dataset_layer(subdir, pos)
+                if rp is None:
+                    raise RuntimeError("Dataset Capture camera position is missing")
+                if real_pos is None:
+                    real_pos = rp
+                elif np.linalg.norm(np.asarray(rp, dtype=np.float64) - np.asarray(real_pos, dtype=np.float64)) > 1e-6:
+                    raise RuntimeError("Dataset Capture camera mismatch across output layers")
+                filepath = os.path.join(self._dataset_output_dirs[subdir], img_name)
+                outputs[subdir] = os.path.join(subdir, img_name).replace("\\", "/")
+                future = self._capture_executor.submit(
+                    self._save_dataset_image_async,
+                    img,
+                    filepath,
+                    self._capture_mgr,
+                )
+                self._dataset_save_futures.append((future, filepath))
+            self._dataset_pose_log.append({
+                "frame_id": img_name,
+                "track_index": int(t_idx + 1),
+                "photo_index": int(p_idx + 1),
+                "target_pos": [float(v) for v in pos],
+                "real_pos": [float(v) for v in real_pos] if real_pos else None,
+                "camera": self._pv_view._camera_model_dict(),
+                "outputs": outputs,
+            })
+        except Exception as e:
+            import traceback
+            err_msg = str(e)
+            print(f"[Dataset Capture] ERROR at track={t_idx + 1} pos={p_idx + 1}: {err_msg}")
+            traceback.print_exc()
+            self.status_lbl.setText(f"[Dataset Capture 异常] {err_msg[:80]}")
+            self._restore_gizmos()
+            QApplication.processEvents()
+            self._capture_executor.shutdown(wait=True)
+            self._collect_dataset_save_results()
+            self._write_dataset_camera_poses()
+            self._cleanup_capture()
+            self._restore_mouse_interaction()
+            return
+
+        self._capture_idx += 1
+        QTimer.singleShot(10, self._capture_dataset_one)
+
     def _disable_ui_for_capture(self):
         self.btn_capture.setEnabled(False)
         self.btn_stop.setEnabled(True)
         self.btn_import.setEnabled(False)
+        self.btn_import_dataset.setEnabled(False)
         self.btn_folder.setEnabled(False)
         self.btn_track.setEnabled(False)
         self.btn_inspect.setEnabled(False)
@@ -1964,6 +2459,31 @@ class MainWindow(QMainWindow):
         except Exception:
             import traceback; traceback.print_exc()
 
+    def _save_dataset_image_async(self, img_array, filepath, mgr):
+        if mgr is None:
+            raise RuntimeError(f"Screenshot manager already cleaned up for {filepath}")
+        saved = mgr.save_array_to_path(img_array, filepath)
+        print(f"[Dataset Capture] -> {saved}")
+        return saved
+
+    def _collect_dataset_save_results(self):
+        failures = []
+        for future, filepath in getattr(self, "_dataset_save_futures", []):
+            try:
+                future.result()
+            except Exception as ex:
+                failures.append({
+                    "path": os.path.abspath(filepath),
+                    "error": str(ex),
+                })
+        self._dataset_failed_outputs = failures
+        self._dataset_save_futures = []
+        if failures:
+            print(f"[Dataset Capture] ERROR: {len(failures)} image save task(s) failed")
+            for item in failures[:10]:
+                print(f"  - {item['path']}: {item['error']}")
+        return failures
+
     def _write_camera_poses(self):
         """将所有拍摄的相机位姿记录写入 camera_poses.json。"""
         if not self._camera_pose_log:
@@ -1989,13 +2509,90 @@ class MainWindow(QMainWindow):
         finally:
             self._camera_pose_log.clear()
 
+    def _write_dataset_camera_poses(self):
+        if not self._dataset_pose_log:
+            return
+        out_dir = getattr(self, "_capture_out_dir", None)
+        triplet = self._pv_view._dataset_triplet
+        if out_dir is None or triplet is None:
+            print("[Dataset Capture] WARNING: missing output dir or triplet, skipping metadata")
+            return
+
+        poses_path = os.path.join(out_dir, "camera_poses.json")
+        meta_path = os.path.join(out_dir, "metadata.json")
+        try:
+            with open(poses_path, "w", encoding="utf-8") as f:
+                json.dump({
+                    "camera_model": self._pv_view._camera_model_dict(),
+                    "failed_outputs": list(getattr(self, "_dataset_failed_outputs", [])),
+                    "frames": self._dataset_pose_log,
+                }, f, indent=2)
+
+            meta = {
+                "dataset_mode": triplet.mode,
+                "coordinate_rule": (
+                    "shared_triplet computes one rigid alignment from complete.obj only, "
+                    "then applies the same rotation and translation to complete/incomplete/removed. "
+                    "Scale is never changed, and incomplete/removed never compute their own transform."
+                    if triplet.mode == SHARED_TRIPLET
+                    else "prealigned_triplet is the default Dataset Mode. Normal mode first prepares "
+                         "and freezes aligned_complete.obj; Blender splits that frozen model into "
+                         "complete/incomplete/removed while preserving one world coordinate system; "
+                         "Dataset Mode only reads the frozen triplet and applies no normalize/recenter/"
+                         "rescale/reorient transform."
+                ),
+                "alignment_report": dict(getattr(triplet, "alignment_report", {}) or {}),
+                "app_coordinate_mapping": (
+                    "Before rendering, all three meshes are equally mapped from aligned OBJ "
+                    "semantic coordinates to app capture coordinates by _obj_to_pv_coords: "
+                    "(x, y, z) -> (z, x, y). This is a shared coordinate convention conversion, "
+                    "not a per-mesh normalization/rescale step."
+                ),
+                "camera_pose_coordinate_system": "app_capture_coordinates_after_shared_obj_to_pv_mapping",
+                "camera_model": self._pv_view._camera_model_dict(),
+                "visible_mask_source": "incomplete",
+                "missing_mask_rule": (
+                    "Render removed as white with incomplete as black occluder on a black background, "
+                    "so the mask represents the currently visible missing region."
+                ),
+                "validation_warnings": list(triplet.validation_warnings),
+                "validation_scope": (
+                    "Bounds checks are sanity checks only. They catch obvious coordinate-system "
+                    "mismatches but do not mathematically prove that all parts came from the same source mesh."
+                ),
+                "source_root": triplet.root_dir,
+                "source_files": {
+                    "complete": triplet.complete.path,
+                    "incomplete": triplet.incomplete.path,
+                    "removed": triplet.removed.path,
+                },
+                "outputs": {
+                    "complete_rgb": "complete_rgb",
+                    "incomplete_rgb": "incomplete_rgb",
+                    "missing_mask": "missing_mask",
+                    "visible_mask": "visible_mask",
+                },
+                "frame_count": len(self._dataset_pose_log),
+                "failed_outputs": list(getattr(self, "_dataset_failed_outputs", [])),
+            }
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(meta, f, indent=2, ensure_ascii=False)
+            print(f"[Dataset Capture] metadata saved -> {out_dir}")
+        except Exception:
+            import traceback; traceback.print_exc()
+            print("[Dataset Capture] ERROR: failed to write metadata")
+        finally:
+            self._dataset_pose_log.clear()
+
     def _cleanup_capture(self):
         # 四大退出路径 3/4: _cleanup_capture 是所有退出路径的共同终点
         # （正常完成/手动停止/异常）都在此统一销毁离屏 plotter
         self._pv_view._destroy_cap_plotter()
+        self._pv_view._destroy_dataset_plotters()
         self._capture_flat   = []
         self._capture_idx    = 0
         self._capture_mgr    = None
+        self._capture_is_dataset = False
         self._enable_ui_after_capture()
 
     def _restore_mouse_interaction(self):
@@ -2009,9 +2606,10 @@ class MainWindow(QMainWindow):
     def _enable_ui_after_capture(self):
         self.btn_capture.setEnabled(True)
         self.btn_track.setEnabled(bool(self._pv_view.has_model()))
-        self.btn_inspect.setEnabled(bool(self._pv_view.has_model()))
+        self.btn_inspect.setEnabled(bool(self._pv_view.has_model()) and not self._pv_view.has_dataset())
         self.btn_stop.setEnabled(False)
         self.btn_import.setEnabled(True)
+        self.btn_import_dataset.setEnabled(True)
         self.btn_folder.setEnabled(True)
         for b in self.track_btns:
             b.setEnabled(bool(self._pv_view.has_model()))
@@ -2025,10 +2623,11 @@ class MainWindow(QMainWindow):
         has = self._pv_view.has_model()
         cap = (getattr(self, "_capture_idx", 0) > 0) or (getattr(self, "_capture_flat", []) != [])
         self.btn_import.setEnabled(not cap)
+        self.btn_import_dataset.setEnabled(not cap)
         self.btn_folder.setEnabled(not cap)
         self.btn_capture.setEnabled(bool(has) and not cap)
         self.btn_track.setEnabled(bool(has) and not cap)
-        self.btn_inspect.setEnabled(bool(has) and not cap)
+        self.btn_inspect.setEnabled(bool(has) and not cap and not self._pv_view.has_dataset())
         self.btn_stop.setEnabled(cap)
         pick_s = bool(has) and not cap
         for b in self.track_btns:
@@ -2037,6 +2636,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         self._capture_stopping = True
         self._pv_view._destroy_cap_plotter()
+        self._pv_view._destroy_dataset_plotters()
         self._restore_gizmos()
         self._restore_mouse_interaction()
         self._pv_view.close()

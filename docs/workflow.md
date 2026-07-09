@@ -22,10 +22,10 @@
 核心数据准则仍然是：
 
 ```text
-normalize once, split after normalization, never renormalize split meshes
+prepare and freeze once, split frozen mesh, render frozen triplet without transform
 ```
 
-也就是完整模型只标准化一次；残缺模型和被删除部分必须继承同一个坐标系，不能切完后重新居中、缩放或摆正。
+也就是普通模式先把原始完整模型摆正并冻结为 `aligned_complete.obj`；Blender 基于冻结模型切出 `complete.obj`、`incomplete.obj`、`removed.obj`；Dataset Mode 只读取冻结后的三元组并批量渲染，不能重新 normalize、recenter、rescale 或 reorient。
 
 ## 中间补全模型设计
 

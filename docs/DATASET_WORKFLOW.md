@@ -23,17 +23,86 @@
 最重要的原则：
 
 ```text
-normalize once, split after normalization, never renormalize split meshes
+prepare and freeze once, split frozen mesh, render frozen triplet without transform
 ```
 
 中文解释：
 
 ```text
-完整模型只标准化一次；
-在标准化后的同一个坐标系里切割；
-切出来的残缺部分和被移除部分只继承坐标；
-切割后绝不重新摆正、绝不重新居中、绝不重新缩放。
+普通模式负责摆正并冻结 aligned_complete.obj；
+Blender 只基于 aligned_complete.obj 制造残缺；
+Dataset Mode 只读取冻结后的 complete / incomplete / removed；
+禁止 normalize、recenter、rescale、reorient 三元组中的任何 mesh。
 ```
+
+## Dataset Mode 输入模式
+
+数据集模式需要明确区分“准备/冻结”和“读取/渲染”的职责，避免 Dataset Mode 重新改动已经冻结的三元组。
+
+### prealigned_triplet
+
+当前默认实现此模式。
+
+```text
+普通模式输入：原始 complete.obj
+普通模式输出：aligned_complete.obj
+Blender 输入：aligned_complete.obj
+Blender 输出：complete.obj / incomplete.obj / removed.obj
+三者状态：共享同一个冻结后的标准世界坐标系
+Dataset Mode 行为：只读取三元组并渲染，不重新计算 transform
+```
+
+在这个模式下，Dataset Mode 不能对 `complete.obj`、`incomplete.obj`、`removed.obj` 中任何一个 mesh 重新计算中心、朝向、尺度或摆正矩阵。允许的唯一坐标处理是固定的 OBJ -> PyVista 坐标约定转换，并且必须对三者完全一致地执行。
+
+普通模式的准备/冻结阶段必须保证：
+
+```text
+建筑底面平行灰色虚拟平面；
+建筑顶面朝向四轨交叉的相机出发点。
+模型中心在四轨中心。
+```
+
+Blender 阶段必须保证：
+
+```text
+complete.obj / incomplete.obj / removed.obj
+共享同一个 Blender 世界坐标系；
+不要把 incomplete 或 removed 单独移动到原点；
+不要单独应用不同缩放、旋转或导出重定位。
+```
+
+当前实现约定：
+
+```text
+输入 OBJ 语义坐标 -> 软件拍摄坐标
+(x, y, z) -> (z, x, y)
+```
+
+这一步是全局坐标约定转换，不是归一化、重居中、重缩放，也不是针对某一个 mesh 的独立 transform。`camera_poses.json` 记录的是转换后的软件拍摄坐标。如果后续训练或重建代码需要回到原始 OBJ 语义坐标，必须显式使用这个固定映射的逆变换。
+
+### shared_triplet
+
+非默认实验模式，仅在明确需要时使用。
+
+```text
+三者状态：共享原始坐标系，但尚未进入软件拍摄坐标
+软件行为：只根据 complete.obj 计算一次刚体对齐 M，同一个 M 应用于三者
+```
+
+当前默认 Dataset Mode 不走这个模式。
+
+### raw_triplet
+
+后续再扩展此模式。
+
+```text
+Blender 输入：原始 raw_complete.obj
+Blender 输出：raw complete / raw incomplete / raw removed
+三者状态：共享原始坐标系
+软件行为：未来如需支持，也必须显式选择，不能作为默认 Dataset Mode
+```
+
+默认流程下不使用 raw_triplet。
 
 原因：
 
@@ -54,11 +123,11 @@ removed.obj 再导入后重新归一化
 正确流程：
 
 ```text
-complete.obj 导入后归一化一次
--> 在这个坐标系里切割
--> incomplete_mesh = 删除一部分面之后的剩余几何
--> removed_mesh = 被删除的那部分几何
--> 三者共享同一个坐标系、同一个轨道中心、同一组相机位姿
+普通模式导入原始 complete.obj
+-> 自动/手动摆正并冻结 aligned_complete.obj
+-> Blender 基于 aligned_complete.obj 切出 complete/incomplete/removed
+-> Dataset Mode 原样读取冻结三元组
+-> 三者共享同一个拍摄坐标系、同一个轨道中心、同一组相机位姿
 ```
 
 ## 导入摆放准则
@@ -83,10 +152,10 @@ MeshLab 打开时建筑顶面朝屏幕使用者
 推荐架构流程：
 
 ```text
-1. 读取完整 OBJ
-2. 对完整 OBJ 做一次标准化
-3. 记录 normalization_matrix 和 normalization_report
-4. 在标准化后的 mesh 上制造残缺
+1. 读取共享坐标系下的 complete.obj / incomplete.obj / removed.obj
+2. 只根据 complete.obj 计算一次刚体对齐 M
+3. 记录 alignment_report，scale 固定为 1.0
+4. 同一个 M 同时应用到三者
 5. 得到：
    - complete_mesh
    - incomplete_mesh
@@ -100,7 +169,7 @@ MeshLab 打开时建筑顶面朝屏幕使用者
 8. 导出图片、OBJ、camera_poses.json、metadata.json
 ```
 
-其中第 4 步必须在标准化后的坐标系中完成，不能把 `incomplete_mesh` 或 `removed_mesh` 再送回普通导入流程。
+其中第 2 步只能使用 `complete.obj` 计算变换，不能把 `incomplete_mesh` 或 `removed_mesh` 再送回普通导入流程单独对齐。
 
 ## 推荐输出结构
 
@@ -256,20 +325,34 @@ docs/workflow.md
 
 ## camera_poses.json 应记录的信息
 
-当前 `camera_poses.json` 只记录了 `file_path`、`target_pos`、`real_pos`，后续数据集版本建议扩展为：
+Dataset Mode 当前 `camera_poses.json` 已记录相机模型、保存失败列表和逐帧输出路径：
 
-- `file_path`
-- `track_index`
-- `frame_index`
-- `camera_position`
-- `focal_point`
-- `view_up`
-- `fov`
-- `resolution`
-- `near`
-- `far`
-- `camera_to_world`
-- `world_to_camera`
+```text
+camera_model:
+    focal_point
+    view_up
+    fov
+    near / far
+    parallel_projection
+    parallel_scale
+    image_size
+
+failed_outputs:
+    保存失败的图片路径和错误信息
+
+frames:
+    frame_id
+    track_index
+    photo_index
+    target_pos
+    real_pos
+    camera
+    outputs:
+        complete_rgb
+        incomplete_rgb
+        missing_mask
+        visible_mask
+```
 
 这些信息可以保证后续训练、评估、MVS 重建和论文复现实验都能追溯。
 
@@ -278,8 +361,8 @@ docs/workflow.md
 建议每个样本记录：
 
 - 原始 OBJ 路径或模型 ID
-- 标准化矩阵 `normalization_matrix`
-- 标准化报告 `normalization_report`
+- 共同对齐报告 `alignment_report`
+- 对齐矩阵、平移量和 `scale=1.0`
 - 残缺生成方法
 - 残缺参数
 - 随机种子
@@ -316,8 +399,9 @@ Controlled Random Degradation
 但数据集批量生成时，应使用新的数据集流程：
 
 ```text
-完整模型导入并标准化一次
--> 直接在内存 mesh 上切割
+complete / incomplete / removed 共享原始坐标
+-> 只根据 complete 计算一次整体对齐
+-> 同一个对齐变换作用到三者
 -> 直接渲染 complete/incomplete/removed
 ```
 

@@ -36,6 +36,54 @@ BOTTOM_BOUNDARY_TRIANGLE_MIN_ALIGNMENT = 0.80
 BOTTOM_BOUNDARY_NORMAL_MIN_ALIGNMENT = 0.95
 
 
+def parse_obj_file(filepath):
+    """Parse an OBJ file without normalization or coordinate changes.
+
+    Dataset Mode depends on this raw parser so prealigned triplets can be loaded
+    exactly as exported by Blender.
+    """
+    vertices = []
+    normals = []
+    faces = []
+
+    def parse_stream(stream):
+        vertices.clear()
+        normals.clear()
+        faces.clear()
+        for line in stream:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            parts = line.split()
+            if not parts:
+                continue
+            if parts[0] == 'v':
+                vertices.append([float(x) for x in parts[1:4]])
+            elif parts[0] == 'vn':
+                normals.append([float(x) for x in parts[1:4]])
+            elif parts[0] == 'f':
+                face = []
+                n_v = len(vertices)
+                for part in parts[1:]:
+                    indices = part.split('/')
+                    raw = int(indices[0])
+                    if raw < 0:
+                        vertex_idx = n_v + raw
+                    else:
+                        vertex_idx = raw - 1
+                    face.append(vertex_idx)
+                faces.append(face)
+
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            parse_stream(f)
+    except UnicodeDecodeError:
+        with open(filepath, 'r', encoding='latin-1') as f:
+            parse_stream(f)
+
+    return vertices, normals, faces
+
+
 class OBJLoader:
     """OBJ模型加载器（含严格规范化）"""
 

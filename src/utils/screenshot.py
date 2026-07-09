@@ -67,6 +67,16 @@ class ScreenshotManager:
         pil_img.save(filepath, 'PNG')
         return filepath
 
+    def save_array_to_path(self, img_array, filepath, flip=True):
+        """Save a numpy RGB array to an exact path."""
+        parent = os.path.dirname(filepath)
+        if parent and not os.path.exists(parent):
+            os.makedirs(parent)
+        data = np.flipud(img_array) if flip else img_array
+        pil_img = Image.fromarray(data)
+        pil_img.save(filepath, 'PNG')
+        return filepath
+
     def get_output_dir(self):
         """获取输出目录"""
         return self.output_dir
