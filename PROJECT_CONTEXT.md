@@ -178,3 +178,14 @@
 - 已准备服务器验证配置及单卡Slurm脚本，预检通过；尚未提交验证作业、尚无验证视频。
 - 当前目录仍不是Git worktree，无法提供分支、commit或diff。
 - 本轮完整交接摘要见 `SESSION_HANDOFF.md`。
+
+## 13. A6000 Batch Training Variant
+
+- 新增 `scripts/train_wan81_a6000.sh` 和 `scripts/submit_wan81_a6000.sh`，不修改旧A100脚本，也不复用已有 `checkpoints/building_wan` 输出目录。
+- A6000脚本默认使用 `/mnt/windowsE/chuanjun/building_wan`，可通过 `BUILDING_WAN_ROOT`、`WAN_PYTHON`、`WAN_DATASET_ROOT`、`WAN_METADATA` 和 `WAN_OUTPUT_ROOT` 覆盖路径。
+- 默认训练配置保持384×384、81帧、LoRA rank 16、学习率2e-5、8 epochs；默认物理batch为2、梯度累积为2，有效batch为4。
+- A6000脚本默认数据改为 `data/single_orbit_videos`，清单改为 `configs/single_orbit_same_prompt_v1/metadata_train.csv`，缓存改为 `cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train`，输出改为 `checkpoints/building_wan_a6000_single_orbit`。
+- 当前单轨试验先使用一条统一 prompt，固定划分为训练1992、验证234、测试118；划分清单和 manifest 位于 `configs/single_orbit_same_prompt_v1`。
+- `wan_train_entry.py` 增加缓存样本的真实批处理：按样本拼接latent和text context，并为每个样本独立采样时间步、噪声和flow-matching权重。当前共享 context 适用于这轮统一 prompt；后续逐栋 prompt 必须改用新的按样本/按文本去重缓存并重建缓存。
+- A6000物理batch和梯度累积可分别用 `WAN_TRAIN_BATCH_SIZE` 与 `WAN_GRADIENT_ACCUMULATION_STEPS` 调整；显存不足时首轮将物理batch降为1再保留累积步数。
+- 尚未提交Slurm作业，尚未实测A6000显存峰值；正式提交前需要在服务器执行 `bash -n`、入口编译检查、缓存检查和A6000 GPU型号检查。

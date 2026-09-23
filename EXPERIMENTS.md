@@ -68,3 +68,22 @@
 - Status：训练完成；Job 1155于2026-09-14T23:20:08+08:00以`COMPLETED / 0:0`结束，总耗时13:04:29；推理验证待提交
 - Result：完成15,296个optimizer steps，保存step-400至step-15296共39份LoRA；最终loss 0.0207207091，第1轮平均loss 0.033480，第8轮平均loss 0.027926。视觉效果待固定条件视频验证。
 - Notes：Job 1153/1154曾重复提交后取消，均未留下缓存；正式结果来自Job 1155。已准备base、step-4000、step-8000、step-12000和step-15296的对比验证配置。
+
+## Experiment: building_wan_a6000_single_orbit
+
+- Date：2026-09-23准备
+- Goal：在单张RTX A6000上先使用2344条单轨建筑视频和统一 prompt，以更大的物理batch训练建筑领域LoRA；逐栋 prompt 留作后续实验。
+- GPU：目标为1×NVIDIA RTX A6000 48GB
+- Resolution：384×384
+- Frames：81
+- Physical batch：2（可用 `WAN_TRAIN_BATCH_SIZE` 降为1）
+- Gradient accumulation：2（默认有效batch为4）
+- LoRA rank：16
+- Learning rate：2e-5
+- Epochs：8
+- Split：`configs/single_orbit_same_prompt_v1`，训练1992、验证234、测试118，固定随机种子20260924，训练占85%。
+- Prompt：本轮所有样本使用同一条统一建筑旋转 prompt；不使用尚未完全核对的 Cap3D 逐栋描述。
+- Cache：新建 `compact-sft-shared-context-bf16-v2` 缓存，共享一份文本 context，物理batch由项目入口合并缓存样本。
+- Output path：`checkpoints/building_wan_a6000_single_orbit`
+- Start from：基础模型，独立输出，不resume A100或双3060权重。
+- Status：统一 prompt 划分和脚本已准备；尚未执行Slurm提交，A6000实际峰值显存待短测确认。

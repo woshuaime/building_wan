@@ -202,3 +202,44 @@ sbatch scripts/submit_wan81_validation.sh
 ```text
 /home/share/CHUANJUN/building_wan/outputs/validation/building_wan
 ```
+
+## 14. A6000批训练变体
+
+A6000版本使用独立脚本和独立输出目录，默认训练数据是单轨视频，根目录是服务器上的 `/mnt/windowsE/chuanjun/building_wan`：
+
+```bash
+cd /mnt/windowsE/chuanjun/building_wan
+bash -n scripts/train_wan81_a6000.sh scripts/submit_wan81_a6000.sh
+```
+
+默认参数：
+
+```text
+物理 batch：2
+梯度累积：2
+有效 batch：4
+分辨率：384×384
+帧数：81
+数据：data/single_orbit_videos
+清单：configs/single_orbit_same_prompt_v1/metadata_train.csv
+输出：checkpoints/building_wan_a6000_single_orbit
+```
+
+训练入口会把缓存中的多个样本合并成真正的batch，并为每个样本独立采样flow-matching时间步和噪声。这一轮所有样本使用同一条 prompt，因此缓存只保存一份共享文本 context；后续逐栋 prompt 需要另行重建缓存。这样不会出现旧DataLoader只保留每批第一个样本的问题。
+
+本轮不依赖 Cap3D 的逐栋描述。仓库中的 `configs/single_orbit_same_prompt_v1` 已包含统一 prompt 的训练、验证、测试清单；服务器同步代码后即可使用。Cap3D 生成的独立 prompt 暂不混入本轮。
+
+显存预检或首轮运行时可以覆盖参数：
+
+```bash
+WAN_TRAIN_BATCH_SIZE=1 WAN_GRADIENT_ACCUMULATION_STEPS=4 \
+  bash scripts/train_wan81_a6000.sh
+```
+
+只有用户明确要求开始提交后，才运行：
+
+```bash
+sbatch scripts/submit_wan81_a6000.sh
+```
+
+该脚本会拒绝非A6000 GPU，并拒绝混用已有checkpoint。服务器上的实际Python路径、数据路径或Slurm GRES名称不一致时，先通过对应环境变量或提交脚本头部调整。

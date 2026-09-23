@@ -27,6 +27,118 @@ _COMPACT_SFT_SHARED_KEYS = (
 _SHARED_TEXT_CONTEXT_FORMAT = "shared-text-context-bf16-v1"
 
 
+class _BatchDataset(torch.utils.data.Dataset):
+    """Expose groups of cached samples to DiffSynth's single-item loader."""
+
+    def __init__(self, dataset, batch_size: int):
+        if batch_size < 1:
+            raise ValueError("batch_size must be at least 1")
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.load_from_cache = dataset.load_from_cache
+
+    def __len__(self):
+        return (len(self.dataset) + self.batch_size - 1) // self.batch_size
+
+    def __getitem__(self, batch_id):
+        start = batch_id * self.batch_size
+        stop = min(start + self.batch_size, len(self.dataset))
+        return [self.dataset[index] for index in range(start, stop)]
+
+
+def _merge_batch_values(values, name: str):
+    """Merge fixed-shape cached tensors while preserving scalar settings."""
+    if not values:
+        raise ValueError(f"Cannot merge empty batch field: {name}")
+    if all(isinstance(value, torch.Tensor) for value in values):
+        if all(value.shape == values[0].shape for value in values):
+            if values[0].ndim > 0 and values[0].shape[0] == 1:
+                return torch.cat(values, dim=0)
+            return torch.stack(values, dim=0)
+        raise ValueError(f"Batch field {name} has inconsistent tensor shapes")
+    if all(value == values[0] for value in values):
+        return values[0]
+    raise ValueError(f"Batch field {name} has inconsistent values")
+
+
+def _collate_cached_batch(samples):
+    """Collate compact Wan cache tuples into a real batch."""
+    if not isinstance(samples, list) or not samples:
+        raise TypeError("Expected a non-empty list of cached samples")
+    if any(not isinstance(sample, tuple) or len(sample) != 3 for sample in samples):
+        raise TypeError("Each cached sample must be a three-item tuple")
+    merged = []
+    for mapping_index, mapping_name in ((0, "shared"), (1, "positive"), (2, "negative")):
+        mappings = [sample[mapping_index] for sample in samples]
+        if any(not isinstance(mapping, dict) for mapping in mappings):
+            raise TypeError(f"Cached {mapping_name} inputs must be dictionaries")
+        keys = set().union(*(mapping.keys() for mapping in mappings))
+        result = {}
+        for key in keys:
+            if any(key not in mapping for mapping in mappings):
+                raise ValueError(f"Cached {mapping_name} field {key!r} is missing in a sample")
+            result[key] = _merge_batch_values(
+                [mapping[key] for mapping in mappings],
+                f"{mapping_name}.{key}",
+            )
+        merged.append(result)
+    return tuple(merged)
+
+
+def _batched_flow_match_sft_loss(pipe, inputs_shared, inputs_posi, inputs_nega):
+    """Flow matching SFT loss with one timestep and noise draw per sample."""
+    input_latents = inputs_shared["input_latents"]
+    batch_size = input_latents.shape[0]
+    max_timestep_boundary = int(
+        inputs_shared.get("max_timestep_boundary", 1) * len(pipe.scheduler.timesteps)
+    )
+    min_timestep_boundary = int(
+        inputs_shared.get("min_timestep_boundary", 0) * len(pipe.scheduler.timesteps)
+    )
+    timestep_ids = torch.randint(
+        min_timestep_boundary,
+        max_timestep_boundary,
+        (batch_size,),
+        device="cpu",
+    )
+    scheduler_timesteps = pipe.scheduler.timesteps.detach().cpu()
+    scheduler_sigmas = pipe.scheduler.sigmas.detach().cpu()
+    scheduler_weights = pipe.scheduler.linear_timesteps_weights.detach().cpu()
+    timesteps = scheduler_timesteps[timestep_ids].to(
+        dtype=pipe.torch_dtype, device=pipe.device
+    )
+    sigmas = scheduler_sigmas[timestep_ids].to(
+        dtype=input_latents.dtype, device=pipe.device
+    )
+    sigma_shape = (batch_size,) + (1,) * (input_latents.ndim - 1)
+    sigmas = sigmas.reshape(sigma_shape)
+    noise = torch.randn_like(input_latents) * inputs_shared.get("noise_scale", 1.0)
+    inputs_shared["latents"] = (1 - sigmas) * input_latents + sigmas * noise
+    training_target = noise - input_latents
+
+    if "first_frame_latents" in inputs_shared:
+        inputs_shared["latents"][:, :, 0:1] = inputs_shared["first_frame_latents"]
+
+    models = {name: getattr(pipe, name) for name in pipe.in_iteration_models}
+    noise_pred = pipe.model_fn(
+        **models,
+        **inputs_shared,
+        **inputs_posi,
+        timestep=timesteps,
+    )
+    if "first_frame_latents" in inputs_shared:
+        noise_pred = noise_pred[:, :, 1:]
+        training_target = training_target[:, :, 1:]
+
+    per_sample_loss = torch.nn.functional.mse_loss(
+        noise_pred.float(), training_target.float(), reduction="none"
+    ).flatten(1).mean(dim=1)
+    weights = scheduler_weights[timestep_ids].to(
+        device=pipe.device, dtype=per_sample_loss.dtype
+    )
+    return (per_sample_loss * weights).mean()
+
+
 def _compact_sft_cache(inputs, include_text_context=True):
     """Keep only values consumed by Wan FlowMatchSFTLoss and its DiT call."""
     if not isinstance(inputs, tuple) or len(inputs) != 3:
@@ -188,9 +300,16 @@ def _run_training(
     backend: str,
     compact_sft_cache: bool = False,
     shared_text_context_path: Path | None = None,
+    train_batch_size: int = 1,
 ):
+    if train_batch_size < 1:
+        raise ValueError("--train-batch-size must be at least 1")
     components = _load_training_components(diffsynth_root)
     args = components["wan_parser"]().parse_args(training_arguments)
+    args.project_train_batch_size = train_batch_size
+    args.project_effective_batch_size = (
+        train_batch_size * args.gradient_accumulation_steps
+    )
     accelerator = components["accelerate"].Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         kwargs_handlers=[
@@ -236,7 +355,7 @@ def _run_training(
             ),
         },
     )
-    if compact_sft_cache:
+    if compact_sft_cache and shared_text_context_path is not None:
         prompts = {item.get("prompt") for item in dataset.data}
         if (
             len(prompts) != 1
@@ -258,26 +377,31 @@ def _run_training(
 
     class ProjectWanTrainingModule(base_model_class):
         def forward(self, data, inputs=None):
+            if isinstance(inputs, list):
+                if not self._project_batch_training:
+                    raise ValueError(
+                        "Received a batch of cached samples but batch training is disabled."
+                    )
+                inputs = _collate_cached_batch(inputs)
             outputs = super().forward(data, inputs=inputs)
             if compact_sft_cache:
-                if self._project_shared_text_context is None:
+                include_text_context = shared_text_context_path is None
+                if not include_text_context and self._project_shared_text_context is None:
                     context = _bf16_cpu_context(outputs)
                     self._project_shared_text_context = _save_shared_text_context(
                         shared_text_context_path,
                         context,
                     )
-                return _compact_sft_cache(outputs, include_text_context=False)
+                return _compact_sft_cache(
+                    outputs,
+                    include_text_context=include_text_context,
+                )
             return outputs
 
     if compact_sft_cache and args.task != "sft:data_process":
         raise ValueError(
             "--compact-sft-cache is only valid with --task sft:data_process."
         )
-    if compact_sft_cache and shared_text_context_path is None:
-        raise ValueError(
-            "--compact-sft-cache requires --shared-text-context-path."
-        )
-
     model = ProjectWanTrainingModule(
         model_paths=args.model_paths,
         model_id_with_origin_paths=args.model_id_with_origin_paths,
@@ -308,6 +432,21 @@ def _run_training(
         min_timestep_boundary=args.min_timestep_boundary,
     )
     model._project_shared_text_context = None
+    model._project_batch_training = train_batch_size > 1
+    if args.task in ("sft", "sft:train"):
+        model.task_to_loss[args.task] = _batched_flow_match_sft_loss
+
+    training_dataset = dataset
+    if train_batch_size > 1:
+        if args.task != "sft:train":
+            raise ValueError(
+                "--train-batch-size greater than 1 is supported for cached sft:train only."
+            )
+        if not dataset.load_from_cache:
+            raise ValueError(
+                "Physical batch training currently requires a cached dataset."
+            )
+        training_dataset = _BatchDataset(dataset, train_batch_size)
 
     class DistributedMeanModelLogger(components["ModelLogger"]):
         def on_step_end(self, accelerator, model, save_steps=None, **kwargs):
@@ -347,7 +486,7 @@ def _run_training(
     }
     launcher_map[args.task](
         accelerator,
-        dataset,
+        training_dataset,
         model,
         model_logger,
         args=args,
@@ -363,6 +502,7 @@ def _worker(
     training_arguments: list[str],
     compact_sft_cache: bool,
     shared_text_context_path: str | None,
+    train_batch_size: int,
 ):
     os.environ.update(
         {
@@ -388,6 +528,7 @@ def _worker(
             backend,
             compact_sft_cache,
             None if shared_text_context_path is None else Path(shared_text_context_path),
+            train_batch_size,
         )
     finally:
         dist.destroy_process_group()
@@ -400,6 +541,12 @@ def main():
     parser.add_argument("--backend", default="gloo")
     parser.add_argument("--compact-sft-cache", action="store_true")
     parser.add_argument("--shared-text-context-path", type=Path)
+    parser.add_argument(
+        "--train-batch-size",
+        type=int,
+        default=1,
+        help="Physical batch size for cached sft:train; use gradient accumulation for the effective batch.",
+    )
     launcher_args, training_arguments = parser.parse_known_args()
     if launcher_args.num_processes < 1:
         raise SystemExit("--num-processes must be at least 1.")
@@ -416,6 +563,7 @@ def main():
             launcher_args.backend,
             launcher_args.compact_sft_cache,
             launcher_args.shared_text_context_path,
+            launcher_args.train_batch_size,
         )
         return
 
@@ -439,6 +587,7 @@ def main():
                     if launcher_args.shared_text_context_path is None
                     else str(launcher_args.shared_text_context_path.resolve())
                 ),
+                launcher_args.train_batch_size,
             ),
             nprocs=launcher_args.num_processes,
             join=True,
