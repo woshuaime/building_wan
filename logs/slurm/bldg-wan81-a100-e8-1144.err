@@ -1,0 +1,20 @@
+/home/u2025171963/miniconda3/envs/mv2v_dual/lib/python3.10/site-packages/torch/cuda/__init__.py:716: UserWarning: Can't initialize NVML
+  warnings.warn("Can't initialize NVML")
+Traceback (most recent call last):
+  File "/home/share/CHUANJUN/building_wan/code/DiffSynth-Studio/examples/wanvideo/model_training/train.py", line 2, in <module>
+    from diffsynth.core import UnifiedDataset
+ModuleNotFoundError: No module named 'diffsynth'
+Traceback (most recent call last):
+  File "/home/u2025171963/miniconda3/envs/mv2v_dual/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/u2025171963/miniconda3/envs/mv2v_dual/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/u2025171963/miniconda3/envs/mv2v_dual/lib/python3.10/site-packages/accelerate/commands/launch.py", line 1291, in <module>
+    main()
+  File "/home/u2025171963/miniconda3/envs/mv2v_dual/lib/python3.10/site-packages/accelerate/commands/launch.py", line 1287, in main
+    launch_command(args)
+  File "/home/u2025171963/miniconda3/envs/mv2v_dual/lib/python3.10/site-packages/accelerate/commands/launch.py", line 1281, in launch_command
+    simple_launcher(args)
+  File "/home/u2025171963/miniconda3/envs/mv2v_dual/lib/python3.10/site-packages/accelerate/commands/launch.py", line 869, in simple_launcher
+    raise subprocess.CalledProcessError(returncode=process.returncode, cmd=cmd)
+subprocess.CalledProcessError: Command '['/home/u2025171963/miniconda3/envs/mv2v_dual/bin/python', '/home/share/CHUANJUN/building_wan/code/DiffSynth-Studio/examples/wanvideo/model_training/train.py', '--dataset_base_path', '/home/share/CHUANJUN/building_wan/data/video_wan81', '--dataset_metadata_path', '/home/share/CHUANJUN/building_wan/data/splits/building_v1/metadata_train.csv', '--dataset_repeat', '1', '--dataset_num_workers', '4', '--model_paths', '["/home/share/CHUANJUN/building_wan/models/Wan2.1-T2V-1.3B/diffusion_pytorch_model.safetensors", "/home/share/CHUANJUN/building_wan/models/Wan-Series-Converted-Safetensors/models_t5_umt5-xxl-enc-bf16.safetensors", "/home/share/CHUANJUN/building_wan/models/Wan-Series-Converted-Safetensors/Wan2.1_VAE.safetensors"]', '--tokenizer_path', '/home/share/CHUANJUN/building_wan/models/Wan2.1-T2V-1.3B/google/umt5-xxl', '--offload_models', '/home/share/CHUANJUN/building_wan/models/Wan2.1-T2V-1.3B/diffusion_pytorch_model.safetensors', '--output_path', '/home/share/CHUANJUN/building_wan/cache/wan21_t2v_13b_building_384x384_f81_train', '--task', 'sft:data_process', '--height', '384', '--width', '384', '--num_frames', '81', '--lora_base_model', 'dit', '--lora_target_modules', 'q,k,v,o,ffn.0,ffn.2', '--lora_rank', '16', '--use_gradient_checkpointing']' returned non-zero exit status 1.

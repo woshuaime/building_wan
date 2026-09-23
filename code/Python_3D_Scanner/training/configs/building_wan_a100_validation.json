@@ -1,0 +1,48 @@
+{
+  "experiment_name": "building_wan",
+  "runtime": {
+    "python": "/home/u2025171963/miniconda3/envs/mv2v/bin/python",
+    "diffsynth_root": "/home/share/CHUANJUN/building_wan/code/DiffSynth-Studio",
+    "gpu": 0,
+    "model_paths": [
+      "/home/share/CHUANJUN/building_wan/models/Wan2.1-T2V-1.3B/diffusion_pytorch_model.safetensors",
+      "/home/share/CHUANJUN/building_wan/models/Wan-Series-Converted-Safetensors/models_t5_umt5-xxl-enc-bf16.safetensors",
+      "/home/share/CHUANJUN/building_wan/models/Wan-Series-Converted-Safetensors/Wan2.1_VAE.safetensors"
+    ],
+    "tokenizer_path": "/home/share/CHUANJUN/building_wan/models/Wan2.1-T2V-1.3B/google/umt5-xxl"
+  },
+  "dataset": {
+    "root": "/home/share/CHUANJUN/building_wan/data/video_wan81",
+    "metadata": "/home/share/CHUANJUN/building_wan/data/splits/building_v1/metadata_train.csv",
+    "expected_count": 1912
+  },
+  "training": {
+    "output_dir": "/home/share/CHUANJUN/building_wan/checkpoints/building_wan",
+    "height": 384,
+    "width": 384,
+    "num_frames": 81
+  },
+  "validation": {
+    "output_dir": "/home/share/CHUANJUN/building_wan/outputs/validation/building_wan",
+    "checkpoints": [
+      {"label": "base", "path": null},
+      {"label": "step-4000", "path": "/home/share/CHUANJUN/building_wan/checkpoints/building_wan/step-4000.safetensors"},
+      {"label": "step-8000", "path": "/home/share/CHUANJUN/building_wan/checkpoints/building_wan/step-8000.safetensors"},
+      {"label": "step-12000", "path": "/home/share/CHUANJUN/building_wan/checkpoints/building_wan/step-12000.safetensors"},
+      {"label": "step-15296", "path": "/home/share/CHUANJUN/building_wan/checkpoints/building_wan/step-15296.safetensors"}
+    ],
+    "prompt": "a clean 3D architectural building model rotating on a white background",
+    "negative_prompt": "people, trees, cars, text, watermark, cluttered background, camera shake, flicker, deformed geometry, duplicated building, cropped object, low quality, blurry",
+    "seed": 20260901,
+    "height": 384,
+    "width": 384,
+    "num_frames": 81,
+    "num_inference_steps": 30,
+    "cfg_scale": 5.0,
+    "fps": 18,
+    "quality": 5,
+    "lora_alpha": 1.0,
+    "vram_reserved_gb": 2.0,
+    "enable_vram_management": false
+  }
+}

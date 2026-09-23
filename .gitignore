@@ -1,0 +1,16 @@
+﻿cache/
+checkpoints/
+data/
+models/
+
+.codex/
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.pyc
+*.safetensors
+*.pth
+*.pt
+*.ckpt

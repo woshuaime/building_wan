@@ -1,0 +1,13 @@
+{
+  "reviewed_at": "2026-09-02",
+  "review_scope": "Manual inspection of all 17 frames plus frames 1, 9, and 17 from base, step-50, step-100, and step-200 under identical inference settings.",
+  "observations": {
+    "base": "Generated a colorful cylindrical object rather than a recognizable architectural building, with little useful rotational motion.",
+    "step-50": "Generated a grayscale cylindrical high-rise form, confirming that the architectural-domain signal was learned, but the object remained nearly static and undersized in frame.",
+    "step-100": "Generated a centered gray building mass with the clearest continuous viewpoint change and the most stable geometry among the tested checkpoints. Fine architectural detail and texture remain limited.",
+    "step-200": "Generated an elongated, low-detail building block. Motion remained visible, but proportions and appearance degraded compared with step-100, indicating over-training at the current learning rate.",
+    "temporal_motion": "Step-100 provides the best balance of architectural appearance, smooth viewpoint progression, stable framing, and geometric consistency."
+  },
+  "conclusion": "The 200-video pilot validates that the LoRA can learn the building domain and rotational video prior. It does not yet demonstrate missing-region completion, and training beyond step 100 degrades geometry under the current settings.",
+  "decision": "Select step-100.safetensors as the current best checkpoint. Do not select the final checkpoint automatically. Use earlier validation and a lower learning rate in the next experiment before scaling to the full training split."
+}

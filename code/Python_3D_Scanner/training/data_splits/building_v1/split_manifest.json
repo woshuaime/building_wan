@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-09-02T10:06:17.406734+08:00",
+  "version": "building_v1",
+  "seed": 20260902,
+  "ratios": {
+    "train": 0.8,
+    "val": 0.1,
+    "test": 0.09999999999999995
+  },
+  "pilot_count": 200,
+  "inputs": {
+    "manifest": "D:\\code\\Python_3D_Scanner\\src\\video_wan81\\video_manifest.json",
+    "manifest_sha256": "8ba8d647abbe718bced26fbfff81ce4afe60d6315310f95db37adfd28618f9b9",
+    "metadata": "D:\\code\\Python_3D_Scanner\\src\\video_wan81\\metadata.csv",
+    "metadata_sha256": "10b4f61d1d40476471c4f2e8fe72d6060f503d68fb54f0ebf4ac806e9790d867",
+    "dataset_root": "D:\\code\\Python_3D_Scanner\\src\\video_wan81"
+  },
+  "sample_counts": {
+    "train": 1912,
+    "val": 239,
+    "test": 239,
+    "pilot_200": 200
+  },
+  "source_group_counts": {
+    "train": 1912,
+    "val": 239,
+    "test": 239,
+    "pilot_200": 200
+  },
+  "leakage_intersections": {
+    "test_vs_train": 0,
+    "test_vs_val": 0,
+    "train_vs_val": 0
+  },
+  "files": {
+    "metadata_train.csv": "D:\\code\\Python_3D_Scanner\\training\\data_splits\\building_v1\\metadata_train.csv",
+    "metadata_val.csv": "D:\\code\\Python_3D_Scanner\\training\\data_splits\\building_v1\\metadata_val.csv",
+    "metadata_test.csv": "D:\\code\\Python_3D_Scanner\\training\\data_splits\\building_v1\\metadata_test.csv",
+    "metadata_pilot_200.csv": "D:\\code\\Python_3D_Scanner\\training\\data_splits\\building_v1\\metadata_pilot_200.csv",
+    "split_index.csv": "D:\\code\\Python_3D_Scanner\\training\\data_splits\\building_v1\\split_index.csv",
+    "split_manifest.json": "D:\\code\\Python_3D_Scanner\\training\\data_splits\\building_v1\\split_manifest.json"
+  }
+}

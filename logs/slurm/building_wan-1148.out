@@ -1,0 +1,6 @@
+[2026-09-13T23:36:20+08:00] Launching building_wan
+SLURM_JOB_ID=1148
+CUDA_VISIBLE_DEVICES=0
+CUDA GPU: NVIDIA A100 80GB PCIe
+VRAM GiB: 79.3
+[2026-09-13T23:36:23+08:00] Cache is empty; generating 81-frame cache.

@@ -1,0 +1,12 @@
+{
+  "reviewed_at": "2026-09-02",
+  "review_scope": "Manual inspection of frames 1, 9, and 17 from base, step-10, and step-20 using identical inference settings.",
+  "observations": {
+    "base": "Generated a colorful cylindrical object rather than a recognizable architectural building.",
+    "step-10": "Remained visually close to the base result and did not show a clear architectural-domain change.",
+    "step-20": "Generated a centered white-background high-rise architectural form, showing that the LoRA load and building-domain signal are effective.",
+    "temporal_motion": "The inspected first, middle, and last frames changed very little. Smooth orbiting or rotation has not been learned in this 20-step smoke run."
+  },
+  "conclusion": "The smoke test validates the training, checkpoint loading, and domain-adaptation pipeline. It does not establish generalization, multi-view consistency, or completion ability.",
+  "decision": "Proceed to a fixed train/validation/test split and a 200-video pilot before any full-dataset run."
+}
