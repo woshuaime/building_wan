@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import re
 import subprocess
@@ -15,13 +16,17 @@ EXPERIMENT = "building_wan_a6000_single_orbit"
 STEP_PATTERN = re.compile(r"step-(\d+)\.safetensors")
 
 
-def single_prompt(path: Path) -> str:
+def split_info(path: Path) -> tuple[str, int, str]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle))
     prompts = {row.get("prompt", "").strip() for row in rows}
     if not rows or len(prompts) != 1 or not next(iter(prompts)):
         raise ValueError(f"Expected one nonempty prompt in {path}")
-    return next(iter(prompts))
+    videos = [row.get("video", "").strip() for row in rows]
+    if any(not video for video in videos) or len(set(videos)) != len(videos):
+        raise ValueError(f"Missing or duplicate videos in {path}")
+    video_hash = hashlib.sha256("\n".join(videos).encode("utf-8")).hexdigest()
+    return next(iter(prompts)), len(rows), video_hash
 
 
 def latest_checkpoint(directory: Path) -> tuple[int, Path]:
@@ -45,12 +50,46 @@ def training_is_running(root: Path) -> bool:
     )
 
 
+def pending_labels(output: Path, labels: list[str], overwrite: bool) -> list[str]:
+    metadata_path = output / "validation_metadata.json"
+    if metadata_path.exists():
+        try:
+            payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            raise ValueError(f"Cannot read validation metadata: {metadata_path}") from error
+        completed = {
+            item.get("label"): item
+            for item in payload.get("results", [])
+            if item.get("status") == "complete"
+        }
+    else:
+        completed = {}
+
+    pending = []
+    for label in labels:
+        video = output / f"{label}.mp4"
+        result = completed.get(label)
+        if result and result.get("output") == str(video) and video.is_file() and video.stat().st_size > 0:
+            continue
+        if video.exists() and not overwrite:
+            raise FileExistsError(
+                f"Unverified video exists: {video}; rerun with --run --overwrite"
+            )
+        pending.append(label)
+    return pending
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--run", action="store_true", help="Generate videos after the training process exits"
     )
+    parser.add_argument(
+        "--overwrite", action="store_true", help="Regenerate only unfinished existing videos"
+    )
     args = parser.parse_args()
+    if args.overwrite and not args.run:
+        parser.error("--overwrite requires --run")
 
     root = Path(__file__).resolve().parents[1]
     if args.run and training_is_running(root):
@@ -58,17 +97,22 @@ def main() -> None:
     split_root = root / "configs/single_orbit_same_prompt_v1"
     train_metadata = split_root / "metadata_train.csv"
     val_metadata = split_root / "metadata_val.csv"
-    prompt = single_prompt(train_metadata)
-    if single_prompt(val_metadata) != prompt:
+    manifest = json.loads((split_root / "split_manifest.json").read_text(encoding="utf-8"))
+    prompt, train_count, train_hash = split_info(train_metadata)
+    val_prompt, val_count, val_hash = split_info(val_metadata)
+    if val_prompt != prompt or prompt != manifest["prompt"]:
         raise ValueError("Training and validation prompts differ")
+    for split, count, video_hash in (
+        ("train", train_count, train_hash),
+        ("val", val_count, val_hash),
+    ):
+        if count != manifest["counts"][split] or video_hash != manifest["split_video_sha256"][split]:
+            raise ValueError(f"{split} metadata differs from the fixed split manifest")
 
     step, checkpoint = latest_checkpoint(root / "checkpoints" / EXPERIMENT)
     output = root / "outputs/validation" / EXPERIMENT / f"step-{step}"
     output.mkdir(parents=True, exist_ok=True)
     config_path = output / "validation_config.json"
-
-    with val_metadata.open(encoding="utf-8-sig", newline="") as handle:
-        val_count = sum(1 for _ in csv.DictReader(handle))
 
     config = {
         "experiment_name": EXPERIMENT,
@@ -138,7 +182,15 @@ def main() -> None:
     subprocess.run(command, check=True)
     print(f"Comparing base against step-{step}; output: {output}", flush=True)
     if args.run:
-        subprocess.run([*command, "--run"], check=True)
+        labels = ["base", f"step-{step}"]
+        pending = pending_labels(output, labels, args.overwrite)
+        if not pending:
+            print("Both validation videos are already complete.")
+            return
+        run_command = [*command, "--run", "--only", ",".join(pending)]
+        if args.overwrite:
+            run_command.append("--overwrite")
+        subprocess.run(run_command, check=True)
 
 
 if __name__ == "__main__":

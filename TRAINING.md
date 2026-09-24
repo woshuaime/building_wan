@@ -259,6 +259,6 @@ cd /mnt/windowsE/chuanjun/building_wan
 /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --run
 ```
 
-它使用相同prompt、negative prompt、种子和推理参数生成基础模型与最新LoRA各一段384×384、81帧视频。结果和配置写入 `outputs/validation/building_wan_a6000_single_orbit/step-<实际步数>/`；已有同名视频不会被覆盖。服务器上若训练仍在运行，`--run` 会拒绝启动，避免与训练争用显存。
+它使用相同prompt、negative prompt、种子和推理参数生成基础模型与最新LoRA各一段384×384、81帧视频。结果和配置写入 `outputs/validation/building_wan_a6000_single_orbit/step-<实际步数>/`。重新运行时会跳过已验证成功的视频；若失败后留下不完整的同名视频，先确认确实需要重生成，再加 `--run --overwrite`，只覆盖未完成的视频。服务器上若训练仍在运行，`--run` 会拒绝启动，避免与训练争用显存。
 
 验证集清单在此流程中用于检查未参与训练的视频文件和统一prompt，并不计算生成视频对验证集的量化指标。需要观看两段视频，对比建筑体块、360度视角、变形和时序闪烁；测试集继续保留，不参与此轮调参。
