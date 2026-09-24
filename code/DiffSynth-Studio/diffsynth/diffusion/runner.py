@@ -47,6 +47,8 @@ def launch_training_task(
     args = None,
     **kwargs,
 ):
+    skip_train_batches = 0
+    initial_train_steps = 0
     if args is not None:
         learning_rate = args.learning_rate
         weight_decay = args.weight_decay
@@ -57,6 +59,12 @@ def launch_training_task(
         enable_optimizer_cpu_offload = args.enable_optimizer_cpu_offload
         cpu_offload_split_threshold = args.cpu_offload_split_threshold
         customized_optimizer = args.customized_optimizer
+        skip_train_batches = args.skip_train_batches
+        initial_train_steps = args.initial_train_steps
+
+    if skip_train_batches < 0 or initial_train_steps < 0:
+        raise ValueError("skip_train_batches and initial_train_steps must be non-negative")
+    model_logger.num_steps = initial_train_steps
 
     if accelerator.is_main_process:
         save_training_args(args)
@@ -75,8 +83,12 @@ def launch_training_task(
         model, optimizer, dataloader, scheduler = accelerator.prepare(model, optimizer, dataloader, scheduler)
 
     initialize_deepspeed_gradient_checkpointing(accelerator)
+    skipped_batches = 0
     for epoch_id in range(num_epochs):
         for data in tqdm(dataloader):
+            if skipped_batches < skip_train_batches:
+                skipped_batches += 1
+                continue
             with accelerator.accumulate(model):
                 if dataset.load_from_cache:
                     loss = model({}, inputs=data)

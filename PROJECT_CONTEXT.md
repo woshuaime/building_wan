@@ -8,6 +8,7 @@
 - 使用逐样本BF16视频latent和单份共享BF16文本context降低共享存储占用，避免旧缓存约170GB的预计规模。
 - 训练后按阶段权重生成固定条件的视频，判断外观记忆、视角覆盖和时序稳定性。
 - A6000单轨实验在另一台实验室服务器上进行；验证入口为 `scripts/validate_wan81_a6000.py`，使用该实验的统一prompt比较基础模型与最新LoRA。
+- 2026-09-25 训练中断处理：缓存已完整，原训练在约2742 batch因 `free(): invalid next size (normal)` 退出；已将A6000训练的数据加载 worker默认设为0，并加入支持跳过已完成batch、保留全局step编号的续训入口。
 
 ## 2. Current Status
 
@@ -99,6 +100,7 @@
 - `scripts/start_wan81.sh`：提交后自动跟踪stdout/stderr；支持传入Job ID重新连接现有任务；Slurm状态查询临时超时时继续显示日志，不再误判任务结束。
 - `scripts/validate_wan81.sh`和`submit_wan81_validation.sh`：使用本地基础模型和固定验证配置，在单张A100上生成base及阶段LoRA对比视频。
 - `scripts/validate_wan81_a6000.py`：为单轨A6000实验按实际最高step生成独立验证配置；默认只做预检，`--run` 才在训练结束后生成base与LoRA对比视频。
+- `scripts/resume_wan81_a6000.sh`：从现有LoRA checkpoint续训到独立输出目录；默认从step-2400开始，要求单进程数据读取。
 - `code/Python_3D_Scanner/training/wan_train_entry.py`：支持单进程直接运行；样本缓存只保存必要BF16视频latent，并原子保存/加载单份共享BF16文本context；拒绝多prompt误用共享context。
 - `code/Python_3D_Scanner/training/validate_domain_lora.py`：新增服务器本地模型文件和tokenizer路径支持，可关闭低显存磁盘offload以使用A100推理。
 - `AGENTS.md`：新增长期项目规则。

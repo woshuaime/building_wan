@@ -218,6 +218,7 @@ bash -n scripts/train_wan81_a6000.sh scripts/submit_wan81_a6000.sh
 物理 batch：2
 梯度累积：2
 有效 batch：4
+数据加载 worker：0（单进程读取，避免服务器 native 内存释放崩溃）
 分辨率：384×384
 帧数：81
 数据：data/single_orbit_videos
@@ -243,6 +244,23 @@ sbatch scripts/submit_wan81_a6000.sh
 ```
 
 该脚本会拒绝非A6000 GPU，并拒绝混用已有checkpoint。服务器上的实际Python路径、数据路径或Slurm GRES名称不一致时，先通过对应环境变量或提交脚本头部调整。
+
+如果训练进程出现 `free(): invalid next size (normal)`，缓存通常仍然可以复用。先保留已有 checkpoint，再运行续训脚本：
+
+```bash
+cd /mnt/windowsE/chuanjun/building_wan
+bash -n scripts/resume_wan81_a6000.sh
+bash scripts/resume_wan81_a6000.sh
+```
+
+续训默认从 `checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors` 开始，跳过前2400个缓存 batch，把结果写入独立的 `checkpoints/building_wan_a6000_single_orbit_resumed`。如果最近的完整 checkpoint 不是 step-2400，先设置 `WAN_RESUME_FROM_CHECKPOINT`、`WAN_RESUME_SKIP_BATCHES` 和 `WAN_RESUME_INITIAL_STEPS` 为对应 step；续训脚本不会覆盖已有输出。
+
+续训输出完成后，验证时指定新的权重目录：
+
+```bash
+/home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py \
+  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed --run
+```
 
 ## 15. A6000单轨效果验证
 

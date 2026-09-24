@@ -87,6 +87,11 @@ def main() -> None:
     parser.add_argument(
         "--overwrite", action="store_true", help="Regenerate only unfinished existing videos"
     )
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        help="Checkpoint directory; defaults to the original A6000 single-orbit output",
+    )
     args = parser.parse_args()
     if args.overwrite and not args.run:
         parser.error("--overwrite requires --run")
@@ -109,13 +114,16 @@ def main() -> None:
         if count != manifest["counts"][split] or video_hash != manifest["split_video_sha256"][split]:
             raise ValueError(f"{split} metadata differs from the fixed split manifest")
 
-    step, checkpoint = latest_checkpoint(root / "checkpoints" / EXPERIMENT)
-    output = root / "outputs/validation" / EXPERIMENT / f"step-{step}"
+    checkpoint_dir = args.checkpoint_dir or (root / "checkpoints" / EXPERIMENT)
+    checkpoint_dir = checkpoint_dir.resolve()
+    step, checkpoint = latest_checkpoint(checkpoint_dir)
+    experiment_name = checkpoint_dir.name
+    output = root / "outputs/validation" / experiment_name / f"step-{step}"
     output.mkdir(parents=True, exist_ok=True)
     config_path = output / "validation_config.json"
 
     config = {
-        "experiment_name": EXPERIMENT,
+        "experiment_name": experiment_name,
         "runtime": {
             "python": sys.executable,
             "diffsynth_root": str(root / "code/DiffSynth-Studio"),

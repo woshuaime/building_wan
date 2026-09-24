@@ -88,3 +88,4 @@
 - Start from：基础模型，独立输出，不resume A100或双3060权重。
 - Status：2026-09-24已在 `/mnt/windowsE/chuanjun/building_wan` 使用 `scj` 环境直接启动A6000脚本；最近一次检查处于1992条训练视频的缓存生成阶段，正式训练和推理验证尚未完成。
 - Validation：`scripts/validate_wan81_a6000.py` 会在训练结束后选择最高step权重，先预检，再通过 `--run` 生成base/LoRA固定条件对比视频；验证集仅用于路径与prompt预检，不提供自动量化指标。
+- 2026-09-25：原训练在约2742个 batch 处因 `free(): invalid next size (normal)` 退出；缓存1992/1992完整，step-2400权重已验证可读。A6000脚本默认数据 worker 改为0，并新增 `scripts/resume_wan81_a6000.sh`，从step-2400续训到独立输出目录。

@@ -26,6 +26,7 @@ MODEL_PATHS="[\"$DIT\", \"$T5\", \"$VAE\"]"
 
 TRAIN_BATCH_SIZE="${WAN_TRAIN_BATCH_SIZE:-2}"
 GRADIENT_ACCUMULATION_STEPS="${WAN_GRADIENT_ACCUMULATION_STEPS:-2}"
+DATASET_NUM_WORKERS="${WAN_DATASET_NUM_WORKERS:-0}"
 
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-8}"
@@ -63,6 +64,10 @@ if ! [[ "$TRAIN_BATCH_SIZE" =~ ^[1-9][0-9]*$ ]]; then
 fi
 if ! [[ "$GRADIENT_ACCUMULATION_STEPS" =~ ^[1-9][0-9]*$ ]]; then
     echo "WAN_GRADIENT_ACCUMULATION_STEPS must be a positive integer" >&2
+    exit 2
+fi
+if ! [[ "$DATASET_NUM_WORKERS" =~ ^[0-9]+$ ]]; then
+    echo "WAN_DATASET_NUM_WORKERS must be a non-negative integer" >&2
     exit 2
 fi
 
@@ -104,7 +109,7 @@ else
         --dataset_base_path "$DATASET_ROOT" \
         --dataset_metadata_path "$METADATA" \
         --dataset_repeat 1 \
-        --dataset_num_workers 4 \
+        --dataset_num_workers "$DATASET_NUM_WORKERS" \
         --model_paths "$MODEL_PATHS" \
         --tokenizer_path "$TOKENIZER" \
         --offload_models "$DIT" \
@@ -145,7 +150,7 @@ exec "$PYTHON" "$TRAIN_ENTRY" \
     --shared-text-context-path "$SHARED_TEXT_CONTEXT" \
     --dataset_base_path "$CACHE_ROOT" \
     --dataset_repeat 1 \
-    --dataset_num_workers 2 \
+    --dataset_num_workers "$DATASET_NUM_WORKERS" \
     --model_paths "$MODEL_PATHS" \
     --tokenizer_path "$TOKENIZER" \
     --offload_models "$T5,$VAE" \
