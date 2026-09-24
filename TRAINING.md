@@ -253,7 +253,7 @@ bash -n scripts/resume_wan81_a6000.sh
 bash scripts/resume_wan81_a6000.sh
 ```
 
-续训默认从 `checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors` 开始，跳过前2400个缓存 batch，把结果写入独立的 `checkpoints/building_wan_a6000_single_orbit_resumed`。如果最近的完整 checkpoint 不是 step-2400，先设置 `WAN_RESUME_FROM_CHECKPOINT`、`WAN_RESUME_SKIP_BATCHES` 和 `WAN_RESUME_INITIAL_STEPS` 为对应 step；续训脚本不会覆盖已有输出。
+续训默认从 `checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors` 的 LoRA 参数开始，跳过前2400个缓存 batch，把结果写入独立的 `checkpoints/building_wan_a6000_single_orbit_resumed`。这里使用 `--lora_checkpoint` 加载 LoRA；`--resume_from_checkpoint` 只适用于完整模型状态，不能用于这些 LoRA 文件。如果最近的完整 LoRA checkpoint 不是 step-2400，先设置 `WAN_RESUME_FROM_CHECKPOINT`、`WAN_RESUME_SKIP_BATCHES` 和 `WAN_RESUME_INITIAL_STEPS` 为对应 step；续训脚本不会覆盖已有输出。
 
 续训输出完成后，验证时指定新的权重目录：
 

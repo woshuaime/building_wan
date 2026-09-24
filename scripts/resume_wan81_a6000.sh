@@ -65,7 +65,7 @@ exec "$PYTHON" "$TRAIN_ENTRY" \
     --num_epochs 8 \
     --save_steps 400 \
     --gradient_accumulation_steps "$GRADIENT_ACCUMULATION_STEPS" \
-    --resume_from_checkpoint "$CHECKPOINT" \
+    --lora_checkpoint "$CHECKPOINT" \
     --skip_train_batches "$SKIP_BATCHES" \
     --initial_train_steps "$INITIAL_STEPS" \
     --lora_base_model dit \
