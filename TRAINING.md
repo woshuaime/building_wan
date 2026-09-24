@@ -243,3 +243,22 @@ sbatch scripts/submit_wan81_a6000.sh
 ```
 
 该脚本会拒绝非A6000 GPU，并拒绝混用已有checkpoint。服务器上的实际Python路径、数据路径或Slurm GRES名称不一致时，先通过对应环境变量或提交脚本头部调整。
+
+## 15. A6000单轨效果验证
+
+`train_wan81_a6000.sh` 在缓存完成后自动开始训练，但训练结束后不会自动生成验证视频。等训练进程退出、LoRA权重保存完成，再在A6000服务器上执行：
+
+```bash
+cd /mnt/windowsE/chuanjun/building_wan
+/home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py
+```
+
+这一步只做预检，不占用GPU推理。脚本会从 `checkpoints/building_wan_a6000_single_orbit` 选择最高step的权重，从本轮训练清单读取统一prompt，并验证本地模型和单轨验证集路径。预检通过后运行：
+
+```bash
+/home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --run
+```
+
+它使用相同prompt、negative prompt、种子和推理参数生成基础模型与最新LoRA各一段384×384、81帧视频。结果和配置写入 `outputs/validation/building_wan_a6000_single_orbit/step-<实际步数>/`；已有同名视频不会被覆盖。服务器上若训练仍在运行，`--run` 会拒绝启动，避免与训练争用显存。
+
+验证集清单在此流程中用于检查未参与训练的视频文件和统一prompt，并不计算生成视频对验证集的量化指标。需要观看两段视频，对比建筑体块、360度视角、变形和时序闪烁；测试集继续保留，不参与此轮调参。

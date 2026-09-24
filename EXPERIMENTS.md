@@ -86,4 +86,5 @@
 - Cache：新建 `compact-sft-shared-context-bf16-v2` 缓存，共享一份文本 context，物理batch由项目入口合并缓存样本。
 - Output path：`checkpoints/building_wan_a6000_single_orbit`
 - Start from：基础模型，独立输出，不resume A100或双3060权重。
-- Status：统一 prompt 划分和脚本已准备；尚未执行Slurm提交，A6000实际峰值显存待短测确认。
+- Status：2026-09-24已在 `/mnt/windowsE/chuanjun/building_wan` 使用 `scj` 环境直接启动A6000脚本；最近一次检查处于1992条训练视频的缓存生成阶段，正式训练和推理验证尚未完成。
+- Validation：`scripts/validate_wan81_a6000.py` 会在训练结束后选择最高step权重，先预检，再通过 `--run` 生成base/LoRA固定条件对比视频；验证集仅用于路径与prompt预检，不提供自动量化指标。
