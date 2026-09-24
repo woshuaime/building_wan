@@ -1,282 +1,131 @@
 # Training
 
-本文档记录学校服务器上当前 `building_wan` 单卡A100训练的实际操作。所有命令都以项目根目录 `/home/share/CHUANJUN/building_wan` 为准。
+本文档记录当前实验室服务器上的 A6000 单轨训练、续训和验证方法。当前项目根目录为 /mnt/windowsE/chuanjun/building_wan，环境为 scj。
 
-## 1. 激活环境
+## 1. 环境和路径
 
-交互式检查时可以激活：
+服务器 Python：
 
-```bash
-source /home/u2025171963/miniconda3/etc/profile.d/conda.sh
-conda activate mv2v
-```
+    /home/shi/miniconda3/envs/scj/bin/python
 
-训练脚本直接使用以下绝对路径，因此Slurm作业不依赖交互式激活：
+检查环境：
 
-```text
-/home/u2025171963/miniconda3/envs/mv2v/bin/python
-```
+    /home/shi/miniconda3/envs/scj/bin/python --version
+    /home/shi/miniconda3/envs/scj/bin/python -c "import sys, torch; print(sys.executable); print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
+    /home/shi/miniconda3/envs/scj/bin/python -m pip check
 
-不要使用旧环境 `mv2v_dual`。
+当前 GPU 应为 1 张 NVIDIA RTX A6000。登录节点没有 GPU 时，torch.cuda.is_available() 为 False 不代表训练节点不可用。
 
-## 2. 检查 Python
+## 2. A6000 单轨配置
 
-```bash
-/home/u2025171963/miniconda3/envs/mv2v/bin/python --version
-/home/u2025171963/miniconda3/envs/mv2v/bin/python -c "import sys, torch; print(sys.executable); print(torch.__version__); print(torch.version.cuda)"
-```
+训练脚本：
 
-登录节点没有GPU分配，因此这里的 `torch.cuda.is_available()` 可能为False。GPU可用性由训练脚本在Slurm作业内部检查。
+    scripts/train_wan81_a6000.sh
 
-## 3. 检查依赖
+续训脚本：
 
-```bash
-/home/u2025171963/miniconda3/envs/mv2v/bin/python -m pip check
-PYTHONPATH=/home/share/CHUANJUN/building_wan/code/DiffSynth-Studio \
-/home/u2025171963/miniconda3/envs/mv2v/bin/python -c "import torch, accelerate, transformers, safetensors, librosa, diffsynth; print('imports OK')"
-```
+    scripts/resume_wan81_a6000.sh
 
-## 4. 运行安全检查
+验证脚本：
 
-```bash
-cd /home/share/CHUANJUN/building_wan
-bash -n scripts/train_wan81.sh scripts/submit_wan81.sh scripts/start_wan81.sh
-/home/u2025171963/miniconda3/envs/mv2v/bin/python -m py_compile \
-  code/Python_3D_Scanner/training/wan_train_entry.py
-wc -l data/splits/building_v1/metadata_train.csv
-find cache/wan21_t2v_13b_building_384x384_f81_train -type f -name '*.pth' | wc -l
-squeue -u u2025171963
-```
-
-`metadata_train.csv` 应为1913行（表头加1912个样本）。提交前队列中不能已有另一个写相同缓存或输出目录的作业。
-
-## 5. 提交 Slurm
-
-只有用户明确要求“开始提交”后才能执行：
-
-```bash
-cd /home/share/CHUANJUN/building_wan
-sbatch scripts/submit_wan81.sh
-```
-
-若希望提交后直接在当前VS Code SSH终端显示日志，可执行：
-
-```bash
-cd /home/share/CHUANJUN/building_wan
-bash scripts/start_wan81.sh
-```
-
-`start_wan81.sh` 内部会执行 `sbatch`。按Ctrl+C只停止本地日志显示，不取消Slurm任务。
-
-如果本地显示中断，但Slurm任务仍在运行，传入真实Job ID重新连接，不会再次提交：
-
-```bash
-cd /home/share/CHUANJUN/building_wan
-bash scripts/start_wan81.sh <jobid>
-```
-
-跟踪器遇到`squeue`临时网络或socket超时时会继续显示日志，只有Slurm明确返回终止状态才结束。
-
-## 6. 查看任务状态
-
-```bash
-squeue -u u2025171963
-```
-
-指定任务：
-
-```bash
-squeue -j <jobid> -o '%.18i %.24j %.2t %.10M %.10l %R'
-```
-
-## 7. 查看历史结果
-
-```bash
-sacct -j <jobid> --format=JobID,JobName,State,ExitCode,Elapsed,Start,End -X
-```
-
-`COMPLETED` 且 `ExitCode=0:0` 才表示成功完成。
-
-## 8. 实时查看 stdout/stderr
-
-```bash
-tail -F \
-  /home/share/CHUANJUN/building_wan/logs/slurm/building_wan-<jobid>.out \
-  /home/share/CHUANJUN/building_wan/logs/slurm/building_wan-<jobid>.err
-```
-
-必须把 `<jobid>` 替换为 `sbatch` 返回的真实任务号，不要使用示例任务号。
-
-## 9. 取消任务
-
-确认任务号后执行：
-
-```bash
-scancel <jobid>
-```
-
-取消后检查：
-
-```bash
-sacct -j <jobid> --format=JobID,State,ExitCode,Elapsed -X
-```
-
-## 10. Cache 与 checkpoint
-
-- 紧凑缓存：`/home/share/CHUANJUN/building_wan/cache/wan21_t2v_13b_building_384x384_f81_train`
-- 每个 `.pth` 只保存该视频的BF16 latent和必要标量；相同prompt的BF16文本context单独保存一次。
-- 完整缓存应包含1912个 `.pth`、共享context `.shared-text-context-bf16.pt` 和标记 `.compact-sft-shared-context-bf16-v2`。
-- 模拟大小为：单样本约1.55MB、共享context约4.20MB、完整1912份约2.764GiB。
-- 当前实验checkpoint：`/home/share/CHUANJUN/building_wan/checkpoints/building_wan`
-- 保存间隔：每400步一个LoRA `.safetensors`。
-- 训练结束时的最终LoRA也在该输出目录中，以实际生成的最高step文件为准。
-- 历史双3060权重：`checkpoints/building_train_1912_all_256_cooled_lora`，只保留，不作为当前resume来源。
-
-## 11. 正常阶段标志
-
-首次生成缓存时日志包含：
-
-```text
-Cache is empty; generating compact 81-frame cache.
-```
-
-以后复用完整缓存时日志包含：
-
-```text
-Reusing complete compact-sft-shared-context-bf16-v2 cache: 1912 files.
-```
-
-进入正式训练时日志包含：
-
-```text
-Cache ready; starting LoRA training.
-```
-
-## 12. 出错后先检查
-
-1. 用 `sacct` 确认任务最终状态和退出码。
-2. 查看对应 `.err` 最后100行，再查看 `.out`。
-3. 检查是否有两个作业同时写同一缓存目录。
-4. 检查缓存数量、目录大小和格式标记。
-5. 检查Python路径是否仍为 `mv2v`，以及DiffSynth是否能导入。
-6. 区分无害警告和致命异常：NVML警告通常不是直接失败原因，Python traceback末尾才是直接原因。
-7. 不要在原因未确认时连续重复提交。
-
-常用诊断命令：
-
-```bash
-tail -n 100 logs/slurm/building_wan-<jobid>.err
-tail -n 100 logs/slurm/building_wan-<jobid>.out
-find cache/wan21_t2v_13b_building_384x384_f81_train -type f -name '*.pth' | wc -l
-du -sh cache/wan21_t2v_13b_building_384x384_f81_train
-```
-
-## 13. A100效果验证
-
-当前固定验证配置：
-
-```text
-code/Python_3D_Scanner/training/configs/building_wan_a100_validation.json
-```
-
-它使用同一提示词、negative prompt和seed，比较基础模型、step-4000、step-8000、step-12000和最终step-15296，均生成384×384、81帧视频。
-
-只读预检：
-
-```bash
-cd /home/share/CHUANJUN/building_wan/code/Python_3D_Scanner
-/home/u2025171963/miniconda3/envs/mv2v/bin/python \
-  training/validate_domain_lora.py \
-  --config training/configs/building_wan_a100_validation.json
-```
-
-只有用户明确要求开始提交验证后才能执行：
-
-```bash
-cd /home/share/CHUANJUN/building_wan
-sbatch scripts/submit_wan81_validation.sh
-```
-
-验证输出目录：
-
-```text
-/home/share/CHUANJUN/building_wan/outputs/validation/building_wan
-```
-
-## 14. A6000批训练变体
-
-A6000版本使用独立脚本和独立输出目录，默认训练数据是单轨视频，根目录是服务器上的 `/mnt/windowsE/chuanjun/building_wan`：
-
-```bash
-cd /mnt/windowsE/chuanjun/building_wan
-bash -n scripts/train_wan81_a6000.sh scripts/submit_wan81_a6000.sh
-```
+    scripts/validate_wan81_a6000.py
 
 默认参数：
 
-```text
-物理 batch：2
-梯度累积：2
-有效 batch：4
-数据加载 worker：0（单进程读取，避免服务器 native 内存释放崩溃）
-分辨率：384×384
-帧数：81
-数据：data/single_orbit_videos
-清单：configs/single_orbit_same_prompt_v1/metadata_train.csv
-输出：checkpoints/building_wan_a6000_single_orbit
-```
+    数据：data/single_orbit_videos
+    清单：configs/single_orbit_same_prompt_v1/metadata_train.csv
+    划分：训练1992、验证234、测试118
+    分辨率：384×384
+    帧数：81
+    物理 batch：2
+    梯度累积：2
+    有效 batch：4
+    LoRA rank：16
+    训练轮数：8
+    dataset_num_workers：0
+    原输出：checkpoints/building_wan_a6000_single_orbit
 
-训练入口会把缓存中的多个样本合并成真正的batch，并为每个样本独立采样flow-matching时间步和噪声。这一轮所有样本使用同一条 prompt，因此缓存只保存一份共享文本 context；后续逐栋 prompt 需要另行重建缓存。这样不会出现旧DataLoader只保留每批第一个样本的问题。
+统一 prompt 训练会使用一份共享文本 context。逐栋 prompt 必须使用新的缓存设计，不能复用本轮缓存。
 
-本轮不依赖 Cap3D 的逐栋描述。仓库中的 `configs/single_orbit_same_prompt_v1` 已包含统一 prompt 的训练、验证、测试清单；服务器同步代码后即可使用。Cap3D 生成的独立 prompt 暂不混入本轮。
+## 3. 只读检查
 
-显存预检或首轮运行时可以覆盖参数：
+    cd /mnt/windowsE/chuanjun/building_wan
+    bash -n scripts/train_wan81_a6000.sh scripts/resume_wan81_a6000.sh
+    /home/shi/miniconda3/envs/scj/bin/python -m py_compile code/Python_3D_Scanner/training/wan_train_entry.py scripts/validate_wan81_a6000.py
+    find cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train -type f -name '*.pth' | wc -l
+    ps -ef | grep wan_train_entry.py | grep -v grep || true
 
-```bash
-WAN_TRAIN_BATCH_SIZE=1 WAN_GRADIENT_ACCUMULATION_STEPS=4 \
-  bash scripts/train_wan81_a6000.sh
-```
+缓存完整时应为 1992 个 .pth，并同时存在共享文本 context 文件。
 
-只有用户明确要求开始提交后，才运行：
+## 4. 原训练故障
 
-```bash
-sbatch scripts/submit_wan81_a6000.sh
-```
+原训练曾在约第 2742 个 batch 退出：
 
-该脚本会拒绝非A6000 GPU，并拒绝混用已有checkpoint。服务器上的实际Python路径、数据路径或Slurm GRES名称不一致时，先通过对应环境变量或提交脚本头部调整。
+    free(): invalid next size (normal)
+    中止（核心转储）
 
-如果训练进程出现 `free(): invalid next size (normal)`，缓存通常仍然可以复用。先保留已有 checkpoint，再运行续训脚本：
+这不是显存不足。完整缓存仍可复用，step-2400.safetensors 已确认可读。最可能原因是多进程数据读取触发 native 内存释放问题，因此当前训练和续训都默认 dataset_num_workers=0。
 
-```bash
-cd /mnt/windowsE/chuanjun/building_wan
-bash -n scripts/resume_wan81_a6000.sh
-bash scripts/resume_wan81_a6000.sh
-```
+曾出现的 checkpoint 报错：
 
-续训默认从 `checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors` 的 LoRA 参数开始，跳过前2400个缓存 batch，把结果写入独立的 `checkpoints/building_wan_a6000_single_orbit_resumed`。这里使用 `--lora_checkpoint` 加载 LoRA；`--resume_from_checkpoint` 只适用于完整模型状态，不能用于这些 LoRA 文件。如果最近的完整 LoRA checkpoint 不是 step-2400，先设置 `WAN_RESUME_FROM_CHECKPOINT`、`WAN_RESUME_SKIP_BATCHES` 和 `WAN_RESUME_INITIAL_STEPS` 为对应 step；续训脚本不会覆盖已有输出。
+    600 keys are unexpected
 
-续训输出完成后，验证时指定新的权重目录：
+原因是把 LoRA 权重传给了 --resume_from_checkpoint。LoRA 续训必须使用 --lora_checkpoint；--resume_from_checkpoint 只适合完整训练状态。
 
-```bash
-/home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py \
-  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed --run
-```
+## 5. 正确续训
 
-## 15. A6000单轨效果验证
+不要删除或覆盖原输出。建议先进入 tmux：
 
-`train_wan81_a6000.sh` 在缓存完成后自动开始训练，但训练结束后不会自动生成验证视频。等训练进程退出、LoRA权重保存完成，再在A6000服务器上执行：
+    tmux new -s wan-resume
+    cd /mnt/windowsE/chuanjun/building_wan
+    WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_wan81_a6000.sh 2>&1 | tee logs/a6000_single_orbit_resume_$(date +%Y%m%d_%H%M%S).log
 
-```bash
-cd /mnt/windowsE/chuanjun/building_wan
-/home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py
-```
+脚本默认：
 
-这一步只做预检，不占用GPU推理。脚本会从 `checkpoints/building_wan_a6000_single_orbit` 选择最高step的权重，从本轮训练清单读取统一prompt，并验证本地模型和单轨验证集路径。预检通过后运行：
+- 从 checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors 读取 LoRA。
+- 跳过前 2400 个缓存 batch。
+- 把初始全局 step 设为 2400。
+- 物理 batch 2、梯度累积 2、worker 0。
+- 把新权重写入 checkpoints/building_wan_a6000_single_orbit_resumed。
 
-```bash
-/home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --run
-```
+如果使用其他 checkpoint，必须同时设置：
 
-它使用相同prompt、negative prompt、种子和推理参数生成基础模型与最新LoRA各一段384×384、81帧视频。结果和配置写入 `outputs/validation/building_wan_a6000_single_orbit/step-<实际步数>/`。重新运行时会跳过已验证成功的视频；若失败后留下不完整的同名视频，先确认确实需要重生成，再加 `--run --overwrite`，只覆盖未完成的视频。服务器上若训练仍在运行，`--run` 会拒绝启动，避免与训练争用显存。
+    WAN_RESUME_FROM_CHECKPOINT=/path/to/step-N.safetensors WAN_RESUME_SKIP_BATCHES=N WAN_RESUME_INITIAL_STEPS=N WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_wan81_a6000.sh
 
-验证集清单在此流程中用于检查未参与训练的视频文件和统一prompt，并不计算生成视频对验证集的量化指标。需要观看两段视频，对比建筑体块、360度视角、变形和时序闪烁；测试集继续保留，不参与此轮调参。
+查看训练：
+
+    tmux attach -t wan-resume
+    tail -F logs/a6000_single_orbit_resume_*.log
+    watch -n 2 nvidia-smi
+
+断开 tmux 使用 Ctrl+B，再按 D；不要用 Ctrl+C，除非要停止训练。
+
+## 6. 续训完成后的验证
+
+先只读预检：
+
+    cd /mnt/windowsE/chuanjun/building_wan
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed
+
+预检通过且确认要生成视频后：
+
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed --run
+
+结果目录类似：
+
+    outputs/validation/building_wan_a6000_single_orbit_resumed/step-N
+
+脚本比较基础模型和最新 LoRA 的固定 prompt、seed、384×384、81 帧视频。验证集用于路径和 prompt 一致性检查，不会自动给出建筑质量分数；需要人工检查体块、环绕完整性、几何变形、闪烁和时序稳定性。
+
+## 7. 状态和排错
+
+    ps -ef | grep wan_train_entry.py | grep -v grep
+    du -sh cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train
+    find checkpoints/building_wan_a6000_single_orbit_resumed -maxdepth 1 -name '*.safetensors' -printf '%f\n' | sort -V | tail
+    tail -n 100 logs/a6000_single_orbit_resume_*.log
+
+NVML 初始化警告、黄色感叹号和短时低 GPU 利用率不一定是错误；优先检查 traceback、进程是否仍在、loss.csv 是否增长和 checkpoint 是否保存。不要在原因未确认时重复启动第二个训练进程。
+
+## 8. A100 历史命令
+
+A100 的 /home/share/CHUANJUN/building_wan 和 mv2v 流程已完成并保留在历史文档中。当前 A6000 训练不要使用 A100 的脚本、环境或输出目录。

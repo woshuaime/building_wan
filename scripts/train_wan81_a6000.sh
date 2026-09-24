@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="${BUILDING_WAN_ROOT:-/mnt/windowsE/chuanjun/building_wan}"
 TRAIN_NAME="building_wan_a6000_single_orbit"
-PYTHON="${WAN_PYTHON:-/home/u2025171963/miniconda3/envs/mv2v/bin/python}"
+PYTHON="${WAN_PYTHON:-/home/shi/miniconda3/envs/scj/bin/python}"
 
 DIFFSYNTH_ROOT="$ROOT/code/DiffSynth-Studio"
 TRAIN_ENTRY="$ROOT/code/Python_3D_Scanner/training/wan_train_entry.py"
