@@ -28,6 +28,7 @@ res/
 model*/
 src/model*/
 src/test/
+outputs/
 
 # Logs and temporary files
 *.log

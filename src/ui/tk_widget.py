@@ -131,6 +131,7 @@ class PyVistaView(QtInteractor):
         self._dataset_mode = None
         self._dataset_plotters = {}
         self._dataset_parallel_scale = None
+        self._capture_subject = "cad"
 
         # ── 垂直基准面（UI 墙，X 轴脚底板对齐）──────────────────────────────
         self._ground_actor = None   # 垂直半透明圆盘 actor
@@ -538,10 +539,19 @@ class PyVistaView(QtInteractor):
                 name="ui_vertical_ground",
             )
 
-        # ── 轨道（4条彩色圆环，pickable=False 防止被抓取）───────────────────
+        # ── 轨道（建筑模式显示平行虚拟地面的水平环 + 原三条上半轨）────────
         if self._mesh is not None and self._track_sys is not None:
+            building_preview = (
+                self._capture_subject == "building"
+                and not self.has_dataset()
+            )
+            building_points = (
+                self._track_sys.get_building_track_points_for_rendering(256)
+                if building_preview
+                else None
+            )
             for i, track in enumerate(self._track_sys.tracks):
-                pts = track.sample_circle(256)
+                pts = building_points[i] if building_points is not None else track.sample_circle(256)
                 color = TRACK_COLORS.get(i, (1.0, 1.0, 1.0))
                 self.add_mesh(
                     pts,
@@ -918,6 +928,61 @@ class PyVistaView(QtInteractor):
     def load_shared_dataset(self, folder):
         return self.load_dataset_triplet(folder, mode=SHARED_TRIPLET)
 
+    def export_aligned_complete(self, filepath, meta_path=None):
+        """Export the current normal-mode aligned model in OBJ semantic coordinates."""
+        if self._mesh is None:
+            raise RuntimeError("No model is loaded")
+        if self.has_dataset():
+            raise RuntimeError("Dataset Mode cannot export aligned_complete.obj")
+
+        self._solidify_model_transform()
+
+        points_pv = np.asarray(self._mesh.points, dtype=np.float64)
+        if points_pv.size == 0:
+            raise RuntimeError("Current model has no vertices")
+        if not self._faces:
+            raise RuntimeError("Current model has no faces")
+
+        points_obj = _pv_to_obj_coords(points_pv)
+        out_dir = os.path.dirname(os.path.abspath(filepath))
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+
+        with open(filepath, "w", encoding="utf-8", newline="\n") as f:
+            f.write("# aligned_complete.obj exported by Python_3D_Scanner normal mode\n")
+            f.write("# coordinate_space: obj_semantic_after_alignment\n")
+            f.write("# inverse_fixed_conversion: obj=(pv_y,pv_z,pv_x)\n")
+            for x, y, z in points_obj:
+                f.write(f"v {float(x):.9g} {float(y):.9g} {float(z):.9g}\n")
+            for face in self._faces:
+                valid = [int(idx) for idx in face if 0 <= int(idx) < len(points_obj)]
+                if len(valid) >= 3:
+                    f.write("f " + " ".join(str(idx + 1) for idx in valid) + "\n")
+
+        if meta_path is None:
+            stem = os.path.splitext(os.path.basename(filepath))[0]
+            meta_path = os.path.join(out_dir, f"{stem}_meta.json")
+        else:
+            meta_dir = os.path.dirname(os.path.abspath(meta_path))
+            if meta_dir:
+                os.makedirs(meta_dir, exist_ok=True)
+        meta = {
+            "exported_from_normal_mode": True,
+            "coordinate_space": "obj_semantic_after_alignment",
+            "inverse_fixed_conversion": "obj=(pv_y,pv_z,pv_x)",
+            "intended_next_step": (
+                "Blender cuts complete/incomplete/removed, then Dataset Mode "
+                "loads prealigned triplet"
+            ),
+            "obj_path": os.path.abspath(filepath),
+            "vertex_count": int(len(points_obj)),
+            "face_count": int(len(self._faces)),
+        }
+        with open(meta_path, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(meta, f, indent=2, ensure_ascii=False)
+
+        return filepath, meta_path
+
     def _add_frustum_visualization(self):
         """在模型加载后在主视口显示初始取景视锥体（静态，仅在 load_obj 后调用一次）。
 
@@ -1181,7 +1246,7 @@ class PyVistaView(QtInteractor):
             img = np.repeat((gray > 127).astype(np.uint8)[:, :, None] * 255, 3, axis=2)
         return img, plotter.camera.position
 
-    def capture_frame(self, cam_pos):
+    def capture_frame(self, cam_pos, view_up=None):
         """用完全独立的隐藏 Plotter 渲染截图，UI 视图零干扰。
 
         规则：
@@ -1190,7 +1255,7 @@ class PyVistaView(QtInteractor):
         - 关闭渲染抗锯齿（优化3可选：若需抗锯齿，删除下一行代码）
         - 相机 Position = 轨道点坐标（不做任何距离调整）
         - 相机 FocalPoint = (0,0,0)（与视锥体严格对齐）
-        - 相机 Up = (0, 0, 1)（始终朝上，防止横滚）
+        - Up 由调用方传入；CAD默认 +Z，建筑水平轨使用模型高度轴 +X
         - 只渲染模型，不含任何辅助元素
         - 返回 (img_array, real_cam_pos)，调用方负责分离
 
@@ -1203,6 +1268,14 @@ class PyVistaView(QtInteractor):
         pos = np.asarray(cam_pos, dtype=np.float64)
         if pos.shape != (3,):
             raise ValueError(f"capture_frame: expected cam_pos shape (3,), got {pos.shape}")
+        up = np.asarray(
+            [0.0, 0.0, 1.0] if view_up is None else view_up,
+            dtype=np.float64,
+        ).reshape(3)
+        up_norm = float(np.linalg.norm(up))
+        if up_norm <= 1e-9:
+            raise ValueError("capture_frame: view_up must be non-zero")
+        up /= up_norm
 
         if self._mesh is None:
             return np.full((CAPTURE_SIZE_PX, CAPTURE_SIZE_PX, 3), 255, dtype=np.uint8), None
@@ -1218,7 +1291,7 @@ class PyVistaView(QtInteractor):
             cam = plotter.camera
             cam.position        = tuple(float(x) for x in pos)
             cam.focal_point     = (0.0, 0.0, 0.0)
-            cam.up              = (0.0, 0.0, 1.0)
+            cam.up              = tuple(float(x) for x in up)
             cam.view_angle      = CAMERA_FOV
             cam.clipping_range  = (CAMERA_NEAR, CAMERA_FAR)
             cam.ParallelProjectionOn()
@@ -1228,7 +1301,7 @@ class PyVistaView(QtInteractor):
             # re-apply to override render() internal state machine
             cam.position        = tuple(float(x) for x in pos)
             cam.focal_point     = (0.0, 0.0, 0.0)
-            cam.up              = (0.0, 0.0, 1.0)
+            cam.up              = tuple(float(x) for x in up)
             cam.view_angle      = CAMERA_FOV
             cam.clipping_range  = (CAMERA_NEAR, CAMERA_FAR)
             cam.ParallelProjectionOn()
@@ -1439,6 +1512,16 @@ class PyVistaView(QtInteractor):
     def has_dataset(self):
         return self._dataset_triplet is not None and bool(self._dataset_meshes)
 
+    def set_capture_subject(self, subject):
+        value = "building" if subject == "building" else "cad"
+        if self._capture_subject == value:
+            return
+        if self._mesh is not None:
+            self._solidify_model_transform()
+        self._capture_subject = value
+        if self._mesh is not None:
+            self._render_scene()
+
     def get_track_system(self):
         return self._track_sys
 
@@ -1469,6 +1552,12 @@ def _obj_to_pv_coords(verts_obj):
     """
     v = np.asarray(verts_obj, dtype=np.float64)
     return np.column_stack([v[:, 2], v[:, 0], v[:, 1]])
+
+
+def _pv_to_obj_coords(verts_pv):
+    """Inverse of _obj_to_pv_coords: OBJ semantic coords = (pv_y, pv_z, pv_x)."""
+    v = np.asarray(verts_pv, dtype=np.float64)
+    return np.column_stack([v[:, 1], v[:, 2], v[:, 0]])
 
 
 def _rotate_verts_around_center(verts, center, elev_deg, azim_deg):
@@ -1608,7 +1697,8 @@ class MainWindow(QMainWindow):
         self._capture_idx      = 0
         self._capture_mgr      = None
         self._capture_stopping = False
-        self._camera_pose_log  = []  # [(img_name, target_pos, real_cam_pos), ...]
+        self._camera_pose_log  = []  # [(img_name, target_pos, real_cam_pos, view_up), ...]
+        self._active_capture_profile = None
         self._dataset_pose_log = []
         self._capture_is_dataset = False
         self._dataset_save_futures = []
@@ -1616,8 +1706,11 @@ class MainWindow(QMainWindow):
         self.save_parent_dir    = None
         self.last_obj_dir       = os.getcwd()   # 导入 OBJ 的独立记忆路径
         self.last_save_dir      = os.getcwd()   # 保存位置的独立记忆路径
+        self.export_parent_dir  = None
+        self.last_export_dir    = os.getcwd()   # 导出 aligned_complete.obj 的独立记忆路径
         self._active_track     = None
         self._photo_count      = 32
+        self._capture_subject  = "cad"
         self._capture_queue    = []   # [(t_idx, p_idx, pos, target), ...]
         self._capture_index    = 0
         self._capture_mgr      = None
@@ -1713,6 +1806,15 @@ class MainWindow(QMainWindow):
         self.btn_import_dataset.clicked.connect(self._on_import_dataset)
         body_layout.addWidget(self.btn_import_dataset)
 
+        self.btn_export_aligned = self._make_btn_big("导出已对齐完整模型", "#546E7A", group=group)
+        self.btn_export_aligned.clicked.connect(self._on_export_aligned)
+        self.btn_export_aligned.setEnabled(False)
+        body_layout.addWidget(self.btn_export_aligned)
+
+        self.btn_export_folder = self._make_btn_big("导出位置", "#607D8B", group=group)
+        self.btn_export_folder.clicked.connect(self._on_export_folder)
+        body_layout.addWidget(self.btn_export_folder)
+
         self.btn_folder = self._make_btn_big("保存位置", "#7B7B7B", group=group)
         self.btn_folder.clicked.connect(self._on_folder)
         body_layout.addWidget(self.btn_folder)
@@ -1806,6 +1908,28 @@ class MainWindow(QMainWindow):
         body_layout.setContentsMargins(6, 6, 6, 6)
         body_layout.setSpacing(4)
         vl.addLayout(body_layout)
+
+        lbl_subject = QLabel("拍摄对象：", group)
+        lbl_subject.setFont(QFont("Microsoft YaHei", 9))
+        lbl_subject.setStyleSheet("color: #333333; background: transparent;")
+        body_layout.addWidget(lbl_subject)
+
+        self._capture_subject_group = QButtonGroup(group)
+        self._capture_subject_buttons = {}
+        for value, text in [
+            ("cad", "CAD模型：四轨360度"),
+            ("building", "建筑物模型：水平环绕360度，其余上半轨180度"),
+        ]:
+            rb = QRadioButton(text, group)
+            rb.setFont(QFont("Microsoft YaHei", 9))
+            rb.setStyleSheet("color: #333333; background: transparent;")
+            rb.setCursor(Qt.PointingHandCursor)
+            if value == "cad":
+                rb.setChecked(True)
+            rb.toggled.connect(lambda checked, v=value: self._on_capture_subject_toggled(v, checked))
+            self._capture_subject_group.addButton(rb)
+            self._capture_subject_buttons[value] = rb
+            body_layout.addWidget(rb)
 
         lbl_count = QLabel("选择照片数量：", group)
         lbl_count.setFont(QFont("Microsoft YaHei", 9))
@@ -2003,12 +2127,45 @@ class MainWindow(QMainWindow):
 
     # ── 按钮回调 ──────────────────────────────────────────────────────
 
+    def _on_capture_subject_toggled(self, value, checked):
+        if checked:
+            self._capture_subject = value
+            self._pv_view.set_capture_subject(value)
+
     def _on_photo_toggled(self, val, checked):
         if checked:
             self._photo_count = val
             self.btn_capture.setText(f"拍摄所有照片 ({val}张)")
             self.prog_lbl.setText(f"进度: 0 / {val}")
             self.prog_bar.setMaximum(val)
+
+    def _normal_capture_profile(self):
+        if getattr(self, "_capture_subject", "cad") == "building":
+            return {
+                "profile_version": "building-v9-horizontal-parallel-ground",
+                "capture_subject": "building",
+                "model_top_axis": [1.0, 0.0, 0.0],
+                "model_pose_rule": "roof_plus_x_points_to_legacy_track_anchor",
+                "model_pose_anchor_source": "legacy_four_track_common_anchor_plus_x",
+                "ground_rule": "model_bottom_on_virtual_yz_plane",
+                "underside_rule": "camera_x_greater_than_or_equal_to_track_center_x",
+                "camera_roll_rule": "track1_fixed_model_up_x_tracks234_fixed_world_up_z",
+                "tracks": {
+                    "track1": "horizontal_yz_parallel_ground_360",
+                    "track2": "original_vertical_upper_half_180",
+                    "track3": "original_left_diagonal_upper_half_180",
+                    "track4": "original_right_diagonal_upper_half_180",
+                },
+            }
+        return {
+            "capture_subject": "cad",
+            "tracks": {
+                "track1": "legacy_circle_360",
+                "track2": "legacy_circle_360",
+                "track3": "legacy_circle_360",
+                "track4": "legacy_circle_360",
+            },
+        }
 
     def _on_import(self):
         self._capture_stopping = True
@@ -2095,6 +2252,51 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "错误", "无法加载该数据集三元组")
         self._update_buttons()
 
+    def _on_export_aligned(self):
+        if not self._pv_view.has_model():
+            QMessageBox.warning(self, "提示", "请先导入普通 OBJ 模型")
+            return
+        if self._pv_view.has_dataset():
+            QMessageBox.warning(self, "提示", "Dataset Mode 不导出 aligned_complete.obj，请在普通模式导出")
+            return
+
+        out_dir = self.export_parent_dir or self.last_export_dir or os.getcwd()
+        obj_dir = os.path.join(out_dir, "aligned_complete")
+        meta_dir = os.path.join(out_dir, "aligned_complete_json")
+        os.makedirs(obj_dir, exist_ok=True)
+        os.makedirs(meta_dir, exist_ok=True)
+        index = 1
+        while True:
+            filepath = os.path.join(obj_dir, f"{index}.obj")
+            meta_path = os.path.join(meta_dir, f"{index}.json")
+            if not os.path.exists(filepath) and not os.path.exists(meta_path):
+                break
+            index += 1
+
+        try:
+            obj_path, meta_path = self._pv_view.export_aligned_complete(filepath, meta_path)
+        except Exception as ex:
+            QMessageBox.critical(self, "导出失败", f"导出 aligned_complete.obj 时出错:\n{ex}")
+            return
+
+        self.export_parent_dir = out_dir
+        self.last_export_dir = self.export_parent_dir
+        self.status_lbl.setText(f"已导出已对齐完整模型: {obj_path}")
+        QMessageBox.information(
+            self,
+            "导出完成",
+            f"已导出:\n{obj_path}\n\n元数据:\n{meta_path}",
+        )
+        self._update_buttons()
+
+    def _on_export_folder(self):
+        folder = QFileDialog.getExistingDirectory(
+            self, "选择 aligned_complete.obj 导出目录", self.last_export_dir)
+        if folder:
+            self.export_parent_dir = folder
+            self.last_export_dir = folder
+            self.status_lbl.setText(f"导出目录: {folder}")
+
     def _on_folder(self):
         folder = QFileDialog.getExistingDirectory(
             self, "选择保存根目录", self.last_save_dir)
@@ -2145,8 +2347,17 @@ class MainWindow(QMainWindow):
         # 相机朝向 = (1,0,0)，与 get_intersection_point / _add_frustum_visualization 完全一致
         track_sys = self._pv_view.get_track_system()
         photos_per_track = self._photo_count // 4
-        all_pos = track_sys.get_all_camera_positions(
-            elev_deg=0.0, azim_deg=0.0, num_positions=photos_per_track)
+        self._active_capture_profile = self._normal_capture_profile()
+        if self._capture_subject == "building":
+            all_pos = track_sys.get_building_camera_positions(
+                num_positions=photos_per_track,
+            )
+        else:
+            all_pos = track_sys.get_all_camera_positions(
+                elev_deg=0.0,
+                azim_deg=0.0,
+                num_positions=photos_per_track,
+            )
 
         flat = []
         for t_idx, block in enumerate(all_pos):
@@ -2156,8 +2367,9 @@ class MainWindow(QMainWindow):
 
         self._capture_out_dir = out_dir
         self._capture_flat   = flat
-        self._capture_total  = total
+        self._capture_total  = len(flat)
         self._capture_idx    = 0
+        self._camera_pose_log = []
 
         self.status_lbl.setText(f"正在拍摄... 保存至: {out_dir}")
 
@@ -2349,9 +2561,15 @@ class MainWindow(QMainWindow):
         self.btn_stop.setEnabled(True)
         self.btn_import.setEnabled(False)
         self.btn_import_dataset.setEnabled(False)
+        self.btn_export_aligned.setEnabled(False)
+        self.btn_export_folder.setEnabled(False)
         self.btn_folder.setEnabled(False)
         self.btn_track.setEnabled(False)
         self.btn_inspect.setEnabled(False)
+        for b in getattr(self, "_capture_subject_buttons", {}).values():
+            b.setEnabled(False)
+        for b in getattr(self, "_photo_buttons", {}).values():
+            b.setEnabled(False)
         for b in self.track_btns:
             b.setEnabled(False)
 
@@ -2404,9 +2622,15 @@ class MainWindow(QMainWindow):
         # ── 拍摄 & 保存截图（渲染在主线程，存图在后台线程）─────────────────
         img_name = f"track{t_idx + 1}_{p_idx + 1:02d}.png"
         try:
-            img, real_pos = self._pv_view.capture_frame(pos)
+            if getattr(self, "_capture_subject", "cad") == "building":
+                view_up = self._pv_view.get_track_system().get_building_camera_view_up(
+                    t_idx
+                )
+            else:
+                view_up = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+            img, real_pos = self._pv_view.capture_frame(pos, view_up=view_up)
             if img is not None:
-                self._camera_pose_log.append((img_name, pos, real_pos))
+                self._camera_pose_log.append((img_name, pos, real_pos, view_up))
                 print(f"[Verify] {img_name} | Target Pos: {pos} | Real Cam Pos: {real_pos}")
                 # 立即提交存图任务到线程池，不等待 I/O 完成
                 mgr = self._capture_mgr
@@ -2495,11 +2719,20 @@ class MainWindow(QMainWindow):
         json_path = os.path.join(out_dir, "camera_poses.json")
         try:
             frames = []
-            for img_name, target_pos, real_pos in self._camera_pose_log:
+            for img_name, target_pos, real_pos, view_up in self._camera_pose_log:
                 tp = [float(v) for v in target_pos]
                 rp = [float(v) for v in real_pos] if real_pos else None
-                frames.append({"file_path": img_name, "target_pos": tp, "real_pos": rp})
-            data = {"frames": frames}
+                vu = [float(v) for v in view_up]
+                frames.append({
+                    "file_path": img_name,
+                    "target_pos": tp,
+                    "real_pos": rp,
+                    "view_up": vu,
+                })
+            data = {
+                "capture_profile": dict(self._active_capture_profile or {}),
+                "frames": frames,
+            }
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             print(f"[Capture] camera_poses.json saved ({len(frames)} entries) -> {json_path}")
@@ -2593,6 +2826,7 @@ class MainWindow(QMainWindow):
         self._capture_idx    = 0
         self._capture_mgr    = None
         self._capture_is_dataset = False
+        self._active_capture_profile = None
         self._enable_ui_after_capture()
 
     def _restore_mouse_interaction(self):
@@ -2610,7 +2844,14 @@ class MainWindow(QMainWindow):
         self.btn_stop.setEnabled(False)
         self.btn_import.setEnabled(True)
         self.btn_import_dataset.setEnabled(True)
+        self.btn_export_aligned.setEnabled(bool(self._pv_view.has_model()) and not self._pv_view.has_dataset())
+        self.btn_export_folder.setEnabled(True)
         self.btn_folder.setEnabled(True)
+        subject_enabled = not self._pv_view.has_dataset()
+        for b in getattr(self, "_capture_subject_buttons", {}).values():
+            b.setEnabled(subject_enabled)
+        for b in getattr(self, "_photo_buttons", {}).values():
+            b.setEnabled(True)
         for b in self.track_btns:
             b.setEnabled(bool(self._pv_view.has_model()))
 
@@ -2624,11 +2865,18 @@ class MainWindow(QMainWindow):
         cap = (getattr(self, "_capture_idx", 0) > 0) or (getattr(self, "_capture_flat", []) != [])
         self.btn_import.setEnabled(not cap)
         self.btn_import_dataset.setEnabled(not cap)
+        self.btn_export_aligned.setEnabled(bool(has) and not cap and not self._pv_view.has_dataset())
+        self.btn_export_folder.setEnabled(not cap)
         self.btn_folder.setEnabled(not cap)
         self.btn_capture.setEnabled(bool(has) and not cap)
         self.btn_track.setEnabled(bool(has) and not cap)
         self.btn_inspect.setEnabled(bool(has) and not cap and not self._pv_view.has_dataset())
         self.btn_stop.setEnabled(cap)
+        subject_enabled = not cap and not self._pv_view.has_dataset()
+        for b in getattr(self, "_capture_subject_buttons", {}).values():
+            b.setEnabled(subject_enabled)
+        for b in getattr(self, "_photo_buttons", {}).values():
+            b.setEnabled(not cap)
         pick_s = bool(has) and not cap
         for b in self.track_btns:
             b.setEnabled(pick_s)

@@ -1,0 +1,47 @@
+{
+  "experiment_name": "building_cache_9060_remaining_384",
+  "runtime": {
+    "python": "D:/scj/envs/diffsynth/python.exe",
+    "diffsynth_root": "D:/code/DiffSynth-Studio",
+    "gpus": [0, 1],
+    "distributed_backend": "auto"
+  },
+  "dataset": {
+    "root": "outputs/temporal_clips_train_all",
+    "metadata": "outputs/temporal_clips_train_all/metadata_remaining_9060.csv",
+    "expected_count": 9060
+  },
+  "training": {
+    "cache_dir": "D:/code/DiffSynth-Studio/models/cache/building_train_1912_all_384_combined",
+    "output_dir": "D:/code/DiffSynth-Studio/models/train/_cache_only_9060_remaining_384",
+    "height": 384,
+    "width": 384,
+    "num_frames": 17,
+    "dataset_repeat": 1,
+    "dataset_num_workers": 0,
+    "learning_rate": 0.00005,
+    "num_epochs": 1,
+    "save_steps": 500,
+    "lora_rank": 8,
+    "gradient_accumulation_steps": 1,
+    "step_cooldown_seconds": 5.0
+  },
+  "validation": {
+    "output_dir": "outputs/validation/_cache_only_9060_remaining_384",
+    "checkpoints": [
+      {"label": "base", "path": null}
+    ],
+    "prompt": "a clean 3D architectural building model rotating smoothly on a plain white background",
+    "negative_prompt": "people, text, watermark, camera shake, flicker, deformed geometry",
+    "seed": 20260901,
+    "height": 384,
+    "width": 384,
+    "num_frames": 17,
+    "num_inference_steps": 30,
+    "cfg_scale": 5.0,
+    "fps": 18,
+    "quality": 5,
+    "lora_alpha": 1.0,
+    "vram_reserved_gb": 2.0
+  }
+}

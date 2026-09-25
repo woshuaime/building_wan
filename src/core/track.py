@@ -222,7 +222,6 @@ class TrackSystem:
         {"name": "左斜圆轨道", "plane": "diag_left", "color": (0.3, 0.3, 1.0)},   # 蓝色
         {"name": "右斜圆轨道", "plane": "diag_right", "color": (1.0, 0.7, 0.3)},  # 橙色
     ]
-
     def __init__(self):
         self.center = np.zeros(3, dtype=np.float64)
         self.last_virtual_anchor = self.center.copy()
@@ -351,7 +350,6 @@ class TrackSystem:
             azim_deg: 方位角（度）
             num_positions: 每条轨道的相机数量（每轨精确产生 num_positions 个位置）
             dome_only: 已废弃，保留参数仅避免调用方报错
-
         Returns:
             list: 每条轨道的相机位置数据，每轨精确包含 num_positions 个位置
         """
@@ -370,6 +368,112 @@ class TrackSystem:
                 {"track_name": t.name, "positions": positions}
             )
         return all_positions
+
+    @staticmethod
+    def _building_upper_half_offsets(num_positions):
+        """Return centers of equal intervals spanning the complete upper half.
+
+        The geometric track still spans -90 to +90 degrees. Photos are placed
+        half an interval inside both ends so they do not duplicate positions
+        already covered by the horizontal 360-degree orbit.
+        """
+        count = max(1, int(num_positions))
+        interval = np.pi / count
+        return (
+            -0.5 * np.pi
+            + (np.arange(count, dtype=np.float64) + 0.5) * interval
+        )
+
+    def get_building_camera_positions(self, num_positions=16):
+        """Generate the building capture profile in app capture coordinates.
+
+        App +X is the building height axis and the virtual ground is a YZ
+        plane. Track 1 is therefore a YZ circle parallel to that ground plane.
+        Tracks 2-4 use the X >= center.x halves of the original vertical and
+        diagonal circles. The model top still faces the legacy +X four-track
+        anchor; that pose reference is independent from Track 1's new geometry.
+        """
+        count = max(1, int(num_positions))
+        center = np.asarray(self.center, dtype=np.float64)
+        radius = float(self.camera_distance)
+        for track in self.tracks:
+            track.set_radius(radius)
+
+        horizontal_angles = np.linspace(0.0, 2.0 * np.pi, count, endpoint=False)
+        horizontal_positions = [
+            center
+            + np.array(
+                [0.0, radius * np.cos(angle), radius * np.sin(angle)],
+                dtype=np.float64,
+            )
+            for angle in horizontal_angles
+        ]
+
+        view_dir = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+        upper_offsets = self._building_upper_half_offsets(count)
+        all_positions = [
+            {
+                "track_name": self.tracks[0].name,
+                "positions": horizontal_positions,
+            }
+        ]
+        for track in self.tracks[1:]:
+            start_angle = track._best_start_angle(view_dir)
+            positions = [
+                track._point_at_angle(float(start_angle + offset))
+                for offset in upper_offsets
+            ]
+            all_positions.append(
+                {"track_name": track.name, "positions": positions}
+            )
+        return all_positions
+
+    @staticmethod
+    def get_building_camera_view_up(track_index):
+        """Return a fixed, non-rolling up axis for each building track.
+
+        Track 1 orbits around the building height axis, so +X keeps the model
+        upright and is perpendicular to every Track 1 view direction. The
+        remaining tracks retain the original fixed +Z camera-up convention.
+        """
+        if int(track_index) == 0:
+            return np.array([1.0, 0.0, 0.0], dtype=np.float64)
+        return np.array([0.0, 0.0, 1.0], dtype=np.float64)
+
+    def get_building_track_points_for_rendering(self, num_points=128):
+        """Return display geometry matching the building capture profile."""
+        count = max(3, int(num_points))
+        center = np.asarray(self.center, dtype=np.float64)
+        radius = float(self.camera_distance)
+        for track in self.tracks:
+            track.set_radius(radius)
+
+        horizontal_angles = np.linspace(
+            0.0, 2.0 * np.pi, count, endpoint=False
+        )
+        horizontal = np.column_stack(
+            [
+                np.full(count, center[0], dtype=np.float64),
+                center[1] + radius * np.cos(horizontal_angles),
+                center[2] + radius * np.sin(horizontal_angles),
+            ]
+        )
+
+        view_dir = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+        upper_offsets = np.linspace(-0.5 * np.pi, 0.5 * np.pi, count, endpoint=True)
+        result = [horizontal]
+        for track in self.tracks[1:]:
+            start_angle = track._best_start_angle(view_dir)
+            result.append(
+                np.asarray(
+                    [
+                        track._point_at_angle(float(start_angle + offset))
+                        for offset in upper_offsets
+                    ],
+                    dtype=np.float64,
+                )
+            )
+        return result
 
     def get_virtual_camera_anchor(self, elev_deg, azim_deg):
         """获取轨道交界处的虚拟相机锚点"""

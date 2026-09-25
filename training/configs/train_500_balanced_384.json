@@ -1,0 +1,69 @@
+{
+  "experiment_name": "building_train_500_balanced_384",
+  "runtime": {
+    "python": "D:/scj/envs/diffsynth/python.exe",
+    "diffsynth_root": "D:/code/DiffSynth-Studio",
+    "gpus": [0, 1],
+    "distributed_backend": "auto"
+  },
+  "dataset": {
+    "root": "outputs/temporal_clips_train_500_balanced",
+    "metadata": "outputs/temporal_clips_train_500_balanced/metadata.csv",
+    "expected_count": 500
+  },
+  "training": {
+    "cache_dir": "D:/code/DiffSynth-Studio/models/cache/building_train_500_balanced_384",
+    "output_dir": "D:/code/DiffSynth-Studio/models/train/building_train_500_balanced_384_lora",
+    "height": 384,
+    "width": 384,
+    "num_frames": 17,
+    "dataset_repeat": 1,
+    "dataset_num_workers": 0,
+    "learning_rate": 0.00005,
+    "num_epochs": 1,
+    "save_steps": 50,
+    "lora_rank": 8,
+    "gradient_accumulation_steps": 1
+  },
+  "validation": {
+    "output_dir": "outputs/validation/building_train_500_balanced_384",
+    "checkpoints": [
+      {
+        "label": "base",
+        "path": null
+      },
+      {
+        "label": "step-50",
+        "path": "D:/code/DiffSynth-Studio/models/train/building_train_500_balanced_384_lora/step-50.safetensors"
+      },
+      {
+        "label": "step-100",
+        "path": "D:/code/DiffSynth-Studio/models/train/building_train_500_balanced_384_lora/step-100.safetensors"
+      },
+      {
+        "label": "step-150",
+        "path": "D:/code/DiffSynth-Studio/models/train/building_train_500_balanced_384_lora/step-150.safetensors"
+      },
+      {
+        "label": "step-200",
+        "path": "D:/code/DiffSynth-Studio/models/train/building_train_500_balanced_384_lora/step-200.safetensors"
+      },
+      {
+        "label": "step-250",
+        "path": "D:/code/DiffSynth-Studio/models/train/building_train_500_balanced_384_lora/step-250.safetensors"
+      }
+    ],
+    "prompt": "a clean 3D architectural building model rotating smoothly on a plain white background, centered object, stable geometry, consistent lighting",
+    "negative_prompt": "people, trees, cars, text, watermark, cluttered background, camera shake, flicker, deformed geometry, duplicated building, cropped object, low quality, blurry",
+    "seed": 20260901,
+    "height": 384,
+    "width": 384,
+    "num_frames": 17,
+    "num_inference_steps": 30,
+    "cfg_scale": 5.0,
+    "fps": 18,
+    "quality": 5,
+    "lora_alpha": 1.0,
+    "vram_reserved_gb": 2.0
+  }
+}

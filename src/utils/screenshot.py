@@ -63,18 +63,31 @@ class ScreenshotManager:
             filepath = os.path.join(self.output_dir, filename)
             counter += 1
 
-        pil_img = Image.fromarray(np.flipud(img_array))
+        # PyVista screenshot arrays are already top-to-bottom in image order.
+        pil_img = Image.fromarray(img_array)
         pil_img.save(filepath, 'PNG')
         return filepath
 
-    def save_array_to_path(self, img_array, filepath, flip=True):
+    def save_array_to_path(
+        self,
+        img_array,
+        filepath,
+        flip=False,
+        compress_level=None,
+    ):
         """Save a numpy RGB array to an exact path."""
         parent = os.path.dirname(filepath)
         if parent and not os.path.exists(parent):
             os.makedirs(parent)
         data = np.flipud(img_array) if flip else img_array
         pil_img = Image.fromarray(data)
-        pil_img.save(filepath, 'PNG')
+        save_options = {}
+        if compress_level is not None:
+            save_options["compress_level"] = max(
+                0,
+                min(9, int(compress_level)),
+            )
+        pil_img.save(filepath, 'PNG', **save_options)
         return filepath
 
     def get_output_dir(self):
