@@ -55,7 +55,7 @@
 - 复查确认 step-2400.safetensors 可以被 safetensors.safe_open 正常读取。
 - 训练脚本已将 dataset_num_workers 默认改为 0，降低多进程 native 内存释放导致崩溃的风险。
 - 续训脚本已改为使用 --lora_checkpoint，避免把 LoRA 权重误当成完整训练状态。
-- 续训输出将写入 checkpoints/building_wan_a6000_single_orbit_resumed。
+- 续训输出将写入独立目录 checkpoints/building_wan_a6000_single_orbit_resumed_exact；脚本会按 checkpoint 原 batch 自动换算数据游标，并写入 run_manifest.json。
 - 续训和推理验证尚未重新启动。
 
 ### 续训和验证
@@ -72,7 +72,7 @@ WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python \
 
 ~~~bash
 /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py \
-  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed
+  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact
 ~~~
 
 确认预检通过并明确要生成视频后，加上 --run。验证只做固定条件的 base/LoRA 对比，不自动计算量化指标。

@@ -83,14 +83,15 @@
 脚本默认：
 
 - 从 checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors 读取 LoRA。
-- 跳过前 2400 个缓存 batch。
+- 根据 checkpoint 产生时的物理 batch 2，自动换算当前物理 batch 1 的缓存游标（默认跳过 4800 个 batch）。
 - 把初始全局 step 设为 2400。
-- 物理 batch 2、梯度累积 2、worker 0。
-- 把新权重写入 checkpoints/building_wan_a6000_single_orbit_resumed。
+- 默认物理 batch 1、梯度累积 4、worker 0，有效 batch 仍为 4。
+- 把新权重写入独立的 checkpoints/building_wan_a6000_single_orbit_resumed_exact，目录非空时拒绝启动。
+- 在输出目录写入 run_manifest.json，并用目录锁防止重复启动。
 
 如果使用其他 checkpoint，必须同时设置：
 
-    WAN_RESUME_FROM_CHECKPOINT=/path/to/step-N.safetensors WAN_RESUME_SKIP_BATCHES=N WAN_RESUME_INITIAL_STEPS=N WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_wan81_a6000.sh
+    WAN_RESUME_FROM_CHECKPOINT=/path/to/step-N.safetensors WAN_RESUME_CHECKPOINT_STEP=N WAN_RESUME_CHECKPOINT_BATCH_SIZE=2 WAN_RESUME_INITIAL_STEPS=N WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_wan81_a6000.sh
 
 查看训练：
 
@@ -105,7 +106,7 @@
 先只读预检：
 
     cd /mnt/windowsE/chuanjun/building_wan
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact
 
 预检通过且确认要生成视频后：
 

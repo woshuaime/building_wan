@@ -26,7 +26,7 @@
 - 配置：384×384、81 帧、物理 batch 2、梯度累积 2、有效 batch 4、LoRA rank 16、8 epochs
 - 缓存：cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train
 - 原输出：checkpoints/building_wan_a6000_single_orbit
-- 续训输出：checkpoints/building_wan_a6000_single_orbit_resumed
+- 续训输出：checkpoints/building_wan_a6000_single_orbit_resumed_exact
 
 ## 4. 已完成的工作
 
@@ -65,7 +65,7 @@
     tmux new -s wan-resume
     WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_wan81_a6000.sh 2>&1 | tee logs/a6000_single_orbit_resume_$(date +%Y%m%d_%H%M%S).log
 
-脚本默认从原目录的 step-2400.safetensors 读取 LoRA，并把新结果写到独立 resumed 目录。不要改用 --resume_from_checkpoint，也不要把 resumed 输出写回原目录。
+脚本默认从原目录的 step-2400.safetensors 读取 LoRA，按原物理 batch 2 换算当前 batch 1 的数据游标，并把新结果写到独立 resumed_exact 目录。不要改用 --resume_from_checkpoint，也不要把 resumed 输出写回原目录。
 
 训练查看：
 
@@ -76,11 +76,11 @@
 
 先预检：
 
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact
 
 预检无误后，需要生成视频时再执行：
 
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed --run
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact --run
 
 验证只比较基础模型与最新 LoRA 的固定 prompt、固定 seed 视频。需要人工检查建筑体块、360 度视角、几何变形、闪烁和时序稳定性。
 

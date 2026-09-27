@@ -7,9 +7,10 @@ PYTHON="${WAN_PYTHON:-/home/shi/miniconda3/envs/scj/bin/python}"
 DIFFSYNTH_ROOT="$ROOT/code/DiffSynth-Studio"
 TRAIN_ENTRY="$ROOT/code/Python_3D_Scanner/training/wan_train_entry.py"
 CACHE_ROOT="$ROOT/cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train"
-OUTPUT_ROOT="${WAN_RESUME_OUTPUT_ROOT:-$ROOT/checkpoints/building_wan_a6000_single_orbit_resumed}"
+OUTPUT_ROOT="${WAN_RESUME_OUTPUT_ROOT:-$ROOT/checkpoints/building_wan_a6000_single_orbit_resumed_exact}"
 CHECKPOINT="${WAN_RESUME_FROM_CHECKPOINT:-$ROOT/checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors}"
-SKIP_BATCHES="${WAN_RESUME_SKIP_BATCHES:-2400}"
+CHECKPOINT_STEP="${WAN_RESUME_CHECKPOINT_STEP:-2400}"
+CHECKPOINT_BATCH_SIZE="${WAN_RESUME_CHECKPOINT_BATCH_SIZE:-2}"
 INITIAL_STEPS="${WAN_RESUME_INITIAL_STEPS:-2400}"
 TRAIN_BATCH_SIZE="${WAN_TRAIN_BATCH_SIZE:-1}"
 GRADIENT_ACCUMULATION_STEPS="${WAN_GRADIENT_ACCUMULATION_STEPS:-4}"
@@ -32,18 +33,51 @@ if ps -eo args= | grep -F "$TRAIN_ENTRY" | grep -v grep >/dev/null; then
     exit 7
 fi
 
-if [[ -e "$OUTPUT_ROOT" ]] && find "$OUTPUT_ROOT" -maxdepth 1 -type f -name '*.safetensors' | grep -q .; then
-    echo "Resume output already contains checkpoints: $OUTPUT_ROOT" >&2
+if ! [[ "$TRAIN_BATCH_SIZE" =~ ^[1-9][0-9]*$ && "$CHECKPOINT_BATCH_SIZE" =~ ^[1-9][0-9]*$ && "$CHECKPOINT_STEP" =~ ^[0-9]+$ ]]; then
+    echo "Resume step and batch settings must be non-negative/positive integers" >&2
+    exit 2
+fi
+
+if (( (CHECKPOINT_STEP * CHECKPOINT_BATCH_SIZE) % TRAIN_BATCH_SIZE != 0 )); then
+    echo "Checkpoint cursor is not divisible by the current physical batch size" >&2
+    exit 2
+fi
+SKIP_BATCHES="${WAN_RESUME_SKIP_BATCHES:-$((CHECKPOINT_STEP * CHECKPOINT_BATCH_SIZE / TRAIN_BATCH_SIZE))}"
+
+if [[ -e "$OUTPUT_ROOT" ]] && find "$OUTPUT_ROOT" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+    echo "Resume output directory is not empty: $OUTPUT_ROOT" >&2
+    echo "Choose a new WAN_RESUME_OUTPUT_ROOT; existing runs are never mixed." >&2
     exit 6
 fi
+
+LOCK_DIR="$OUTPUT_ROOT.lock"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    echo "Resume output is locked by another process: $LOCK_DIR" >&2
+    exit 7
+fi
+cleanup_lock() { rmdir "$LOCK_DIR" 2>/dev/null || true; }
+trap cleanup_lock EXIT
 
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-8}"
 export PYTHONPATH="$DIFFSYNTH_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 mkdir -p "$OUTPUT_ROOT"
+cat > "$OUTPUT_ROOT/run_manifest.json" <<EOF
+{
+  "checkpoint": "${CHECKPOINT}",
+  "checkpoint_step": ${CHECKPOINT_STEP},
+  "checkpoint_batch_size": ${CHECKPOINT_BATCH_SIZE},
+  "current_batch_size": ${TRAIN_BATCH_SIZE},
+  "gradient_accumulation_steps": ${GRADIENT_ACCUMULATION_STEPS},
+  "skip_train_batches": ${SKIP_BATCHES},
+  "initial_train_steps": ${INITIAL_STEPS},
+  "git_commit": "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)",
+  "started_at": "$(date --iso-8601=seconds)"
+}
+EOF
 cd "$ROOT/code/Python_3D_Scanner"
 
-exec "$PYTHON" "$TRAIN_ENTRY" \
+"$PYTHON" "$TRAIN_ENTRY" \
     --diffsynth-root "$DIFFSYNTH_ROOT" \
     --num-processes 1 \
     --backend nccl \

@@ -108,11 +108,11 @@ WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python \
 
     checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors
 
-默认跳过前 2400 个缓存 batch，初始全局 step 设为 2400，结果写入：
+默认按 checkpoint 原训练物理 batch 2 换算缓存游标：step-2400 在当前物理 batch 1 下跳过 4800 个 batch，初始全局 step 设为 2400，结果写入：
 
-    checkpoints/building_wan_a6000_single_orbit_resumed
+    checkpoints/building_wan_a6000_single_orbit_resumed_exact
 
-如果实际要从其他 step 续训，需要同时设置 WAN_RESUME_FROM_CHECKPOINT、WAN_RESUME_SKIP_BATCHES 和 WAN_RESUME_INITIAL_STEPS。
+如果实际要从其他 step 续训，需要设置 WAN_RESUME_FROM_CHECKPOINT、WAN_RESUME_CHECKPOINT_STEP、WAN_RESUME_CHECKPOINT_BATCH_SIZE 和 WAN_RESUME_INITIAL_STEPS。脚本会按当前物理 batch 自动换算跳过的缓存 batch。
 
 ## 7. 验证方式
 
@@ -121,7 +121,7 @@ WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python \
 ~~~bash
 cd /mnt/windowsE/chuanjun/building_wan
 /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py \
-  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed
+  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact
 ~~~
 
 确认预检通过后，用户明确要求生成视频时再加 --run：
