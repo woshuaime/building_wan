@@ -77,7 +77,26 @@ cat > "$OUTPUT_ROOT/run_manifest.json" <<EOF
 EOF
 cd "$ROOT/code/Python_3D_Scanner"
 
-"$PYTHON" "$TRAIN_ENTRY" \
+# Opt-in diagnostic mode: keep the normal training path unchanged.
+launcher=("$PYTHON")
+if [[ "${WAN_DEBUG_GDB:-0}" == 1 ]]; then
+    command -v gdb >/dev/null || { echo "gdb is required for diagnostic mode" >&2; exit 2; }
+    export PYTHONFAULTHANDLER=1
+    export TORCH_SHOW_CPP_STACKTRACES=1
+    launcher=(gdb --batch --return-child-result
+        -ex 'set pagination off'
+        -ex 'set confirm off'
+        -ex 'set print thread-events off'
+        -ex 'set debuginfod enabled off'
+        -ex run
+        -ex 'thread apply all bt full'
+        -ex 'py-bt'
+        -ex 'info sharedlibrary'
+        -ex continue
+        --args "$PYTHON")
+fi
+
+"${launcher[@]}" "$TRAIN_ENTRY" \
     --diffsynth-root "$DIFFSYNTH_ROOT" \
     --num-processes 1 \
     --backend nccl \

@@ -130,3 +130,18 @@ NVML 初始化警告、黄色感叹号和短时低 GPU 利用率不一定是错�
 ## 8. A100 历史命令
 
 A100 的 /home/share/CHUANJUN/building_wan 和 mv2v 流程已完成并保留在历史文档中。当前 A6000 训练不要使用 A100 的脚本、环境或输出目录。
+
+## 2026-09-28：原生崩溃诊断续跑
+
+resumed_exact 在日志 step 4225 后发生 free(): invalid next size (fast)；
+batch 1 / accumulation 4 / worker 0 未消除故障，根因尚未定位。
+step-4000.safetensors 的 600 个张量已加载并通过有限值检查，历史输出保留。
+诊断从该权重开始：INITIAL_STEPS=4000，SKIP_BATCHES=6400
+（前次跳过 4800，加上 checkpoint 保存前新增的 4000-2400）。
+这是权重续训和样本预算换算，不恢复 optimizer/RNG，也不保证相同 shuffle 顺序。
+WAN_DEBUG_GDB=1 启用 GDB 全线程原生堆栈、py-bt、共享库清单及
+PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
+诊断保持原训练参数，不修改系统 core_pattern，不删除历史产物。
+独立输出：checkpoints/building_wan_a6000_single_orbit_diag_20260928
+独立日志：logs/a6000_diag_20260928.log
+启动后需现场确认 loss 更新；本记录不代表崩溃已修复。
