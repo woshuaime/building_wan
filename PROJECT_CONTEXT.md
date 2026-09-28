@@ -182,13 +182,14 @@ PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
 独立日志：logs/a6000_diag_20260928.log
 启动后需现场确认 loss 更新；本记录不代表崩溃已修复。
 
-## 11. 2026-09-28（续）：epoch4 续训成功、暂停续跑机制、目录清理
+## 11. 2026-09-28（续）：epoch4 续训、暂停续跑机制、目录清理
 
 - diag_20260928 诊断跑未产出可用权重（目录已清空）。
-- 换用更早权重续训（epoch4_resume_20260928_174226）顺利跑通 step-2800/3200/3600，未复现 free() 崩溃，日志 logs/a6000_epoch4_resume_20260928_174226.log。
-- 已用固定 prompt、固定 seed 生成 base 与多个 step 的 LoRA 对比视频，保存在 outputs/validation/9.28/。
+- epoch4_resume_20260928_171131 在约 step 3927 处以退出码 134（SIGABRT）崩溃，日志 logs/a6000_epoch4_resume_20260928_171131.log。
+- epoch4_resume_20260928_174226 从同一更早权重重启，产出 step-2800/3200/3600 后被暂停脚本手动停止，未复现 free() 崩溃，日志 logs/a6000_epoch4_resume_20260928_174226.log。
+- 已用固定 prompt、固定 seed 生成 base 与 step-800/2400/3200/3600 的 LoRA 对比视频，保存在 outputs/validation/9.28/。
 - 新增 scripts/pause_wan81_a6000.sh（记录运行中训练的最新 checkpoint 和数据游标到 logs/pause_state_*.json）和 scripts/resume_from_pause.sh（读取记录后按当前物理 batch 换算并重启训练）。
-- 用暂停记录，以 epoch4_resume_20260928_174226/step-3600.safetensors 为 --lora_checkpoint 续跑，新输出目录 checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750，训练进程仍在运行（已产出 step-4000…5600）。
-- 应用户要求清理历史 checkpoints，删除了 resumed、resumed_b1、resumed_exact、diag_20260928（空）、resumed_epoch4_20260928（空）、building_train_1912_all_256_cooled_lora 共 7 项，不可恢复。
+- 用暂停记录，以 epoch4_resume_20260928_174226/step-3600.safetensors 为 --lora_checkpoint 续跑，新输出目录 checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750，训练进程仍在运行（已产出 step-4000…6800）。
+- 应用户要求清理历史 checkpoints，删除了 resumed、resumed_b1、resumed_exact、diag_20260928（空）、resumed_epoch4_20260928（空）、building_train_1912_all_256_cooled_lora（实际已不在服务器）共 6 项，不可恢复。
 - 清理后 checkpoints/ 只剩 4 项：building_wan（多栋历史）、building_wan_a6000_single_orbit（单轨 400–2400）、resumed_epoch4_20260928_174226（2800–3600）、resumed_20260928_190750（当前正在跑）。
 - 本文档第 6、7 节中出现的 resumed_exact 目录已不存在；实际续训应以最新的 pause/resume 流程为准，输出目录以每次暂停记录生成的新目录名为准，不再固定写死 resumed_exact。

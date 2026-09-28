@@ -99,19 +99,20 @@ PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
 独立日志：logs/a6000_diag_20260928.log
 启动后需现场确认 loss 更新；本记录不代表崩溃已修复。
 
-## 2026-09-28（续）：暂停/续跑机制、epoch4 续训完成、目录清理
+## 2026-09-28（续）：暂停/续跑机制、epoch4 续训、目录清理
 
 - 原生崩溃诊断跑（diag_20260928）未产出可用权重，目录内容已确认为空。
-- 新增 checkpoint 类型续训 epoch4_resume_20260928_174226：从更早权重续训，顺利产出 step-2800/3200/3600，未再复现 free() 崩溃。日志：logs/a6000_epoch4_resume_20260928_174226.log。
-- 用该轮 step-2800/3200/3600 权重与 step-2400/800/base 生成了固定 prompt、固定 seed 对比视频，保存在 outputs/validation/9.28/（A-step3200.mp4、A-step3600.mp4、B-step2400.mp4、B-step800.mp4、base.mp4）。
+- 新增 checkpoint 类型续训 epoch4_resume_20260928_171131：从更早权重续训，在约 step 3927 处以退出码 134（SIGABRT）崩溃，日志 logs/a6000_epoch4_resume_20260928_171131.log 显示 GDB 捕获到原生 SIGABRT 信号。
+- 新增续训 epoch4_resume_20260928_174226：从同一更早权重重启，产出 step-2800/3200/3600 后被暂停脚本手动停止，未复现 free() 崩溃。日志：logs/a6000_epoch4_resume_20260928_174226.log。
+- 用该轮 step-3200/3600 权重与 step-2400/800/base 生成了固定 prompt、固定 seed 对比视频，保存在 outputs/validation/9.28/（A-step3200.mp4、A-step3600.mp4、B-step2400.mp4、B-step800.mp4、base.mp4）。
 - 新增暂停/续跑脚本 scripts/pause_wan81_a6000.sh 和 scripts/resume_from_pause.sh：暂停脚本记录正在运行训练的最新 checkpoint 和游标到 logs/pause_state_*.json；续跑脚本读取该记录后重新计算 skip_train_batches / initial_train_steps 并重启训练，不恢复 optimizer/RNG。
-- 用暂停记录以 epoch4_resume_20260928_174226 的 step-3600.safetensors 为 --lora_checkpoint 续跑，新输出目录 checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750，日志 logs/a6000_resume_from_pause_20260928_191930.log。该训练进程（pid 630785）仍在运行，已产出 step-4000/4400/4800/5200/5600。
-- 应用户要求清理历史 checkpoints 目录，删除以下 7 个（含 2 个空目录），原始 checkpoint 文件不可恢复：
+- 用暂停记录以 epoch4_resume_20260928_174226 的 step-3600.safetensors 为 --lora_checkpoint 续跑，新输出目录 checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750，日志 logs/a6000_resume_from_pause_20260928_191930.log。该训练进程（pid 630785）仍在运行，已产出 step-4000/4400/4800/5200/5600/6000/6400/6800。
+- 应用户要求清理历史 checkpoints 目录，删除以下 6 个（含 2 个空目录），原始 checkpoint 文件不可恢复：
   - checkpoints/building_wan_a6000_single_orbit_resumed
   - checkpoints/building_wan_a6000_single_orbit_resumed_b1
   - checkpoints/building_wan_a6000_single_orbit_resumed_exact
   - checkpoints/building_wan_a6000_single_orbit_diag_20260928（空）
   - checkpoints/building_wan_a6000_single_orbit_resumed_epoch4_20260928（空，注意和保留的 `_174226` 不是同一目录）
-  - checkpoints/building_train_1912_all_256_cooled_lora（本地 3060 早期验证跑）
+  - checkpoints/building_train_1912_all_256_cooled_lora（本地 3060 早期验证跑，实际已不在服务器上）
 - 清理后 checkpoints/ 只保留 4 项：building_wan（A100 多栋历史结果）、building_wan_a6000_single_orbit（单轨 400–2400）、building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（2800–3600）、building_wan_a6000_single_orbit_resumed_20260928_190750（当前正在跑，含其 .lock 目录）。
 - 本文档和 PROJECT_CONTEXT.md、TRAINING.md、SESSION_HANDOFF.md 中此前提到的 resumed_exact 已不存在，续训文档中的默认输出目录已改为按当次暂停记录生成的新目录，不再固定写死 resumed_exact。
