@@ -2,11 +2,11 @@
 
 ## 1. 更新时间和当前任务
 
-- 更新时间：2026-09-25
+- 更新时间：2026-09-28
 - 本地仓库：D:\building_wan
 - 远程仓库：git@github.com:woshuaime/building_wan.git
 - 服务器项目：/mnt/windowsE/chuanjun/building_wan
-- 当前任务：恢复 A6000 单轨统一 prompt 训练，并在完成后生成固定条件对比视频
+- 当前任务：A6000 单轨续训正在进行中（checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750，pid 630785），训练结束后再生成新一轮 base/LoRA 对比视频
 
 ## 2. 环境
 
@@ -108,3 +108,12 @@ PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
 独立输出：checkpoints/building_wan_a6000_single_orbit_diag_20260928
 独立日志：logs/a6000_diag_20260928.log
 启动后需现场确认 loss 更新；本记录不代表崩溃已修复。
+
+## 9. 2026-09-28（续）：当前正在运行的训练、暂停续跑机制、目录清理
+
+- diag_20260928 未产出可用权重；改用更早权重续训（epoch4_resume_20260928_174226）后顺利产出 step-2800/3200/3600，未复现 free() 崩溃。
+- 用该轮权重生成了对比视频，存于 outputs/validation/9.28/（A-step3200.mp4、A-step3600.mp4、B-step2400.mp4、B-step800.mp4、base.mp4）。
+- 新增 scripts/pause_wan81_a6000.sh 和 scripts/resume_from_pause.sh：可在训练运行中记录暂停点（写入 logs/pause_state_*.json）并从该点续跑，不需要等崩溃。
+- 用暂停记录以 epoch4_resume_20260928_174226/step-3600.safetensors 为 --lora_checkpoint 续跑，当前正在运行：checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750（pid 630785），日志 logs/a6000_resume_from_pause_20260928_191930.log，已产出 step-4000…5600。**交接时先确认该进程状态，不要重复启动第二个训练写同一目录。**
+- 应用户要求清理了历史 checkpoints，删除 resumed、resumed_b1、resumed_exact、diag_20260928（空）、resumed_epoch4_20260928（空）、building_train_1912_all_256_cooled_lora 共 7 项，不可恢复。第 3、6、7 节中提到的 resumed_exact 目录已不存在，续训和验证都不要再假设这个目录存在。
+- 清理后 checkpoints/ 只剩 4 项：building_wan、building_wan_a6000_single_orbit、building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226、building_wan_a6000_single_orbit_resumed_20260928_190750（当前）。

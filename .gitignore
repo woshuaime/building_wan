@@ -14,3 +14,4 @@ __pycache__/
 *.pth
 *.pt
 *.ckpt
+opencode.json
