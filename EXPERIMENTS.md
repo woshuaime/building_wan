@@ -117,15 +117,15 @@ PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
 - 清理后 checkpoints/ 只保留 4 项：building_wan（A100 多栋历史结果）、building_wan_a6000_single_orbit（单轨 400–2400）、building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（2800–3600）、building_wan_a6000_single_orbit_resumed_20260928_190750（当时正在跑）。
 - 本文档和 PROJECT_CONTEXT.md、TRAINING.md、SESSION_HANDOFF.md 中此前提到的 resumed_exact 已不存在；续训输出目录以每次暂停记录生成的新目录名为准，不再固定写死 resumed_exact。以下路径在 2026-09-29 的目录合并后统一加了 building_wan_a6000_single_orbit_all/ 前缀。
 
-## 2026-09-29：训练跑完 8 epochs、checkpoints 目录合并
+## 2026-09-29：训练跑完 8 epochs、checkpoints 合并并平铺
 
 - 训练于 2026-09-29 02:25 自然跑完 8 个 epochs，最后一个权重 step-11200，进程正常退出，无崩溃。
-- 该轮输出目录 building_wan_a6000_single_orbit_resumed_20260928_190750 内含 step-4000 ~ step-11200 共 19 个权重。
-- 应用户要求合并单轨的三段输出，新建父目录 checkpoints/building_wan_a6000_single_orbit_all/，用 mv 移入三个子目录：
-  - building_wan_a6000_single_orbit（step-400 ~ 2400，6 个权重）
-  - building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（step-2800 ~ 3600，3 个权重）
-  - building_wan_a6000_single_orbit_resumed_20260928_190750（step-4000 ~ 11200，19 个权重）
-- 合并后 checkpoints/ 顶层只剩两项：building_wan（多栋历史）、building_wan_a6000_single_orbit_all（单轨全部 28 个权重，step-400 ~ 11200，共约 1.2G）。
-- 三段的权重文件名互补，无覆盖；每段仍各自保留 loss.csv 和 training_args.json，因此 loss 曲线不连续。
-- 路径变更同步到脚本默认值：train 脚本的输出名不变，resume_wan81_a6000.sh、pause_wan81_a6000.sh、compare_lora_a6000.sh、validate_wan81_a6000.py 的默认 checkpoint 路径已加上 building_wan_a6000_single_orbit_all/ 前缀。
+- 单轨三段的输出先合并到 checkpoints/building_wan_a6000_single_orbit_all/，随后应用户要求把全部权重平铺到该目录下，三个子目录已删除。
+- 平铺后目录内共 28 个权重，step-400 ~ step-11200 连续无缺口，每 400 步一个，约 1.2G。
+- 三段各自的元数据改名保留，避免 loss.csv / training_args.json 互相覆盖：
+  - loss_from_original_step400_2400.csv、training_args_from_original_step400_2400.json
+  - loss_from_epoch4_step2800_3600.csv、training_args_from_epoch4_step2800_3600.json、run_manifest_from_epoch4_step2800_3600.json
+  - loss_from_final_step4000_11200.csv、training_args_from_final_step4000_11200.json、run_manifest_from_final_step4000_11200.json
+- 注意：权重平铺后没有文件能单独标识「某个 step 属于哪一段」，追溯来源只能靠上面的元数据和 log 时间戳。
+- 路径变更同步到脚本：validate_wan81_a6000.py 和 compare_lora_a6000.sh 的默认 checkpoint 目录都指向平铺后的 building_wan_a6000_single_orbit_all/；resume_wan81_a6000.sh 和 pause_wan81_a6000.sh 的历史默认输出路径仍带 building_wan_a6000_single_orbit_all/ 前缀。
 - 单轨 8 epochs 已跑完，续训脚本的历史默认目标 resumed_exact 依然不存在，不要再按旧路径直接启动续训。

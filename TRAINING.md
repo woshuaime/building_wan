@@ -43,7 +43,7 @@
     LoRA rank：16
     训练轮数：8
     dataset_num_workers：0
-    原输出：checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit
+    原输出：checkpoints/building_wan_a6000_single_orbit_all（step-400 ~ 11200 平铺在同一层）
 
 统一 prompt 训练会使用一份共享文本 context。逐栋 prompt 必须使用新的缓存设计，不能复用本轮缓存。
 
@@ -82,7 +82,7 @@
 
 脚本默认：
 
-- 从 checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit/step-2400.safetensors 读取 LoRA。
+- 从 checkpoints/building_wan_a6000_single_orbit_all/step-2400.safetensors 读取 LoRA。
 - 根据 checkpoint 产生时的物理 batch 2，自动换算当前物理 batch 1 的缓存游标（默认跳过 4800 个 batch）。
 - 把初始全局 step 设为 2400。
 - 默认物理 batch 1、梯度累积 4、worker 0，有效 batch 仍为 4。
@@ -106,11 +106,11 @@
 先只读预检：
 
     cd /mnt/windowsE/chuanjun/building_wan
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all
 
 预检通过且确认要生成视频后：
 
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750 --run
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all --run
 
 结果目录类似：
 
@@ -158,21 +158,25 @@ diag_20260928 未产出可用权重（目录已清空并删除）。epoch4_resum
 
 `resume_from_pause.sh` 默认读取 logs/ 下最新的 pause_state_*.json，也可用 `--state` 指定。重启前会检查是否已有 wan_train_entry.py 进程在跑，避免重复写同一目录。
 
-该轮已于 2026-09-29 02:25 自然跑完 8 个 epochs（最后权重 step-11200，无崩溃）。输出目录为 checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750（--lora_checkpoint 取自 epoch4_resume_20260928_174226/step-3600.safetensors），日志 logs/a6000_resume_from_pause_20260928_191930.log。
+该轮已于 2026-09-29 02:25 自然跑完 8 个 epochs（最后权重 step-11200，无崩溃）。输出目录为 checkpoints/building_wan_a6000_single_orbit_all（--lora_checkpoint 取自 epoch4_resume_20260928_174226/step-3600.safetensors），日志 logs/a6000_resume_from_pause_20260928_191930.log。
 
 本文档第 5、6 节中提到的默认续训目标 resumed_exact 已被删除，不再是当前有效的默认输出目录；请按 pause/resume 流程生成的新目录名核对，不要凭旧文档假设目录仍存在。
 
 checkpoints/ 已按用户要求合并为两项：building_wan（多栋历史结果）和 building_wan_a6000_single_orbit_all（单轨全部三段，step-400 ~ 11200，共 28 个权重）。resumed、resumed_b1、resumed_exact、diag_20260928、resumed_epoch4_20260928（空）、building_train_1912_all_256_cooled_lora（实际已不在服务器）已在 2026-09-28 按用户要求删除，不可恢复。
-## 10. 2026-09-29：checkpoints 合并后的路径
+## 10. 2026-09-29：checkpoints 平铺后的路径
 
-单轨三段输出已合并到 checkpoints/building_wan_a6000_single_orbit_all/，脚本默认路径同步更新：
-
-    checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit
-    checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226
-    checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750
+单轨全部权重已平铺到 checkpoints/building_wan_a6000_single_orbit_all/，step-400 ~ step-11200 共 28 个，直接放在该目录下，没有子目录。脚本默认路径已同步。
 
 检查全部权重：
 
-    find checkpoints/building_wan_a6000_single_orbit_all -maxdepth 2 -name '*.safetensors' | sort -V
+    find checkpoints/building_wan_a6000_single_orbit_all -maxdepth 1 -name '*.safetensors' | sort -V
 
-训练已跑完 8 个 epochs（最后权重 step-11200），当前无需续训；若以后要续训，先用 pause_wan81_a6000.sh 记录，再用 resume_from_pause.sh --start。
+验证（默认目录已指向平铺后的目录，会自动选最新 step-11200）：
+
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all
+
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all --run
+
+训练已跑完 8 个 epochs，当前无需续训；若以后要续训，先用 pause_wan81_a6000.sh 记录，再用 resume_from_pause.sh --start，不要直接跑第 5 节的默认命令（历史默认目标 resumed_exact 不存在）。
+
+分段元数据：平铺后三段各自的 loss 和参数记录改名为 loss_from_original_step400_2400.csv、loss_from_epoch4_step2800_3600.csv、loss_from_final_step4000_11200.csv，以及对应的 training_args_from_*.json 和 run_manifest_from_*.json。

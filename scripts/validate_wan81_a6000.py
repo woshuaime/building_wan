@@ -115,7 +115,7 @@ def main() -> None:
             raise ValueError(f"{split} metadata differs from the fixed split manifest")
 
     checkpoint_dir = args.checkpoint_dir or (
-        root / "checkpoints" / "building_wan_a6000_single_orbit_all" / EXPERIMENT
+        root / "checkpoints" / "building_wan_a6000_single_orbit_all"
     )
     checkpoint_dir = checkpoint_dir.resolve()
     step, checkpoint = latest_checkpoint(checkpoint_dir)

@@ -28,21 +28,8 @@ done
 
 cd "$ROOT"
 
-FIRST="checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit"
-SECOND_DIR="$("$PYTHON" - <<'PY'
-import glob, os
-cands = [
-    d for d in glob.glob("checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_epoch4_*")
-    if os.path.isdir(d) and not d.endswith(".lock")
-]
-print(max(cands, key=os.path.getmtime) if cands else "")
-PY
-)"
-
-if [[ -z "$SECOND_DIR" ]]; then
-    echo "找不到今天的续训目录。" >&2
-    exit 3
-fi
+FIRST="checkpoints/building_wan_a6000_single_orbit_all"
+SECOND_DIR="$FIRST"
 
 OUTDIR="$ROOT/outputs/validation/$DATE"
 mkdir -p "$OUTDIR"

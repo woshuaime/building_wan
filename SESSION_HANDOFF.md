@@ -25,7 +25,7 @@
 - 统一 prompt：训练、验证、测试使用同一条建筑旋转 prompt
 - 配置：384×384、81 帧、物理 batch 2、梯度累积 2、有效 batch 4、LoRA rank 16、8 epochs
 - 缓存：cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train
-- 原输出：checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit
+- 原输出：checkpoints/building_wan_a6000_single_orbit_all/step-2400.safetensors
 - 续训输出：统一放在 checkpoints/building_wan_a6000_single_orbit_all/ 下；2026-09-29 已把三段输出合并到这个父目录
 
 ## 4. 已完成的工作
@@ -76,11 +76,11 @@
 
 先预检：
 
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all
 
 预检无误后，需要生成视频时再执行：
 
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750 --run
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all --run
 
 验证只比较基础模型与最新 LoRA 的固定 prompt、固定 seed 视频。需要人工检查建筑体块、360 度视角、几何变形、闪烁和时序稳定性。
 
@@ -122,13 +122,10 @@ PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
 ## 10. 2026-09-29：单轨 8 epochs 跑完、checkpoints 合并
 
 - 训练于 2026-09-29 02:25 自然跑完 8 个 epochs，最后权重 step-11200，无崩溃。
-- 单轨三段输出已合并到 checkpoints/building_wan_a6000_single_orbit_all/：
-  - building_wan_a6000_single_orbit（step-400 ~ 2400）
-  - building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（step-2800 ~ 3600）
-  - building_wan_a6000_single_orbit_resumed_20260928_190750（step-4000 ~ 11200）
-- 合并后 checkpoints/ 顶层只有 building_wan 和 building_wan_a6000_single_orbit_all；单轨共 28 个权重（step-400 ~ 11200）。
-- resume_wan81_a6000.sh、pause_wan81_a6000.sh、compare_lora_a6000.sh、validate_wan81_a6000.py 的默认 checkpoint 路径已同步加前缀。
-- 下一步：跑 base/LoRA 固定条件对比视频。推荐用合并后的最新一轮目录：
+- 单轨全部权重（400–2400、2800–3600、4000–11200 三段）已平铺到 checkpoints/building_wan_a6000_single_orbit_all/，原三个子目录已删除。平铺后该目录共 28 个权重（step-400 ~ 11200），上面的三段来源已无法从文件名区分。
+- 三段元数据改名保留：loss_from_original_step400_2400.csv、loss_from_epoch4_step2800_3600.csv、loss_from_final_step4000_11200.csv，以及对应的 training_args_from_*.json / run_manifest_from_*.json。
+- resume_wan81_a6000.sh、pause_wan81_a6000.sh、compare_lora_a6000.sh、validate_wan81_a6000.py 的默认 checkpoint 路径已同步为 building_wan_a6000_single_orbit_all/。
+- 下一步：跑 base/LoRA 固定条件对比视频。推荐用平铺后的目录（自动取最新 step-11200）：
 
     /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py \
-      --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750 --run
+      --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all --run
