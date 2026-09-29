@@ -44,7 +44,7 @@
 - 配置：384×384、81 帧、物理 batch 2、梯度累积 2、有效 batch 4、LoRA rank 16、学习率 2e-5、8 epochs。
 - Prompt：训练、验证和测试使用同一条统一建筑旋转 prompt；本轮不使用 Cap3D 逐栋描述。
 - 缓存：compact-sft-shared-context-bf16-v2；每个样本保存视频 latent，共享文本 context 单独保存一份。
-- 原输出：checkpoints/building_wan_a6000_single_orbit
+- 原输出：checkpoints/building_wan_a6000_single_orbit（2026-09-29 合并到 checkpoints/building_wan_a6000_single_orbit_all/ 下）
 
 ### 当前状态
 
@@ -114,5 +114,18 @@ PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
   - checkpoints/building_wan_a6000_single_orbit_diag_20260928（空）
   - checkpoints/building_wan_a6000_single_orbit_resumed_epoch4_20260928（空，注意和保留的 `_174226` 不是同一目录）
   - checkpoints/building_train_1912_all_256_cooled_lora（本地 3060 早期验证跑，实际已不在服务器上）
-- 清理后 checkpoints/ 只保留 4 项：building_wan（A100 多栋历史结果）、building_wan_a6000_single_orbit（单轨 400–2400）、building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（2800–3600）、building_wan_a6000_single_orbit_resumed_20260928_190750（当前正在跑，含其 .lock 目录）。
-- 本文档和 PROJECT_CONTEXT.md、TRAINING.md、SESSION_HANDOFF.md 中此前提到的 resumed_exact 已不存在，续训文档中的默认输出目录已改为按当次暂停记录生成的新目录，不再固定写死 resumed_exact。
+- 清理后 checkpoints/ 只保留 4 项：building_wan（A100 多栋历史结果）、building_wan_a6000_single_orbit（单轨 400–2400）、building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（2800–3600）、building_wan_a6000_single_orbit_resumed_20260928_190750（当时正在跑）。
+- 本文档和 PROJECT_CONTEXT.md、TRAINING.md、SESSION_HANDOFF.md 中此前提到的 resumed_exact 已不存在；续训输出目录以每次暂停记录生成的新目录名为准，不再固定写死 resumed_exact。以下路径在 2026-09-29 的目录合并后统一加了 building_wan_a6000_single_orbit_all/ 前缀。
+
+## 2026-09-29：训练跑完 8 epochs、checkpoints 目录合并
+
+- 训练于 2026-09-29 02:25 自然跑完 8 个 epochs，最后一个权重 step-11200，进程正常退出，无崩溃。
+- 该轮输出目录 building_wan_a6000_single_orbit_resumed_20260928_190750 内含 step-4000 ~ step-11200 共 19 个权重。
+- 应用户要求合并单轨的三段输出，新建父目录 checkpoints/building_wan_a6000_single_orbit_all/，用 mv 移入三个子目录：
+  - building_wan_a6000_single_orbit（step-400 ~ 2400，6 个权重）
+  - building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（step-2800 ~ 3600，3 个权重）
+  - building_wan_a6000_single_orbit_resumed_20260928_190750（step-4000 ~ 11200，19 个权重）
+- 合并后 checkpoints/ 顶层只剩两项：building_wan（多栋历史）、building_wan_a6000_single_orbit_all（单轨全部 28 个权重，step-400 ~ 11200，共约 1.2G）。
+- 三段的权重文件名互补，无覆盖；每段仍各自保留 loss.csv 和 training_args.json，因此 loss 曲线不连续。
+- 路径变更同步到脚本默认值：train 脚本的输出名不变，resume_wan81_a6000.sh、pause_wan81_a6000.sh、compare_lora_a6000.sh、validate_wan81_a6000.py 的默认 checkpoint 路径已加上 building_wan_a6000_single_orbit_all/ 前缀。
+- 单轨 8 epochs 已跑完，续训脚本的历史默认目标 resumed_exact 依然不存在，不要再按旧路径直接启动续训。

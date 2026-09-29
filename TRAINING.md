@@ -43,7 +43,7 @@
     LoRA rank：16
     训练轮数：8
     dataset_num_workers：0
-    原输出：checkpoints/building_wan_a6000_single_orbit
+    原输出：checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit
 
 统一 prompt 训练会使用一份共享文本 context。逐栋 prompt 必须使用新的缓存设计，不能复用本轮缓存。
 
@@ -82,11 +82,11 @@
 
 脚本默认：
 
-- 从 checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors 读取 LoRA。
+- 从 checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit/step-2400.safetensors 读取 LoRA。
 - 根据 checkpoint 产生时的物理 batch 2，自动换算当前物理 batch 1 的缓存游标（默认跳过 4800 个 batch）。
 - 把初始全局 step 设为 2400。
 - 默认物理 batch 1、梯度累积 4、worker 0，有效 batch 仍为 4。
-- 把新权重写入独立的 checkpoints/building_wan_a6000_single_orbit_resumed_exact，目录非空时拒绝启动。
+- 把新权重写入独立的 checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_exact，目录非空时拒绝启动。
 - 在输出目录写入 run_manifest.json，并用目录锁防止重复启动。
 
 如果使用其他 checkpoint，必须同时设置：
@@ -106,11 +106,11 @@
 先只读预检：
 
     cd /mnt/windowsE/chuanjun/building_wan
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750
 
 预检通过且确认要生成视频后：
 
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed --run
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750 --run
 
 结果目录类似：
 
@@ -122,13 +122,12 @@
 
     ps -ef | grep wan_train_entry.py | grep -v grep
     du -sh cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train
-    find checkpoints/building_wan_a6000_single_orbit_resumed -maxdepth 1 -name '*.safetensors' -printf '%f\n' | sort -V | tail
+    find checkpoints/building_wan_a6000_single_orbit_all -maxdepth 2 -name '*.safetensors' | sort -V | tail
     tail -n 100 logs/a6000_single_orbit_resume_*.log
 
 NVML 初始化警告、黄色感叹号和短时低 GPU 利用率不一定是错误；优先检查 traceback、进程是否仍在、loss.csv 是否增长和 checkpoint 是否保存。不要在原因未确认时重复启动第二个训练进程。
 
 ## 8. A100 历史命令
-
 A100 的 /home/share/CHUANJUN/building_wan 和 mv2v 流程已完成并保留在历史文档中。当前 A6000 训练不要使用 A100 的脚本、环境或输出目录。
 
 ## 2026-09-28：原生崩溃诊断续跑
@@ -159,8 +158,21 @@ diag_20260928 未产出可用权重（目录已清空并删除）。epoch4_resum
 
 `resume_from_pause.sh` 默认读取 logs/ 下最新的 pause_state_*.json，也可用 `--state` 指定。重启前会检查是否已有 wan_train_entry.py 进程在跑，避免重复写同一目录。
 
-当前正在运行：checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750（--lora_checkpoint 取自 epoch4_resume_20260928_174226/step-3600.safetensors），日志 logs/a6000_resume_from_pause_20260928_191930.log，已产出 step-4000…6800，进程仍在跑，不要重复启动第二个训练。
+该轮已于 2026-09-29 02:25 自然跑完 8 个 epochs（最后权重 step-11200，无崩溃）。输出目录为 checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750（--lora_checkpoint 取自 epoch4_resume_20260928_174226/step-3600.safetensors），日志 logs/a6000_resume_from_pause_20260928_191930.log。
 
 本文档第 5、6 节中提到的默认续训目标 resumed_exact 已被删除，不再是当前有效的默认输出目录；请按 pause/resume 流程生成的新目录名核对，不要凭旧文档假设目录仍存在。
 
-checkpoints/ 目录已清理，只保留：building_wan（多栋历史结果）、building_wan_a6000_single_orbit（单轨 400–2400）、building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（2800–3600）、building_wan_a6000_single_orbit_resumed_20260928_190750（当前）。resumed、resumed_b1、resumed_exact、diag_20260928、resumed_epoch4_20260928（空）、building_train_1912_all_256_cooled_lora（实际已不在服务器）已按用户要求删除，不可恢复。
+checkpoints/ 已按用户要求合并为两项：building_wan（多栋历史结果）和 building_wan_a6000_single_orbit_all（单轨全部三段，step-400 ~ 11200，共 28 个权重）。resumed、resumed_b1、resumed_exact、diag_20260928、resumed_epoch4_20260928（空）、building_train_1912_all_256_cooled_lora（实际已不在服务器）已在 2026-09-28 按用户要求删除，不可恢复。
+## 10. 2026-09-29：checkpoints 合并后的路径
+
+单轨三段输出已合并到 checkpoints/building_wan_a6000_single_orbit_all/，脚本默认路径同步更新：
+
+    checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit
+    checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226
+    checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750
+
+检查全部权重：
+
+    find checkpoints/building_wan_a6000_single_orbit_all -maxdepth 2 -name '*.safetensors' | sort -V
+
+训练已跑完 8 个 epochs（最后权重 step-11200），当前无需续训；若以后要续训，先用 pause_wan81_a6000.sh 记录，再用 resume_from_pause.sh --start。

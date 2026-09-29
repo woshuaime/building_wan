@@ -43,7 +43,7 @@
 - 学习率：2e-5
 - 训练轮数：8
 - 数据 worker：0
-- 输出目录：checkpoints/building_wan_a6000_single_orbit
+- 输出目录：checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit
 
 本轮共享文本 context 只适用于统一 prompt。以后改为逐栋 prompt 时，必须重建按 prompt 设计的缓存。
 
@@ -106,29 +106,31 @@ WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python \
 
 默认读取：
 
-    checkpoints/building_wan_a6000_single_orbit/step-2400.safetensors
+    checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit/step-2400.safetensors
 
 默认按 checkpoint 原训练物理 batch 2 换算缓存游标：step-2400 在当前物理 batch 1 下跳过 4800 个 batch，初始全局 step 设为 2400，结果写入：
 
-    checkpoints/building_wan_a6000_single_orbit_resumed_exact
+    checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_exact
 
 如果实际要从其他 step 续训，需要设置 WAN_RESUME_FROM_CHECKPOINT、WAN_RESUME_CHECKPOINT_STEP、WAN_RESUME_CHECKPOINT_BATCH_SIZE 和 WAN_RESUME_INITIAL_STEPS。脚本会按当前物理 batch 自动换算跳过的缓存 batch。
 
+注意：单轨 8 epochs 已于 2026-09-29 跑完，当前可用的完整权重在 checkpoints/building_wan_a6000_single_orbit_all/ 下（三段，step-400 ~ 11200）。续训前建议用 pause_wan81_a6000.sh 记录暂停点，再用 resume_from_pause.sh --start 启动，而不是直接跑本节的默认命令。
+
 ## 7. 验证方式
 
-续训完成后先做只读预检：
+先做只读预检（默认目录已指向合并后的最新一轮）：
 
 ~~~bash
 cd /mnt/windowsE/chuanjun/building_wan
 /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py \
-  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact
+  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750
 ~~~
 
 确认预检通过后，用户明确要求生成视频时再加 --run：
 
 ~~~bash
 /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py \
-  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed --run
+  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750 --run
 ~~~
 
 验证只比较基础模型和最新 LoRA 的固定 prompt、固定 seed 视频，不计算验证集自动指标。需要人工观看建筑体块、360 度完整性、几何变形、闪烁和时序稳定性。
@@ -161,11 +163,11 @@ chuanjun.code-workspace 只描述本地 Windows 文件夹和 DiffSynth 子目录
 
 ## 10. 下一步
 
-1. 在服务器确认没有残留训练进程和占用 GPU 的任务。
-2. 在 tmux 中执行正确的续训命令。
-3. 观察 resumed 输出目录中的 loss.csv 和 checkpoint。
-4. 训练结束后先预检，再生成 base/LoRA 对比视频。
-5. 观看视频后再决定是否进行逐栋 prompt 实验。
+1. 单轨 8 epochs 已跑完（2026-09-29 02:25，最后权重 step-11200），无需再启动续训。
+2. 生成 base/LoRA 固定条件对比视频，权重目录用合并后的 checkpoints/building_wan_a6000_single_orbit_all/。
+3. 人工检查建筑体块、360 度视角完整性、几何变形、闪烁和时序稳定性。
+4. 观看视频后再决定是否进行逐栋 prompt 实验。
+5. 历史段（step-400 ~ 2400、2800 ~ 3600）如需对比也可一并生成。
 
 ## 2026-09-28：原生崩溃诊断续跑
 
@@ -193,3 +195,15 @@ PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
 - 应用户要求清理历史 checkpoints，删除了 resumed、resumed_b1、resumed_exact、diag_20260928（空）、resumed_epoch4_20260928（空）、building_train_1912_all_256_cooled_lora（实际已不在服务器）共 6 项，不可恢复。
 - 清理后 checkpoints/ 只剩 4 项：building_wan（多栋历史）、building_wan_a6000_single_orbit（单轨 400–2400）、resumed_epoch4_20260928_174226（2800–3600）、resumed_20260928_190750（当前正在跑）。
 - 本文档第 6、7 节中出现的 resumed_exact 目录已不存在；实际续训应以最新的 pause/resume 流程为准，输出目录以每次暂停记录生成的新目录名为准，不再固定写死 resumed_exact。
+
+## 12. 2026-09-29：单轨 8 epochs 跑完、checkpoints 合并
+
+- 训练于 2026-09-29 02:25 自然跑完 8 个 epochs，最后权重 step-11200，进程正常退出，无崩溃。
+- 应用户要求合并单轨三段输出，新建父目录 checkpoints/building_wan_a6000_single_orbit_all/，移入三个子目录（用 mv，原位置不再保留）：
+  - building_wan_a6000_single_orbit（step-400 ~ 2400）
+  - building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（step-2800 ~ 3600）
+  - building_wan_a6000_single_orbit_resumed_20260928_190750（step-4000 ~ 11200）
+- 合并后 checkpoints/ 顶层只有 building_wan（多栋历史）和 building_wan_a6000_single_orbit_all（单轨全部 28 个权重，step-400 ~ 11200，约 1.2G）。
+- 三段权重文件名互补无覆盖；每段各自保留 loss.csv 和 training_args.json，loss 曲线不连续。
+- 已同步脚本默认路径：resume_wan81_a6000.sh、pause_wan81_a6000.sh、compare_lora_a6000.sh、validate_wan81_a6000.py 都加上了 building_wan_a6000_single_orbit_all/ 前缀；train_wan81_a6000.sh 的 TRAIN_NAME 未改。
+- 下一步：用最新 step-11200 或若干中间 step 做固定 prompt、固定 seed 的 base/LoRA 对比视频，人工检查体块、环绕完整性、几何变形、闪烁和时序稳定性。

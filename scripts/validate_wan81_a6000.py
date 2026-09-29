@@ -114,7 +114,9 @@ def main() -> None:
         if count != manifest["counts"][split] or video_hash != manifest["split_video_sha256"][split]:
             raise ValueError(f"{split} metadata differs from the fixed split manifest")
 
-    checkpoint_dir = args.checkpoint_dir or (root / "checkpoints" / EXPERIMENT)
+    checkpoint_dir = args.checkpoint_dir or (
+        root / "checkpoints" / "building_wan_a6000_single_orbit_all" / EXPERIMENT
+    )
     checkpoint_dir = checkpoint_dir.resolve()
     step, checkpoint = latest_checkpoint(checkpoint_dir)
     experiment_name = checkpoint_dir.name

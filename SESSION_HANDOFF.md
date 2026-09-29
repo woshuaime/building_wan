@@ -6,7 +6,7 @@
 - 本地仓库：D:\building_wan
 - 远程仓库：git@github.com:woshuaime/building_wan.git
 - 服务器项目：/mnt/windowsE/chuanjun/building_wan
-- 当前任务：A6000 单轨续训正在进行中（checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750，pid 630785），训练结束后再生成新一轮 base/LoRA 对比视频
+- 当前任务：单轨 8 epochs 已跑完（最后权重 step-11200，checkpoints/building_wan_a6000_single_orbit_all/），下一步做固定条件 base/LoRA 对比视频并人工评估
 
 ## 2. 环境
 
@@ -25,8 +25,8 @@
 - 统一 prompt：训练、验证、测试使用同一条建筑旋转 prompt
 - 配置：384×384、81 帧、物理 batch 2、梯度累积 2、有效 batch 4、LoRA rank 16、8 epochs
 - 缓存：cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train
-- 原输出：checkpoints/building_wan_a6000_single_orbit
-- 续训输出：checkpoints/building_wan_a6000_single_orbit_resumed_exact
+- 原输出：checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit
+- 续训输出：统一放在 checkpoints/building_wan_a6000_single_orbit_all/ 下；2026-09-29 已把三段输出合并到这个父目录
 
 ## 4. 已完成的工作
 
@@ -76,11 +76,11 @@
 
 先预检：
 
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750
 
 预检无误后，需要生成视频时再执行：
 
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact --run
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750 --run
 
 验证只比较基础模型与最新 LoRA 的固定 prompt、固定 seed 视频。需要人工检查建筑体块、360 度视角、几何变形、闪烁和时序稳定性。
 
@@ -117,4 +117,18 @@ PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
 - 新增 scripts/pause_wan81_a6000.sh 和 scripts/resume_from_pause.sh：可在训练运行中记录暂停点（写入 logs/pause_state_*.json）并从该点续跑，不需要等崩溃。
 - 用暂停记录以 epoch4_resume_20260928_174226/step-3600.safetensors 为 --lora_checkpoint 续跑，当前正在运行：checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750（pid 630785），日志 logs/a6000_resume_from_pause_20260928_191930.log，已产出 step-4000…6800。**交接时先确认该进程状态，不要重复启动第二个训练写同一目录。**
 - 应用户要求清理了历史 checkpoints，删除 resumed、resumed_b1、resumed_exact、diag_20260928（空）、resumed_epoch4_20260928（空）、building_train_1912_all_256_cooled_lora（实际已不在服务器）共 6 项，不可恢复。第 3、6、7 节中提到的 resumed_exact 目录已不存在，续训和验证都不要再假设这个目录存在。
-- 清理后 checkpoints/ 只剩 4 项：building_wan、building_wan_a6000_single_orbit、building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226、building_wan_a6000_single_orbit_resumed_20260928_190750（当前）。
+- 清理后 checkpoints/ 只剩 4 项：building_wan、building_wan_a6000_single_orbit、building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226、building_wan_a6000_single_orbit_resumed_20260928_190750（当时）。
+
+## 10. 2026-09-29：单轨 8 epochs 跑完、checkpoints 合并
+
+- 训练于 2026-09-29 02:25 自然跑完 8 个 epochs，最后权重 step-11200，无崩溃。
+- 单轨三段输出已合并到 checkpoints/building_wan_a6000_single_orbit_all/：
+  - building_wan_a6000_single_orbit（step-400 ~ 2400）
+  - building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（step-2800 ~ 3600）
+  - building_wan_a6000_single_orbit_resumed_20260928_190750（step-4000 ~ 11200）
+- 合并后 checkpoints/ 顶层只有 building_wan 和 building_wan_a6000_single_orbit_all；单轨共 28 个权重（step-400 ~ 11200）。
+- resume_wan81_a6000.sh、pause_wan81_a6000.sh、compare_lora_a6000.sh、validate_wan81_a6000.py 的默认 checkpoint 路径已同步加前缀。
+- 下一步：跑 base/LoRA 固定条件对比视频。推荐用合并后的最新一轮目录：
+
+    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py \
+      --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_20260928_190750 --run
