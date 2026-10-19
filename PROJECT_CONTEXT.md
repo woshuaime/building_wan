@@ -1,5 +1,28 @@
 # Project Context
 
+更新时间：2026-10-18。当前目标转为 BuildingFiller 残缺建筑序列与 Mask 条件下的 VACE 补全基线。源 465 的 512 交接包已在服务器发现并通过完整性检查，VACE 权重在已检查的项目及可访问缓存中缺失；本轮未运行模型，检查完成后等待用户确认。详见 [P01 交接与 VACE 方案](docs/BUILDINGFILLER_P01_VACE_HANDOFF.md)。历史训练不自动续跑。实验历史见 [EXPERIMENTS.md](EXPERIMENTS.md)，操作见 [TRAINING.md](TRAINING.md)。
+
+## 1. 目标与边界
+
+当前任务是 Damaged + 独立适配的 ModelMask + 文本 → 原始 VACE 补全视频，GT 只用于评估。BuildingFiller 在个人 Windows 电脑独立制作数据，经实验室 Windows 主机转入 Linux 项目；Windows `D:\P01_465` 不能当作服务器路径。第一例为源 465、A1 Medium、删除表面积约 5.679%，不用历史 T2V LoRA。
+
+历史 Wan2.1-T2V-1.3B LoRA 学习灰色、无纹理建筑 mesh 的体块、完整环绕和时序稳定性；单轨统一 prompt 的划分、缓存及权重保持独立。逐栋描述和 Cap3D 必须使用独立划分检查、缓存及输出。
+
+BuildingFiller 已交接完整/残缺/移除 mesh 三元组与对齐 RGB/Exact 的 P01 数据；旧扫描器 GUI 源码仍缺失。当前 LoRA 对比及人工数据验收都没有证明 VACE 补全或三维重建能力。
+
+## 当前阶段：2026-10-18 P01 接收检查
+
+- 执行环境为 SSH Linux `vccip`，用户 `scj`；不能直接检查 Windows 主机 D 盘或其 OpenSSH 配置。本轮没有执行 SCP；已有文件位于 `data/buildingfiller_import/P01_465/`。
+- ZIP SHA256 `5a966a269866a1423c1efa38937fcce6ec6984f8fda78c35395abccab83d5bb8`；ZIP CRC、262 项载荷哈希、243 PNG 实际解码、81 帧三角色/相机对齐、三对首尾闭合及随包校验器均通过。Exact 为 0/255，046–072 共 27 张全黑，合法保留。
+- 新审计副本及报告在 `outputs/buildingfiller_handoff/P01_465_20261018/`；原 ZIP/Exact/Damaged 未改。其他七例和 768/1024 图片不在本次服务器载荷检查范围。
+- RTX A6000 CUDA 可用，总显存约 47.4 GiB、探测时空闲约 47.1 GiB；DiffSynth 2.1.5 离线导入通过。已有 T2V DiT 没有 VACE 分支。共享 T5/VAE/tokenizer 存在；`/home/shi/.cache` 无读取权限，未把模型缺失结论扩展到未检查位置。
+- 冻结计划 `configs/vace_p01_465_17f_v1.json`：连续源 005–021、17 帧、512×512、16 fps、原始 VACE-1.3B、不加载 LoRA。当前 pipeline 需要 RGB 三通道 Mask 列表，直接 L 模式会报错。基于 Exact 二值化、复制通道和 Damaged 白区填 RGB127 的 CPU 内存合同检查通过，但未落盘派生输入或调用模型。
+- 下一步需明确 VACE 权重位置、实现项目专用执行器并落盘独立派生输入；GPU 推理必须等待用户确认。`training_ready=false` 保留，GT-oracle Mask 必须在结果中披露。
+
+## 历史 T2V 记录（原有 Git 版本）
+
+以下保留本次同步前的 T2V 记录，其训练终态和操作描述不代表当前状态。当前目标、检查结果和运行授权以本文件开头的 P01 章节及其交接方案为准。此前 T2V 审计及训练代码修改仍留在服务器工作区，未纳入本次提交。
+
 ## 1. 当前目标
 
 在实验室服务器上使用单张 NVIDIA RTX A6000 训练 Wan2.1-T2V-1.3B 建筑领域 LoRA。第一轮只使用单轨建筑视频和一条统一 prompt，让模型先学习灰色建筑 mesh 的体块、环绕视角和时序稳定性。逐栋独立 prompt 暂留给后续实验。

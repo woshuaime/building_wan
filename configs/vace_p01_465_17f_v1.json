@@ -1,0 +1,71 @@
+{
+  "schema": "building_wan.vace_baseline_plan.v1",
+  "status": "preparation_only_requires_user_confirmation_before_GPU_inference",
+  "source": {
+    "archive": "data/buildingfiller_import/P01_465/BuildingFiller_P01_465_512_v1.zip",
+    "archive_sha256": "5a966a269866a1423c1efa38937fcce6ec6984f8fda78c35395abccab83d5bb8",
+    "package_id": "BuildingFiller_P01_465_512_v1",
+    "sample_relative_root": "samples/sample_0000",
+    "source_id": 465,
+    "stable_id": "b465_2e6fc746",
+    "frame_start_inclusive": 5,
+    "frame_end_inclusive": 21,
+    "frame_stride": 1,
+    "selection_policy": "max_sum_Exact_17_contiguous_exclude_closure",
+    "GT_usage": "evaluation_only",
+    "mask_is_GT_oracle": true
+  },
+  "model": {
+    "id": "Wan-AI/Wan2.1-VACE-1.3B",
+    "vace_checkpoint": null,
+    "checkpoint_status": "missing_in_inspected_project_and_accessible_caches",
+    "text_encoder": "models/Wan-Series-Converted-Safetensors/models_t5_umt5-xxl-enc-bf16.safetensors",
+    "vae": "models/Wan-Series-Converted-Safetensors/Wan2.1_VAE.safetensors",
+    "tokenizer": "models/Wan2.1-T2V-1.3B/google/umt5-xxl",
+    "lora_checkpoint": null,
+    "allow_download": false,
+    "allow_dependency_changes": false,
+    "require_loaded_vace_branch": true
+  },
+  "adapter": {
+    "version": "buildingfiller_exact_to_diffsynth_vace_rgb_v1_proposed",
+    "status": "proposed_not_validated_by_model_inference",
+    "white_means": "generate",
+    "black_means": "retain_context",
+    "binarization": "255 if Exact > 127 else 0",
+    "mask_mode": "RGB_with_identical_channels",
+    "mask_tensor_range": [0, 1],
+    "spatial_resize": "none",
+    "dilation_radius_pixels": 0,
+    "conditioning_video": "copy Damaged, fill white ModelMask pixels with RGB(127,127,127)",
+    "conditioning_tensor_range": [-1, 1],
+    "reference_image": null,
+    "preserve_original_Damaged_and_Exact": true
+  },
+  "inference": {
+    "height": 512,
+    "width": 512,
+    "num_frames": 17,
+    "fps": 16,
+    "torch_dtype": "bfloat16",
+    "seed": 20261018,
+    "num_inference_steps": 30,
+    "cfg_scale": 5.0,
+    "sigma_shift": 5.0,
+    "vace_scale": 1.0,
+    "tiled": true,
+    "rand_device": "cpu",
+    "prompt": "白色背景中一栋完整的灰色无纹理建筑三维模型，规则连续的墙面和屋顶，保持建筑形状与相机轨迹一致，固定俯仰视角平滑环绕，结构稳定，光照一致。",
+    "negative_prompt": "彩色纹理，窗户装饰，新增建筑，建筑形变，结构闪烁，背景变化，文字，水印"
+  },
+  "output_policy": {
+    "root_pattern": "outputs/vace/P01_465_17f_baseline_<unique_run_id>",
+    "existing_directory": "refuse",
+    "save_original_inputs_and_hashes": true,
+    "save_frame_mapping_and_camera_references": true,
+    "save_raw_prediction_PNG_before_compositing": true,
+    "save_GT_separately_for_evaluation": true,
+    "save_exit_status_logs_and_peak_GPU_memory": true,
+    "composited_result_is_separate_optional_artifact": true
+  }
+}

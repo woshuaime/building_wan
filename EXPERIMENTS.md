@@ -1,5 +1,22 @@
 # Experiments
 
+更新时间：2026-10-18。新增 BuildingFiller P01 数据接收检查和原始 VACE 基线计划；尚未执行 VACE 推理。历史串行测试已清理且不再自动续跑。各硬件、划分、权重来源分开记录。历史报告与本次核对结果不一致时，明确标记待核实，不补造训练结果。
+
+## 当前准备：P01 源 465 / VACE-1.3B（2026-10-18）
+
+- 来源为独立 BuildingFiller 项目，经实验室 Windows 主机 `D:\P01_465` 交接。服务器已有 `data/buildingfiller_import/P01_465/` ZIP、SHA256 及收尾说明；本轮没有执行上传。
+- 源/家族 465，稳定 ID `b465_2e6fc746`，A1 Medium，删除表面积 5.679235%，人工接受；仅 P01 的 512 子集在本次服务器独立验证。ZIP 为 1,319,395 bytes，SHA256 `5a966a269866a1423c1efa38937fcce6ec6984f8fda78c35395abccab83d5bb8`。
+- ZIP CRC、262 项文件 SHA256、243 PNG 实际解码、相机/元数据绑定、三角色 81 帧对应和三对闭合通过。随包校验器返回 passed。27 张全黑 Exact 合法保留；训练发布状态仍为 false。
+- 审计报告/解压副本独立保存在 `outputs/buildingfiller_handoff/P01_465_20261018/`；冻结配置 `configs/vace_p01_465_17f_v1.json` 选择连续 005–021，17 帧、512×512、16 fps、seed 20261018、30 步、CFG 5，计划只用原始正式 VACE、不加载 T2V LoRA。
+- CPU 检查了二值 Exact → RGB ModelMask 列表和 Damaged 白区填 RGB127 的实际预处理合同，张量 `[1,3,17,512,512]`、Mask 值域 0/1；没有落盘这些派生输入或加载权重。GT-oracle Mask 是本基线已知条件，GT RGB 仅供评估。
+- CUDA/A6000 可用，DiffSynth 2.1.5 pipeline 离线导入通过；项目和可访问缓存未发现 VACE 权重，其他用户缓存不可读取。缺权重路径、项目基线执行器、派生输入及用户 GPU 确认，**没有生成补全结果或评价指标**。
+
+操作与限制见 [P01 交接与 VACE 方案](docs/BUILDINGFILLER_P01_VACE_HANDOFF.md)。以下历史 T2V 台账保持独立。
+
+## 历史 T2V 记录（原有 Git 版本）
+
+以下保留本次同步前的 T2V 记录，其训练终态和操作描述不代表当前状态。当前目标、检查结果和运行授权以本文件开头的 P01 章节及其交接方案为准。此前 T2V 审计及训练代码修改仍留在服务器工作区，未纳入本次提交。
+
 本文档记录各轮实验的配置、结果和失败原因。历史实验保留，不把不同 GPU、数据划分或输出目录混在一起。
 
 ## Experiment: building_train_1912_all_256_cooled_lora

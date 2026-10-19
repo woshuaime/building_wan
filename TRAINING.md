@@ -1,5 +1,24 @@
 # Training
 
+更新时间：2026-10-18。当前仅完成 BuildingFiller P01 交接检查与 VACE 基线准备，不启动训练或 GPU 推理。当前 A6000 项目路径为 `/mnt/windowsE/chuanjun/building_wan`。历史串行测试已按要求清理。本文件中的启动命令仅供用户再次明确授权训练/推理后使用；代码维护本身不授权启动。
+
+## 当前阶段：BuildingFiller / VACE，只读检查
+
+Windows PowerShell 完整复制命令及三机路径边界见 [P01 交接](docs/BUILDINGFILLER_P01_VACE_HANDOFF.md)。Linux 已有同包并验证通过，当前无需再次上传。新工具默认不写数据或输出：
+
+```bash
+cd /mnt/windowsE/chuanjun/building_wan
+/home/shi/miniconda3/envs/scj/bin/python -B scripts/audit_buildingfiller_package.py \
+  data/buildingfiller_import/P01_465/BuildingFiller_P01_465_512_v1.zip \
+  --expected-sha256 5a966a269866a1423c1efa38937fcce6ec6984f8fda78c35395abccab83d5bb8
+```
+
+可加 `--output-dir <全新审计目录>` 保存报告和解压副本，已有目录拒绝。实际报告位于 `outputs/buildingfiller_handoff/P01_465_20261018/`。17 帧冻结参数在 `configs/vace_p01_465_17f_v1.json`；VACE 权重和项目专用执行器尚待落实，不直接运行会下载模型/示例数据的第三方示例。GPU 推理等待用户明确确认。下文是历史 T2V 入口，不用于 P01 条件补全。
+
+## 历史 T2V 记录（原有 Git 版本）
+
+以下保留本次同步前的 T2V 记录，其训练终态和操作描述不代表当前状态。当前目标、检查结果和运行授权以本文件开头的 P01 章节及其交接方案为准。此前 T2V 审计及训练代码修改仍留在服务器工作区，未纳入本次提交。
+
 本文档记录当前实验室服务器上的 A6000 单轨训练、续训和验证方法。当前项目根目录为 /mnt/windowsE/chuanjun/building_wan，环境为 scj。
 
 ## 1. 环境和路径

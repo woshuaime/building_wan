@@ -1,5 +1,25 @@
 # Session Handoff
 
+更新时间：2026-10-18。用户当前要求 BuildingFiller 源 465 数据交接与原始 VACE 最小补全实验准备；完成环境与数据检查后暂停，等待明确确认再启动 GPU 推理。历史训练继续授权仍不生效，不自动训练或补训。
+
+## 优先接手：P01 / VACE 准备
+
+- 先读 [P01 交接与 VACE 方案](docs/BUILDINGFILLER_P01_VACE_HANDOFF.md)。实际执行端是 SSH Linux `vccip`，用户 `scj`，不能把 Windows 主机的 D 盘或 C 盘 SSH 配置当成服务器文件。
+- 服务器 `data/buildingfiller_import/P01_465/` 已有 ZIP、SHA256 和 `Stage1_Closeout_Report.md`。本轮仅读取原件，未执行上传；Windows 端源路径/SSH 客户端/别名检查命令已提供，尚未在 Windows 实测。
+- ZIP SHA256 `5a966a269866a1423c1efa38937fcce6ec6984f8fda78c35395abccab83d5bb8`；262 项哈希、ZIP CRC、243 PNG 完整解码、81 帧对齐/相机绑定、三对首尾闭合及随包校验均 passed。Exact 046–072 共 27 张全黑，不能删除。
+- 审计报告、联系图和独立解压副本在 `outputs/buildingfiller_handoff/P01_465_20261018/`；原数据不改。只检查了 P01 512 子集，不把来源记录的全部八例当成本机逐例检查。
+- DiffSynth 2.1.5 VACE pipeline 离线导入通过，A6000 CUDA 可用、总显存 47.4 GiB。项目模型目录及当前用户缓存未找到 VACE；其他用户 `/home/shi/.cache` 无读取权限。现有 T2V DiT 不含 VACE 分支。
+- 计划 `configs/vace_p01_465_17f_v1.json`：源 005–021 连续 17 帧、512×512、16 fps、原始 VACE-1.3B、不加载旧 LoRA。RGB Mask 列表/0–1 范围和填灰条件帧的 CPU 内存检查已通过；派生 Mask 与条件帧尚未落盘，没有加载权重、调用 VAE 或推理。
+- 下一步先确认可读正式 VACE 权重路径，落实项目专用执行器和独立输入保存，再等待用户确认 GPU 推理。禁止自动下载/安装/升级或直接运行会下载模型与数据的 vendor 示例。GT 仅评估，Exact 明确是 GT-oracle；training_ready=false 保持。
+- 新增只读审计工具 `scripts/audit_buildingfiller_package.py`，仅显式传 `--output-dir` 才写入全新审计目录，已有目录拒绝。未改第三方核心或 T2V 数据、缓存、历史权重/视频；未提交或同步远程。
+- 本轮检查：git diff --check、训练/续训 bash -n、训练/验证/新审计入口 py_compile 通过，scripts/tests 36 项全部通过。真实包只读复验、错误预期 SHA256 拒绝、已有输出目录拒绝、冻结配置与 17 帧映射一致检查通过；已有审计报告哈希未变。PowerShell 仅审阅，未在 Windows 执行。
+
+以下为 10-15 及更早 T2V 诊断交接，不能当作启动当前 VACE 或历史训练的授权。
+
+## 历史 T2V 记录（原有 Git 版本）
+
+以下保留本次同步前的 T2V 记录，其训练终态和操作描述不代表当前状态。当前目标、检查结果和运行授权以本文件开头的 P01 章节及其交接方案为准。此前 T2V 审计及训练代码修改仍留在服务器工作区，未纳入本次提交。
+
 ## 1. 更新时间和当前任务
 
 - 更新时间：2026-09-28
