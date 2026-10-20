@@ -1,10 +1,23 @@
 # Project Context
 
-更新时间：2026-10-20。八例81帧原始补全及CPU硬边界合成已完成。P04/P06条件LoRA首轮已完整正常结束；北京时间17:05:32已核实300次更新、6次17帧推理及最终成果。当前只需查看结果，旧恢复说明仅为历史。
+更新时间：2026-10-20 18:29:58 +09:00。LoRA-300的首次81帧评估因CPU制图类型错误停止；P04已完成推理但临时预测未保留，P06及六例迁移尚未启动。制图修复和298项CPU测试已通过，等待一次P04补跑授权，尚无81帧效果结论。
 
 持续工作约定：用户每次实际启动GPU训练或推理后，主动核实进度/最终状态、更新项目文档，并提交推送本轮相关代码、配置和文档；不等再次提醒。数据、模型、成果媒体与日志留在原目录，不入Git。该规则已写入AGENTS.md和SESSION_HANDOFF.md。
 
-## 当前：P04/P06 VACE条件LoRA首轮完成
+## 当前：LoRA-300的81帧扩展评估在CPU制图阶段停止
+
+- 首次P04真实30/30步与VAE解码完成，模型加载至返回175.2秒，峰值17.141GiB allocated /25.832GiB reserved。随后 `comparison_panel` 接收到PIL对象而非NumPy数组，抛出 `TypeError: a bytes-like object is required, not 'Image'`，worker和批次均退出1，未启动P06。
+- 原始MP4曾在临时目录编码完成，但失败时临时目录被清理；当前输出根目录为空，不能用此次推理评价视觉效果。修复统一转换制图像素类型，并先将原始MP4保存到最终样本目录；后续CPU制图失败可用 `--render-only` 完成，不需重新推理。GPU未自动重试。
+- 修复后298项CPU测试通过（53.124秒），包括81帧PIL输出制图、全部媒体解码、CPU制图失败后01保留且补图不改01。语法/编译/diff通过；没有用CPU结果冒充正式预测。
+
+- 实际tmux为 `vace_p01_17f:4.0`，窗口名 `lora300_eval81`，pane `%4`，已回到shell。18:24:35 +09:00启动快照曾确认P04成功加载VACE及LoRA；最终状态以上述失败为准。
+- 唯一权重：`outputs/vace/lora_roof_smoke/run_20261020_165237_150325_2048720/training/lora_update0300.safetensors`。该run已完成300更新，用户确认17帧有效；本轮只加载vace分支，scale1，不训练、不叠加其他LoRA。
+- 新结果只写 `outputs/vace/lora300_eval81/`。顺序P04→P06，完成后先查看全环绕效果；仅当仍整体明显优于Base才执行P01/P02/P03/P05/P07/P08。每例独立进程重载原模型，异常即停，不自动重试。
+- 八例Base均复用 `outputs/vace/test/01–08/01_补全结果.mp4`。执行入口和冻结配置确认81帧B000–B080、512、16FPS、30步、CFG5、seed20261018及正负文本一致；旧入口隐式cfg_merge/denoising_strength/VAE tile参数与现用显式参数一致。媒体自身不能反推seed，复用依据为既有执行证据和配置。
+- Damaged/Exact用原Pilot8包，填灰127与二值Mask规则不变，全黑帧保留；GT像素只在推理返回后读取用于比较，不回贴或调色。每例四文件：原始LoRA视频、四栏81帧视频、四行五列总览、五栏Mask图。
+- CPU准备已核对唯一权重metadata/结构、八例81帧输入与Base完整解码；297项CPU测试、规定语法/编译/diff检查通过。未做重复大文件SHA、依赖更新或模型改造。
+
+## 已完成：P04/P06 VACE条件LoRA首轮
 
 详细说明见 [P04/P06 LoRA实验](docs/VACE_P04_P06_LORA_SMOKE.md)。当前run为 `outputs/vace/lora_roof_smoke/run_20261020_165237_150325_2048720/`，真实会话为 `vace_p01_17f`、窗口3、pane `%3`；不要误找尚未创建的 `vace_roof_smoke` 会话，也不要重复执行启动命令。
 

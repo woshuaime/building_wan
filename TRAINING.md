@@ -1,6 +1,31 @@
 # Training
 
-更新时间：2026-10-20。P04/P06条件LoRA首轮已完整正常结束：300更新、两例各150次、6次17帧推理，training四文件和04/06各四成果齐全。下方首次启动命令不用于查看本轮结果或恢复任务。
+更新时间：2026-10-20 18:29:58 +09:00。首次LoRA-300/81帧批次在P04推理后CPU制图阶段失败，退出1；修复及298项CPU测试通过，待一次补跑授权，未自动重试。17帧训练的首次启动命令仍仅是历史说明。
+
+## 当前：查看LoRA-300的81帧推理
+
+当前窗口已回到shell。P04完成30步及VAE解码，随后因PIL/NumPy制图类型不匹配而失败；首次临时预测已被清理，目录为空。修复已通过实际81帧媒体CPU测试；依据AGENTS.md不自动GPU重试。修复后原始01会先保存，若后续CPU制图失败，可用同一入口 `--render-only 04 --output-root <本轮根目录>` 仅补图，不调用模型。
+
+真实终端为已有会话 `vace_p01_17f` 的窗口4 `lora300_eval81`，pane `%4`：
+
+```bash
+tmux attach-session -t vace_p01_17f
+# 会话内 Ctrl+b，然后按 4；以下仅只读查看进度
+tmux capture-pane -p -t vace_p01_17f:4.0 -S -40
+```
+
+已执行 `WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/run_vace_lora300_eval81.sh --run-trained`。该模式计划只运行P04→P06再退出供视觉检查，本次实际在P04制图阶段失败。不能当作状态查询反复启动。结果根目录 `outputs/vace/lora300_eval81/`；默认无参数或 `--dry-run` 仅CPU检查，补跑获授权后会在已有根目录下新建时间戳子目录，后续六例需传入该实际子目录。
+
+P04/P06若仍整体明显优于Base，当前授权允许在同一可见终端执行其余六例：
+
+```bash
+WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/run_vace_lora300_eval81.sh \
+  --run-transfer --output-root /mnt/windowsE/chuanjun/building_wan/outputs/vace/lora300_eval81
+```
+
+本轮推理入口固定唯一已完成LoRA-300/vace/scale1，不包含训练分支；fresh worker串行，真实30步进度，打印耗时/显存/结果/退出码。Base八例已有同条件结果直接复用。没有自动重试、81帧分段、降低分辨率或额外Base调用。
+
+每例最终四文件为 `01_微调后补全.mp4`、`02_Base_微调后_GT_对比.mp4`、`03_关键帧总览.png`、`04_Mask验证.png`；四栏顺序Before/Base/LoRA-300/GT。512×512主体不独立缩放，视频81帧/16FPS、High/yuv420p/BT.709，完整解码后发布。默认关键帧000/020/040/060/080；只有默认视角漏掉主要缺口时才按Mask选帧并打印真实编号。RGB误差只作辅助，不能代替结构和连续视角检查。
 
 ## GPU运行后的固定交接流程
 
