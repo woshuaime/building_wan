@@ -1,8 +1,130 @@
 # Training
 
-更新时间：2026-10-18。当前仅完成 BuildingFiller P01 交接检查与 VACE 基线准备，不启动训练或 GPU 推理。当前 A6000 项目路径为 `/mnt/windowsE/chuanjun/building_wan`。历史串行测试已按要求清理。本文件中的启动命令仅供用户再次明确授权训练/推理后使用；代码维护本身不授权启动。
+更新时间：2026-10-20。P04/P06条件LoRA首轮已完整正常结束：300更新、两例各150次、6次17帧推理，training四文件和04/06各四成果齐全。下方首次启动命令不用于查看本轮结果或恢复任务。
 
-## 当前阶段：BuildingFiller / VACE，只读检查
+## GPU运行后的固定交接流程
+
+用户已要求每次GPU训练/推理之后主动执行：核对真实run和退出状态 → 更新PROJECT_CONTEXT/EXPERIMENTS/TRAINING/SESSION_HANDOFF及相关专项说明 → 检查本轮差异 → Git提交并推送main。运行中写时间快照，结束后补最终结果；失败也记录，不能提前写成功。默认只提交相关代码、配置和文档，不提交模型/LoRA、数据、成果媒体或日志，也不把记录要求当作追加GPU工作的授权。详见AGENTS.md第7节。
+
+## 当前：P04/P06 17帧LoRA验证
+
+详细参数、数据关系、成果布局及判断标准见 [P04/P06 LoRA实验说明](docs/VACE_P04_P06_LORA_SMOKE.md)。
+
+### 查看本轮结果与终端记录
+
+本轮实际复用的是旧会话 `vace_p01_17f`，窗口3。断线后执行：
+
+~~~bash
+tmux attach-session -t vace_p01_17f
+~~~
+
+进入后按 `Ctrl+b`，松开再按 `3`。只读查看末尾进度：
+
+~~~bash
+tmux capture-pane -p -t vace_p01_17f:3.0 -S -60
+~~~
+
+实际run为 `/mnt/windowsE/chuanjun/building_wan/outputs/vace/lora_roof_smoke/run_20261020_165237_150325_2048720/`。阶段、更新数和完成状态看其 `training/experiment.json`，逐更新记录看 `training/loss.csv`；本轮均已完整记录300次更新，四个GPU阶段exit_code均0。运行中JSON训练进度约每10步更新、CSV每步flush，可能短暂相差数步。
+
+先打开04/06各自的 `02_缺损_原模型_微调后_GT_对比.mp4`，再看 `03_训练进展对比.png` 的100/300差别。实际总耗时749.247秒，训练峰值allocated15.139GiB、reserved15.393GiB；全流程峰值15.867/17.385GiB。五个代表帧初步显示两例结构闭合改善，完整视频人工验收仍待完成。
+
+### CPU检查与首次启动
+
+CPU预检（默认也是此模式，不加载正式模型或初始化CUDA、不创建实验输出）：
+
+```bash
+bash /mnt/windowsE/chuanjun/building_wan/scripts/run_vace_roof_smoke.sh --dry-run
+```
+
+以下为首次启动完整实验的命令说明；本轮已经启动，当前不要重复执行：
+
+```bash
+bash /mnt/windowsE/chuanjun/building_wan/scripts/run_vace_roof_smoke.sh --tmux
+```
+
+在已有tmux内会复用当前会话并打印准确重连命令；普通SSH终端新建/重连 `vace_roof_smoke`，断开后用 `tmux attach-session -t vace_roof_smoke`。仅前台运行可用 `--run`，无参数绝不启动GPU。不要在正在运行时重复执行。
+
+- 固定P04/P06均B000–B016，512×512/16FPS，GT训练监督与Damaged/Mask条件隔离。配置、完整正负文本、alpha/rank和dtype位于 `configs/vace_roof_smoke_v1.json`；不得用旧T2V入口或旧LoRA。
+- 单卡顺序：Base两次17帧→同一份vace LoRA交替两例300 optimizer updates→100与300权重各两次17帧→CPU比较。每次推理30步/CFG5/seed20261018，fresh阶段加载保证LoRA不累计。训练官方FlowMatchSFTLoss、只优化vace A/B，BF16混合精度加FP32 LoRA参数；冻结DiT仍保留反向链，编码完成后T5/VAE移CPU。
+- 训练前5次实际更新累计确认有效梯度和参数变化；官方训练scheduler包含零权重时间步，单步零loss/梯度不直接误报失败，但持续断链/非有限值必须停。每10步显示平均loss，loss.csv逐更新flush；只有100/300保存增量，不冒充optimizer/RNG恢复状态。
+- 输出独立run目录，training仅两个safetensors、experiment.json、loss.csv；04/06各原始LoRA300视频、四方视频、五行训练进展PNG和最大Mask视角五栏验证PNG。视频17帧、H.264/yuv420p/BT.709，不回贴、不用GT替换预测。异常退出保留权重，整体标FAILED；不会自动续训、重试、降分辨率或变更帧数。
+- CPU294项回归通过不代表正式GPU训练通过。终端打印两例像素误差仅供参考，凹槽/洞口是否真正闭合、是否闪烁仍需查看同条件Base/100/300可视化，不按loss阈值自动宣布结构成功。
+
+### GPU、显存和退出状态
+
+- 用户截图中的 `GPU-Util=100%` 表示采样期间GPU持续执行任务，`MEM=16.7%` 对应约8GiB/48GiB的显存容量占用。低显存占比不能当作低计算利用率，也不用为占满显存修改本轮参数。
+- 本轮训练只为LoRA保存可训练梯度和AdamW状态，序列17帧、batch1，使用checkpointing，冻结的T5/VAE编码后移到CPU；训练稳态显存可以明显低于完整推理加载阶段。阶段记录的peak仍包括加载/编码过程，本轮实测15.139GiB allocated，不能用约8GiB的中途截图代替。冻结DiT仍需参与前向及梯度回传。
+- `TRAINING UPDATES FINISHED` 只说明更新循环走完；必须再看训练子进程退出0、parent阶段complete。全流程结束还需六次推理及两例最终成果验证，不能根据两份权重存在提前宣布完整成功。
+- loss.csv是每步噪声/时间步采样下的FlowMatch损失，允许波动。不能把300次optimizer update与推理30步混为一谈，也不根据loss阈值判定凹槽/黑洞已修好。
+- 遇FAILED、OOM、非有限值或原生崩溃时保留run，报告stage/error/实际更新数及退出码。当前入口没有完整训练状态resume；再次执行启动命令会新建一轮Base+训练，不是继续原任务。
+
+## 已完成：CPU缺口硬边界合成
+
+本轮八例已经完成，无需重跑。独立入口为 `scripts/composite_vace_results.py`，只读原始预测和交接ZIP，逐例生成三项成果，不调用模型。需要另一次CPU复核时才执行：
+
+```bash
+CUDA_VISIBLE_DEVICES='' /home/shi/miniconda3/envs/scj/bin/python -u -B /mnt/windowsE/chuanjun/building_wan/scripts/composite_vace_results.py
+```
+
+默认输出 `outputs/vace/composite_check/01–08/`；目标存在则自动使用新的时间戳根目录，绝不覆盖。每例只有合成MP4、四方MP4、四行关键帧PNG；缺输入/Mask来源无法核实则报告并跳过该例，退出码1，不重新推理补救。原推理Exact适配规则不变，GT不进入合成函数。标题和RGB视频采用兼容的H.264/yuv420p/BT.709，避免旧RGB 4:4:4播放偏色；硬边界精确性在编码前验证，不将有损MP4宣称为逐像素无损。
+
+本轮运行位于 `vace_p01_17f:vace_composite`，终端已打印八例SUCCESS和退出0。P04/P06分别查看 `outputs/vace/composite_check/04/03_关键帧对比.png` 与 `outputs/vace/composite_check/06/03_关键帧对比.png`；内部凹槽/黑洞仍然存在，不应继续自动启动推理或边界修改。
+
+## 已完成操作：CPU结果重排与只读验收
+
+只读验收现有八例及三方对比（不修改结果、不加载模型）：
+
+```bash
+CUDA_VISIBLE_DEVICES='' /home/shi/miniconda3/envs/scj/bin/python -B /mnt/windowsE/chuanjun/building_wan/scripts/reorganize_vace_results.py
+```
+
+用户授权离线重排时可追加 `--apply`，旧布局先生成并验证新成果，再安全替换；已升级布局中兼容视频只核验，旧RGB 4:4:4视频仅替换02，其他三文件不动。八例先统一预检，缺失预测/GT/Mask或错号即停止，不调用模型补救。原始MP4的SHA与文件身份始终保护。三栏为81帧/16FPS、H.264 High/yuv420p、明确BT.709有限范围、CRF12及faststart，便于普通播放器播放；禁止再使用libx264rgb/gbrp作为交付视频。FFmpeg可解码不等于浏览器显示正确，必须同时检查像素格式与色彩标签，并对三栏逐帧检查编码误差与帧序。
+
+最终每例文件：`01_补全结果.mp4`、`02_补前_补后_GT_三栏对比.mp4`、`03_补前_补后_GT_三行总览.png`、`04_缺损_Mask_预测_GT_四栏验证.png`。旧GPU结果校验器仍按历史四文件名工作，不应对升级后的目录执行恢复推理。
+
+## 历史操作：保留01–03，恢复P04–P08（后续已成功，不再执行）
+
+在 VS Code Remote-SSH 终端执行一条命令：
+
+```bash
+bash /mnt/windowsE/chuanjun/building_wan/scripts/run_vace_building_test.sh --resume --tmux
+```
+
+新建/重连 `vace_building_test`，已在 tmux 则复用当前会话；终端直接显示每例真实30步、已完成数量、实际耗时及基于已完成样本估算的批量ETA。按 `Ctrl+b` 后按 `d` 分离；新会话断线后 `tmux attach-session -t vace_building_test`。不要重复启动或另起并发。
+
+显式resume先完整解码并核验已有连续结果及源身份，P01/P02/P03只读复用，恢复队列当前严格 `04/P04/1227 → 05/P05/1259 → 06/P06/1848 → 07/P07/2297 → 08/P08/939`。父进程/gate再核对已有四文件SHA与队列一致；全七例输入仍统一检查，随后各待跑例独立worker串行运行。全部沿用P01固定prompt、原始VACE、无LoRA、81帧512×512/16FPS/seed20261018/30步/CFG5/fullBF16，不自动改规格、重试或更换方法。
+
+最终位置是 `outputs/vace/test/01–08/`，各成功目录只允许 `01_补全结果.mp4`、`02_补前补后对比.mp4`、`03_补前补后总览.png`、`04_四栏验证.png`。GT020仅模型返回后用于四栏，ModelMask/条件留内存；临时编码在自有系统/tmp，验收后发布，不存日志/JSON/原始预测PNG副本。
+
+只读恢复预检：`bash /mnt/windowsE/chuanjun/building_wan/scripts/run_vace_building_test.sh --resume --dry-run`。不带resume的首次入口依然拒绝任何已有02–08；恢复也拒绝少文件、错号、非连续、软链接或额外内容，不删除或覆盖已有结果。`--prepare --resume`只验收/复用P01，不启动GPU；当前无需再次整理。
+
+P04失败是T5完整SHA不匹配，不是OOM；当前三次独立全文件复查均正常，无法复现原根因。若再次出现，终端现在会同时显示expected/actual、绝对路径、大小与变化信息，仍立即停止；不要改批准hash、跳过校验、覆盖权重或不断重试。模型/输入/空间/其他GPU任务异常同样停止，保留此前成功结果。
+
+## 历史操作：P01 81 帧极简验证（已完成，不再执行）
+
+```bash
+bash /mnt/windowsE/chuanjun/building_wan/scripts/run_vace_p01_465_81f.sh --tmux
+```
+
+脚本新建/重连可见 `vace_p01_81f`，如已在 tmux 则复用现有会话并打印其重连命令，不嵌套。按 `Ctrl+b` 后按 `d` 分离；新会话断线后执行 `tmux attach-session -t vace_p01_81f`。直接不带参数运行同一脚本也可前台启动，但无 tmux 时断线可能中断。
+
+只检查、不加载模型或保存输出：同一脚本加 `--dry-run`。已实际检查通过，不需要重复下载、上传或运行 17 帧。启动后只一次完整 81 帧/512/16FPS/seed20261018/30步/CFG5，保持同一文本与 Mask 逻辑，不分段或降规格；显存不足停止。
+
+成功最终目录严格四文件，终端打印实际目录/耗时/峰值：`01_补全结果.mp4`、`02_补前补后对比.mp4`、`03_补前补后总览.png`、`04_四栏验证.png`。无日志/JSON/指标/输入或预测 PNG；系统临时编码文件正常退出清理。详细边界见 [VACE 执行说明](docs/VACE_P01_EXECUTION.md)。
+
+## 历史操作：P01 首次 17 帧（不再自动执行）
+
+不需要下载、安装或重新传数据。已有 tmux，以下命令创建并立即进入可见会话；实验结束后保留 shell 便于查看最终结果：
+
+```bash
+tmux new-session -s vace_p01_17f 'bash /mnt/windowsE/chuanjun/building_wan/scripts/run_vace_p01_465_17f.sh; status=$?; printf "\nLauncher exit code: %s\n" "$status"; exec bash'
+```
+
+执行该命令即授权本次一次真实 17 帧实验。按 `Ctrl+b`，松开后按 `d` 仅分离查看，不中断任务。断线后 `tmux attach-session -t vace_p01_17f` 重连；已有同名会话应重连，不要另开实验或终止其他会话。
+
+单独进入会话后也可执行 `bash /mnt/windowsE/chuanjun/building_wan/scripts/run_vace_p01_465_17f.sh`。不使用 tmux 时同一命令前台可见，但 SSH 断开可能中断。只读检查用脚本 `--dry-run`，它不会创建实验输出或加载模型。完整路径、图像布局、指标限制及失败处理见 [执行说明](docs/VACE_P01_EXECUTION.md)。
+
+## 2026-10-19 BuildingFiller / VACE 准备历史
 
 Windows PowerShell 完整复制命令及三机路径边界见 [P01 交接](docs/BUILDINGFILLER_P01_VACE_HANDOFF.md)。Linux 已有同包并验证通过，当前无需再次上传。新工具默认不写数据或输出：
 
@@ -13,189 +135,164 @@ cd /mnt/windowsE/chuanjun/building_wan
   --expected-sha256 5a966a269866a1423c1efa38937fcce6ec6984f8fda78c35395abccab83d5bb8
 ```
 
-可加 `--output-dir <全新审计目录>` 保存报告和解压副本，已有目录拒绝。实际报告位于 `outputs/buildingfiller_handoff/P01_465_20261018/`。17 帧冻结参数在 `configs/vace_p01_465_17f_v1.json`；VACE 权重和项目专用执行器尚待落实，不直接运行会下载模型/示例数据的第三方示例。GPU 推理等待用户明确确认。下文是历史 T2V 入口，不用于 P01 条件补全。
+可加 `--output-dir <全新审计目录>` 保存报告和解压副本，已有目录拒绝。10-18 报告位于 `outputs/buildingfiller_handoff/P01_465_20261018/`。冻结参数仍在 `configs/vace_p01_465_17f_v1.json`，独立执行器现已实现，使用方法见 [VACE 执行说明](docs/VACE_P01_EXECUTION.md)。不要直接运行会下载模型/示例数据的 vendor 示例。
 
-## 历史 T2V 记录（原有 Git 版本）
+当前默认只读预检和下载计划（都不会推理，缺权重的 Python 预检返回 2）：
 
-以下保留本次同步前的 T2V 记录，其训练终态和操作描述不代表当前状态。当前目标、检查结果和运行授权以本文件开头的 P01 章节及其交接方案为准。此前 T2V 审计及训练代码修改仍留在服务器工作区，未纳入本次提交。
+```bash
+/home/shi/miniconda3/envs/scj/bin/python -B scripts/vace_p01.py --dry-run
+WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/download_vace_p01.sh --dry-run
+```
 
-本文档记录当前实验室服务器上的 A6000 单轨训练、续训和验证方法。当前项目根目录为 /mnt/windowsE/chuanjun/building_wan，环境为 scj。
+真实 CPU 准备目录为 `outputs/vace/P01_465_17f_baseline_cpu_prepare_20261019/`，已有目录拒绝覆盖。下载授权后才把下载脚本改为 `--download`；权重就绪后先运行 Python `--dry-run --verify-models`，GPU 另行授权后才用 `--run --output-dir <全新目录>`。下文为历史 T2V 入口，不用于 P01 条件补全。
 
-## 1. 环境和路径
+## 1. 环境和配置
 
-服务器 Python：
+Python：`/home/shi/miniconda3/envs/scj/bin/python`。本次确认 PyTorch 2.11.0+cu128、CUDA runtime 12.8、CUDA 可用；A100 的 mv2v 和 `/home/share/CHUANJUN/building_wan` 是历史环境。
 
-    /home/shi/miniconda3/envs/scj/bin/python
+当前默认：384×384、81 帧、batch 1、梯度累积 4、有效 batch 4、worker 0、LoRA rank 16、学习率 2e-5、计划总预算 8 epochs。原训练保存参数是 batch 2 / 累积 2 / worker 2，不能把它写成当前默认。
 
-检查环境：
+共享 context 仅适用于统一 prompt。完整缓存为 1992 个 `.pth`、`.shared-text-context-bf16.pt` 和 `.compact-sft-shared-context-bf16-v2`。格式名不保证 latent 全部以 BF16 落盘；训练时转为 BF16。
 
-    /home/shi/miniconda3/envs/scj/bin/python --version
-    /home/shi/miniconda3/envs/scj/bin/python -c "import sys, torch; print(sys.executable); print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
-    /home/shi/miniconda3/envs/scj/bin/python -m pip check
+## 2. 修改后的检查
 
-当前 GPU 应为 1 张 NVIDIA RTX A6000。登录节点没有 GPU 时，torch.cuda.is_available() 为 False 不代表训练节点不可用。
+```bash
+cd /mnt/windowsE/chuanjun/building_wan
+git diff --check
+bash -n scripts/train_wan81_a6000.sh scripts/resume_wan81_a6000.sh scripts/pause_wan81_a6000.sh scripts/resume_from_pause.sh scripts/compare_lora_a6000.sh
+/home/shi/miniconda3/envs/scj/bin/python -m py_compile code/Python_3D_Scanner/training/wan_train_entry.py scripts/validate_wan81_a6000.py scripts/validate_all_single_orbit.py scripts/wan_a6000_state.py scripts/single_orbit_validation.py
+/home/shi/miniconda3/envs/scj/bin/python -m unittest discover -s scripts/tests -v
+git status --short
+```
 
-## 2. A6000 单轨配置
+扫描器 GUI 的三份测试依赖缺失的 `src/` 模块，不应把整个扫描器测试集报告为通过。训练工具既有测试可以单独执行：
 
-训练脚本：
+```bash
+cd code/Python_3D_Scanner
+/home/shi/miniconda3/envs/scj/bin/python -m unittest discover -s tests -p test_training_tools.py -v
+```
 
-    scripts/train_wan81_a6000.sh
+## 3. 只读预检
 
-续训脚本：
+以下命令不启动训练或推理，也不写 checkpoints/outputs/logs：
 
-    scripts/resume_wan81_a6000.sh
+```bash
+cd /mnt/windowsE/chuanjun/building_wan
+WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_wan81_a6000.sh --dry-run
+WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_from_pause.sh --state logs/pause_state_20260928_190750.json
+/home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py
+/home/shi/miniconda3/envs/scj/bin/python scripts/validate_all_single_orbit.py
+```
 
-验证脚本：
+单权重验证默认选择平铺目录最高 step-11200。全部权重入口会核对 train/val/test 的 prompt、列表哈希、路径和集合交叉。列表哈希核对不等于重新核验全部视频内容哈希或源 OBJ 身份。
 
-    scripts/validate_wan81_a6000.py
+`compare_lora_a6000.sh` 是历史阶段对比入口，不带 `--run` 时仍会写配置；需要真正只读检查时使用上述 Python 入口。
 
-默认参数：
+## 4. 续训的单位与路径
 
-    数据：data/single_orbit_videos
-    清单：configs/single_orbit_same_prompt_v1/metadata_train.csv
-    划分：训练1992、验证234、测试118
-    分辨率：384×384
-    帧数：81
-    物理 batch：2
-    梯度累积：2
-    有效 batch：4
-    LoRA rank：16
-    训练轮数：8
-    dataset_num_workers：0
-    原输出：checkpoints/building_wan_a6000_single_orbit_all（step-400 ~ 11200 平铺在同一层）
+- `.safetensors` 是 LoRA 权重，使用 `--lora_checkpoint`。不要作为完整状态传给 `--resume_from_checkpoint`。
+- logger step 是处理过的物理 batch 数，含续训步号偏移，不是 optimizer updates。
+- 先从 checkpoint 对应的训练参数计算累计样本，再按当前物理 batch 换算 `skip_train_batches`。训练器会打乱预分组，因此短 batch 不一定在 epoch 最后。来源 batch 不能整除样本数时，只能在完整 epoch 边界推算累计样本；切换到不能整除的新 batch 时，也只允许完整 epoch 边界的游标。其他情况拒绝猜测，不对齐的游标同样拒绝启动。
+- step-2400 属于原 batch 2 段，对应 4800 样本；step-3600 属于 batch 1、skip 4800、initial 2400 段，对应 6000 样本；step-11200 属于 skip 6000、initial 3600 段，对应 13600 样本。
+- 平铺 checkpoint 通过 `training_args_from_*_stepN_M.json` 匹配来源；目录迁移后的旧暂停记录只有在来源参数匹配时才能定位权重。不会仅凭同名 step 自动替换。
+- 已知来源的 step/batch/skip override 必须与元数据一致；未知来源需要显式提供原 batch 和当前 skip，不猜测。
+- 默认直接续训仍以平铺的 step-2400 为历史起点。它不是推荐的自动下一步，也不会自动选择最新权重。
+- 默认新输出为 `checkpoints/building_wan_a6000_single_orbit_resumed_<时间>/`，位于独立顶层目录。目录已存在时启动拒绝；不要把未来结果写入平铺历史目录。
+- 初始新训练也默认生成独立时间戳目录。旧/残缺缓存不会静默重建覆盖，应指定新的 `WAN_CACHE_ROOT`。该单轨入口只接受当前冻结的数据根目录和训练清单；其他数据、prompt 或划分应建立独立实验入口，避免复用同数量但不同内容的旧缓存。
 
-统一 prompt 训练会使用一份共享文本 context。逐栋 prompt 必须使用新的缓存设计，不能复用本轮缓存。
+当前训练完成证据不一致，见 [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)。不得因为此问题自动启动补训。
 
-## 3. 只读检查
+## 5. 暂停与续跑（需用户明确要求）
 
-    cd /mnt/windowsE/chuanjun/building_wan
-    bash -n scripts/train_wan81_a6000.sh scripts/resume_wan81_a6000.sh
-    /home/shi/miniconda3/envs/scj/bin/python -m py_compile code/Python_3D_Scanner/training/wan_train_entry.py scripts/validate_wan81_a6000.py
-    find cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train -type f -name '*.pth' | wc -l
-    ps -ef | grep wan_train_entry.py | grep -v grep || true
+```bash
+# 记录运行中本项目训练的最新可读权重，训练继续运行。
+bash scripts/pause_wan81_a6000.sh
+# 记录后停止所选进程；多进程时必须显式指定 --pid。
+bash scripts/pause_wan81_a6000.sh --pid <训练PID> --stop
+# 只读打印和检查续跑计划。
+WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_from_pause.sh --state <暂停记录.json>
+# 明确批准后后台启动；启动器存活不等于 loss 已更新。
+WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_from_pause.sh --state <暂停记录.json> --start
+```
 
-缓存完整时应为 1992 个 .pth，并同时存在共享文本 context 文件。
+暂停入口兼容 `--output_path /目录` 和 `--output_path=/目录`，路径中可以有空格，相对路径按训练进程的 cwd 解析。当前 scj Python 缺少 pidfd 接口，权重头部预检使用 safetensors 的 NumPy 后端，不导入 PyTorch；参数和游标检查在打开权重文件前完成。停止时仅把进程控制交给 `/usr/bin/python3`；权重读取仍使用 scj。控制器核对 PID 的启动时间及项目命令，并通过 pidfd 发信号，拒绝向身份变化的进程发信号。
 
-## 4. 原训练故障
+v2 暂停记录保存明确的累计样本数；历史 v1 记录重新读取 checkpoint 来源参数计算，避免旧单位错误。用户通过 `WAN_TRAIN_BATCH_SIZE` 和 `WAN_GRADIENT_ACCUMULATION_STEPS` 改 batch 时需自行维持所需有效 batch。若短 batch 使当前 checkpoint 的预算不可推算，暂停入口会拒绝生成记录，也不会停止进程；需使用完整 epoch 边界的 checkpoint，或先为该独立实验实现实际样本计数。暂停快照可能在终止前继续前进；仅从最后保存权重续跑，丢失其后的进度。
 
-原训练曾在约第 2742 个 batch 退出：
+这是权重续跑，不恢复 optimizer/scheduler/RNG、累积梯度或 shuffle 序列。checkpoint 若不是梯度累积边界，预算换算也不构成完整状态恢复。
 
-    free(): invalid next size (normal)
-    中止（核心转储）
+直接从确认的权重续训可先这样预检：
 
-这不是显存不足。完整缓存仍可复用，step-2400.safetensors 已确认可读。最可能原因是多进程数据读取触发 native 内存释放问题，因此当前训练和续训都默认 dataset_num_workers=0。
+```bash
+WAN_RESUME_FROM_CHECKPOINT=/mnt/windowsE/chuanjun/building_wan/checkpoints/building_wan_a6000_single_orbit_all/step-11200.safetensors WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_wan81_a6000.sh --dry-run
+```
 
-曾出现的 checkpoint 报错：
+移除 `--dry-run` 会实际训练，只能在明确授权、核对计划并确认没有旧进程后执行。推荐在 tmux 中运行；`WAN_DEBUG_GDB=1` 仅启用原生堆栈诊断，不表示故障已修复。
 
-    600 keys are unexpected
+## 6. 验证推理与效果评估（需用户明确要求）
 
-原因是把 LoRA 权重传给了 --resume_from_checkpoint。LoRA 续训必须使用 --lora_checkpoint；--resume_from_checkpoint 只适合完整训练状态。
+29 个固定条件视频已经生成，不应默认重跑。若要生成新的最新权重对比：
 
-## 5. 正确续训
+```bash
+/home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --run
+```
 
-不要删除或覆盖原输出。建议先进入 tmux：
+两个 Python 验证入口先解析参数，再依据 `args.run` 获取共享锁；`--run`、`--ru`、`--r` 均不能绕过锁。全部权重入口支持 `--only base,step-11200`。已有完成视频在推理参数和 checkpoint 来源一致时跳过；`--overwrite` 只重新生成未完成/未验证的已有视频。参数不同应使用新输出目录；旧配置不会被替换。
 
-    tmux new -s wan-resume
-    cd /mnt/windowsE/chuanjun/building_wan
-    WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_wan81_a6000.sh 2>&1 | tee logs/a6000_single_orbit_resume_$(date +%Y%m%d_%H%M%S).log
+像素诊断 v2（无需模型推理，但会生成新分析文件）：
 
-脚本默认：
+```bash
+/home/shi/miniconda3/envs/scj/bin/python scripts/analyze_validation_videos.py --output-dir /mnt/windowsE/chuanjun/building_wan/outputs/validation/validation_all_single_orbit/_review_v2
+```
 
-- 从 checkpoints/building_wan_a6000_single_orbit_all/step-2400.safetensors 读取 LoRA。
-- 根据 checkpoint 产生时的物理 batch 2，自动换算当前物理 batch 1 的缓存游标（默认跳过 4800 个 batch）。
-- 把初始全局 step 设为 2400。
-- 默认物理 batch 1、梯度累积 4、worker 0，有效 batch 仍为 4。
-- 把新权重写入独立的 checkpoints/building_wan_a6000_single_orbit_all/building_wan_a6000_single_orbit_resumed_exact，目录非空时拒绝启动。
-- 在输出目录写入 run_manifest.json，并用目录锁防止重复启动。
+已有目录时拒绝覆盖。v2 全图前景占比使用灰度 <0.9 的像素比例；二阶像素变化没有运动补偿，不能称为纯闪烁分数。人工评估建筑体块、完整环绕、局部形变、闪烁、构图和时序稳定性；低运动量也可能代表近乎静止的视频。
 
-如果使用其他 checkpoint，必须同时设置：
+## 7. 排错与终态
 
-    WAN_RESUME_FROM_CHECKPOINT=/path/to/step-N.safetensors WAN_RESUME_CHECKPOINT_STEP=N WAN_RESUME_CHECKPOINT_BATCH_SIZE=2 WAN_RESUME_INITIAL_STEPS=N WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/resume_wan81_a6000.sh
+检查实际进程、loss 增长、可读 checkpoint、traceback 和退出记录。NVML 警告和短时低 GPU 利用率不能单独判定失败。worker 0 未消除所有历史原生崩溃，根因仍待定位。
 
-查看训练：
+今后 `wan_train_entry.py` 仅在正常返回后写 `training_completion.json`；其中 `final_logger_step` 使用 batch 口径。旧运行没有该文件，不应补造成功记录。A6000 脚本使用同一 launcher 锁，进程退出时释放；绕过这些入口的进程仍需检查。
 
-    tmux attach -t wan-resume
-    tail -F logs/a6000_single_orbit_resume_*.log
-    watch -n 2 nvidia-smi
+## 8. 原生崩溃诊断与真正的进程退出
 
-断开 tmux 使用 Ctrl+B，再按 D；不要用 Ctrl+C，除非要停止训练。
+本轮 GPU 诊断已结束，用户要求不再继续跑并删除串行测试，已执行。
+普通反向 GDB 基线在 166 个新增 batch 后原生崩溃；Valgrind 覆盖 196 batch
+无访问错误后主动停止；GPU memcheck 覆盖 4 batch 报告 0 错误后主动停止，
+未完成原计划 8 batch。串行完整测试跑完 2336 batch，Python 正常退出，
+6 份新权重张量检查通过；本次未复现不能证明根因已修复。
+详见 [诊断记录](docs/NATIVE_STABILITY_20261014.md)。不要自动重跑诊断。
 
-## 6. 续训完成后的验证
+诊断入口默认仅预检，加 --run 才真实训练；实跑使用独立日志和权重目录，
+保存外层退出码、连续有限的 loss、预算步数与最终权重存在情况：
 
-先只读预检：
+```bash
+/home/shi/miniconda3/envs/scj/bin/python scripts/diagnose_wan_a6000.py --checkpoint checkpoints/building_wan_a6000_single_orbit_all/step-11200.safetensors
+```
 
-    cd /mnt/windowsE/chuanjun/building_wan
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all
+`training_completion.json` 证明引擎返回，解释器随后仍可能原生崩溃，必须同时
+检查外层退出码。`completed_budget` 不等于根因确认，权重需另行读取检查张量。
+缺少完成标记时，报告仍保留已经记录的 loss 数量。
 
-预检通过且确认要生成视频后：
+旧 GDB 命令在 Python 正常退出后执行 py-bt / continue，会因可选 helper
+缺失返回 1。已修复：WAN_DEBUG_GDB=1 使用 scripts/wan_gdb.py，在新输出
+写 debugger_exit.json，分别记录 inferior 退出、信号与 launcher 状态；仅在
+实际故障信号时采集栈，缺少 py-bt 不再影响实际退出判断。正常 exit 0、
+Python exit 9、SIGABRT、SIGSEGV 的真实 CPU GDB 回归返回 0、9、134、139。
+此次 GPU 长测启动早于修复，仍使用旧命令，已单独核对 exited normally，
+不能说已用新版 helper 完成 GPU 验证。
 
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all --run
+仅检查既有 LoRA 的全部张量（CPU，不训练、不推理，不写报告文件）：
 
-结果目录类似：
+```bash
+/home/shi/miniconda3/envs/scj/bin/python scripts/check_wan_lora.py checkpoints/building_wan_a6000_single_orbit_all/step-11200.safetensors
+```
 
-    outputs/validation/building_wan_a6000_single_orbit_resumed/step-N
+工具完整读取 BF16 payload 并检查有限值，可加 --reference 核对键名和形状。
+头部可读不代表张量有限；检查通过也不证明视觉质量。
 
-脚本比较基础模型和最新 LoRA 的固定 prompt、seed、384×384、81 帧视频。验证集用于路径和 prompt 一致性检查，不会自动给出建筑质量分数；需要人工检查体块、环绕完整性、几何变形、闪烁和时序稳定性。
-
-## 7. 状态和排错
-
-    ps -ef | grep wan_train_entry.py | grep -v grep
-    du -sh cache/wan21_t2v_13b_single_orbit_same_prompt_384x384_f81_train
-    find checkpoints/building_wan_a6000_single_orbit_all -maxdepth 2 -name '*.safetensors' | sort -V | tail
-    tail -n 100 logs/a6000_single_orbit_resume_*.log
-
-NVML 初始化警告、黄色感叹号和短时低 GPU 利用率不一定是错误；优先检查 traceback、进程是否仍在、loss.csv 是否增长和 checkpoint 是否保存。不要在原因未确认时重复启动第二个训练进程。
-
-## 8. A100 历史命令
-A100 的 /home/share/CHUANJUN/building_wan 和 mv2v 流程已完成并保留在历史文档中。当前 A6000 训练不要使用 A100 的脚本、环境或输出目录。
-
-## 2026-09-28：原生崩溃诊断续跑
-
-resumed_exact 在日志 step 4225 后发生 free(): invalid next size (fast)；
-batch 1 / accumulation 4 / worker 0 未消除故障，根因尚未定位。
-step-4000.safetensors 的 600 个张量已加载并通过有限值检查，历史输出保留。
-诊断从该权重开始：INITIAL_STEPS=4000，SKIP_BATCHES=6400
-（前次跳过 4800，加上 checkpoint 保存前新增的 4000-2400）。
-这是权重续训和样本预算换算，不恢复 optimizer/RNG，也不保证相同 shuffle 顺序。
-WAN_DEBUG_GDB=1 启用 GDB 全线程原生堆栈、py-bt、共享库清单及
-PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
-诊断保持原训练参数，不修改系统 core_pattern，不删除历史产物。
-独立输出：checkpoints/building_wan_a6000_single_orbit_diag_20260928
-独立日志：logs/a6000_diag_20260928.log
-启动后需现场确认 loss 更新；本记录不代表崩溃已修复。
-
-## 9. 2026-09-28（续）：暂停/续跑脚本和当前运行状态
-
-diag_20260928 未产出可用权重（目录已清空并删除）。epoch4_resume_20260928_171131 在约 step 3927 处以退出码 134（SIGABRT）崩溃。epoch4_resume_20260928_174226 从同一更早权重重启，产出 step-2800/3200/3600 后被暂停脚本手动停止，未复现崩溃，并已生成对比视频 outputs/validation/9.28/。
-
-新增两个脚本，用于安全暂停正在跑的训练并从暂停点续跑，不需要等到崩溃或跑满：
-
-    bash scripts/pause_wan81_a6000.sh            # 只记录当前最新 checkpoint 和游标，训练继续跑
-    bash scripts/pause_wan81_a6000.sh --stop      # 记录后停止训练进程
-    bash scripts/resume_from_pause.sh             # 只打印将要执行的续跑命令
-    bash scripts/resume_from_pause.sh --start     # 实际重启训练
-
-`resume_from_pause.sh` 默认读取 logs/ 下最新的 pause_state_*.json，也可用 `--state` 指定。重启前会检查是否已有 wan_train_entry.py 进程在跑，避免重复写同一目录。
-
-该轮已于 2026-09-29 02:25 自然跑完 8 个 epochs（最后权重 step-11200，无崩溃）。输出目录为 checkpoints/building_wan_a6000_single_orbit_all（--lora_checkpoint 取自 epoch4_resume_20260928_174226/step-3600.safetensors），日志 logs/a6000_resume_from_pause_20260928_191930.log。
-
-本文档第 5、6 节中提到的默认续训目标 resumed_exact 已被删除，不再是当前有效的默认输出目录；请按 pause/resume 流程生成的新目录名核对，不要凭旧文档假设目录仍存在。
-
-checkpoints/ 已按用户要求合并为两项：building_wan（多栋历史结果）和 building_wan_a6000_single_orbit_all（单轨全部三段，step-400 ~ 11200，共 28 个权重）。resumed、resumed_b1、resumed_exact、diag_20260928、resumed_epoch4_20260928（空）、building_train_1912_all_256_cooled_lora（实际已不在服务器）已在 2026-09-28 按用户要求删除，不可恢复。
-## 10. 2026-09-29：checkpoints 平铺后的路径
-
-单轨全部权重已平铺到 checkpoints/building_wan_a6000_single_orbit_all/，step-400 ~ step-11200 共 28 个，直接放在该目录下，没有子目录。脚本默认路径已同步。
-
-检查全部权重：
-
-    find checkpoints/building_wan_a6000_single_orbit_all -maxdepth 1 -name '*.safetensors' | sort -V
-
-验证（默认目录已指向平铺后的目录，会自动选最新 step-11200）：
-
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all
-
-    /home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_all --run
-
-训练已跑完 8 个 epochs，当前无需续训；若以后要续训，先用 pause_wan81_a6000.sh 记录，再用 resume_from_pause.sh --start，不要直接跑第 5 节的默认命令（历史默认目标 resumed_exact 不存在）。
-
-分段元数据：平铺后三段各自的 loss 和参数记录改名为 loss_from_original_step400_2400.csv、loss_from_epoch4_step2800_3600.csv、loss_from_final_step4000_11200.csv，以及对应的 training_args_from_*.json 和 run_manifest_from_*.json。
+WAN_TRAINING_SEED 可设置 0 至 2**32-1 的固定种子。WAN_SERIAL_BACKWARD=1
+通过 PyTorch context 将反向调度到调用线程，只支持单进程；默认值 0。
+该选项在本次完整预算中未复现崩溃，仍只是候选绕过，不改为正式默认。
+诊断阶段的短窗口会写 diagnostic_limit.json，不写完整预算的成功标记。
+完整串行测试及两轮串行短测的权重、日志和临时监督脚本已按要求删除，
+不能使用这些路径续训；历史正式权重及非串行诊断证据保留。

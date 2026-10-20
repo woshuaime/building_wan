@@ -1,6 +1,126 @@
 # Experiments
 
-更新时间：2026-10-18。新增 BuildingFiller P01 数据接收检查和原始 VACE 基线计划；尚未执行 VACE 推理。历史串行测试已清理且不再自动续跑。各硬件、划分、权重来源分开记录。历史报告与本次核对结果不一致时，明确标记待核实，不补造训练结果。
+更新时间：2026-10-20。八例原始81帧及CPU后处理完成；P04/P06条件LoRA首轮已正常结束，训练300更新和6次17帧比较推理全部完成。以下保留最终证据与中期快照，分别标明核查时间。
+
+## 2026-10-20：建立GPU运行后的文档与Git约定
+
+- 用户要求今后每次实际GPU训练/推理后主动更新文档并Git记录，不用再次提醒；运行中快照与最终完成证据分开，成功、失败和中断均记录。持续约定已写入AGENTS.md第7节和SESSION_HANDOFF.md。
+- GitHub SSH认证实测为woshuaime，远程 `git@github-scj:woshuaime/building_wan.git`。本轮归档范围为已完成VACE基线/CPU合成/P04-P06 LoRA相关代码、配置、测试和文档；其他历史改动保持未提交。
+- outputs/logs/环境egg-info默认忽略，不将模型、LoRA权重、视频、原始数据或临时文件上传Git。项目原有已跟踪文件不因忽略规则删除或退库。
+
+## 2026-10-20：P04/P06条件LoRA首轮正常完成（17:05:32 +08:00核查）
+
+- 实际run为 `outputs/vace/lora_roof_smoke/run_20261020_165237_150325_2048720/`。runtime为complete/complete，actual_updates300、inference_calls_started/completed均6；Base、train、lora100、lora300四阶段均complete、exit_code0，tmux打印 `VACE ROOF SMOKE: COMPLETED` 后回到shell。
+- loss.csv连续update1–300，P04/P06各150次，固定lr5e-5；training_result确认有效梯度和参数实际变化。100/300步增量各43,780,800 bytes。训练worker正常退出后才评估，没有追加预算、回退参数或重跑81帧。
+- 全流程耗时749.247秒，训练阶段550.933秒；Base61.052秒，LoRA100阶段63.372秒，LoRA300阶段64.277秒。训练峰值allocated15.138875GiB /reserved15.392578GiB，全流程峰值15.866717/17.384766GiB。峰值包含加载/冻结编码和计算，不能用中途8GiB截图替代。
+- 实际输出training四文件、04/06各四文件，共12项。独立只读复核四个视频均17帧/16FPS，原始512×512、比较2048×544，yuv420p/BT.709；四张PNG可读，程序此前已完整逐帧解码与对齐验证。自有 `/tmp/vace_roof_smoke_bmc3m413` 已清理。
+- 终端Mask内对GT的RGB MAE（0–255、按白区像素/通道汇总）：P04 Base27.2225、100步1.7813、300步1.5860；P06为46.3986、1.3737、1.3068。Mask外对Damaged的变化：P04为0.7613/0.5765/0.4826，P06为0.6816/0.5301/0.4475。指标只在终端，未增加报告；含背景的平均值不代替建筑局部/几何判断。
+- 抽看两张五行总览的B000/B004/B008/B012/B016：公平17帧Base中P04仍有屋顶/墙顶凹陷，P06仍有明显开口，P06内部颜色较旧81帧黑洞更浅，不能混称完全相同的基线现象。100/300步两例均呈现更接近GT的连续表面，改善不只是洞口变亮；100步已明显改善，300步像素误差进一步小幅下降。
+- 本轮可记为“训练链路正常，已查看的训练题关键帧视觉改善”。完整17帧运动、闪烁和用户人工验收仍待查看，runtime保留pending_user_review。没有验证未见建筑或81帧一致性，不扩大为泛化结论。
+- 本次仅维护文档、只读核查已有训练与结果；294项CPU回归再次通过（45.607秒，CUDA_VISIBLE_DEVICES为空），语法/编译/diff检查通过。没有启动额外GPU任务或修改本轮训练代码、配置和产物。
+
+## 2026-10-20：P04/P06首次GPU中期快照（17:00:09 +08:00，后续已完成）
+
+- Run：`outputs/vace/lora_roof_smoke/run_20261020_165237_150325_2048720/`；父进程2048720，训练worker2049594。用户在现有tmux启动，真实位置 `vace_p01_17f:3.0` / pane `%3`。
+- 只读experiment.json、loss.csv、现有文件和tmux：两例17帧Base已完成，阶段退出0、耗时61.052秒、allocated峰值17,034,612,224 bytes（15.865GiB）、reserved峰值18,584,961,024 bytes（17.309GiB）。新增推理已完成2/6次。
+- 正在训练：loss.csv连续update1–210，P04/P06各105次，学习率始终5e-5；runtime每10步更新的actual_updates也为210。前5步终端逐次给出有限loss、非零梯度norm、参数确实变化及optimizer仅包含vace LoRA的实际证据。
+- 100步LoRA已真实保存：`training/lora_update0100.safetensors`，43,780,800 bytes。核查时尚无300权重、LoRA-100/300比较图，训练worker尚未退出，因此未记作完整训练成功。
+- 终端update210显示训练用时373.3秒，近期约1.8秒/update。前10步平均loss0.0027918442，201–210平均0.0031953638；噪声与时间步每次重采样，短窗口均值不单调不能直接判断是否学会，也不能根据单个低loss宣布结构恢复。
+- 用户16:54:19监控截图：GPU-Util100%、显存8229MiB/47.99GiB（16.7%）、功耗298/300W。显存占比与计算利用率是不同指标；该截图支持GPU处于高负载，不能据此证明理论算力满速或最终结构质量。训练显存较低与17帧/batch1、只优化LoRA、checkpointing及T5/VAE编码后移CPU一致。
+- 此次文档维护不修改运行中的训练程序/配置，不新建GPU任务，不改变300更新预算。详细可复现说明见 [P04/P06 LoRA实验](docs/VACE_P04_P06_LORA_SMOKE.md)。
+
+## 2026-10-20：P04/P06条件补全LoRA准备历史（首次启动前）
+
+- 用户只授权当前CPU准备，要求手动终端启动GPU。新增固定配置、原始PNG窗口loader、CPU接口检查、项目层VACE训练模块、串行启动器及17帧比较输出模块；不修改第三方DiffSynth或旧T2V入口，不安装/下载任何内容。
+- 按Exact白像素17帧窗口和选出P04 B000–B016（139483）、P06 B000–B016（206570），B080不参与；GT/Damaged/Exact及相机顺序一致。完整文本沿用P01成功VACE配置。监督为完整GT latent，条件为原Damaged填灰及二值ModelMask，经真实WanVideoUnit_VACE读取Mask形成96通道上下文。
+- LoRA只作用vace，rank/alpha16，q/k/v/o/ffn.0/ffn.2匹配150层、300张量、10,936,320可训练参数；FP32 LoRA参数配BF16骨干/autocast，AdamW恒定5e-5、wd0、beta0.9/0.999、eps1e-8、clip1、batch/accum1、workers0、单进程，300次实际更新，P04/P06交替各150，仅100/300保存。种子仅在训练初始化设定，不每步重置噪声。
+- 本地DiffSynth2.1.5/PEFT接口CPU检查通过且CUDA未初始化；真实tiny Wan/VACE和官方FlowMatch loss测试证实冻结DiT仍可回传到LoRA，确有参数变化，官方加载器fuse与训练PEFT前向对应。改变GT只改变target，改变Mask影响真实条件上下文。首步可能抽到官方零权重时间步，故前5步累计检查有效梯度，不强制所有张量首步非零。
+- 完整294项CPU回归通过（46.943s），包含GT隔离、窗口并列选择/B080排除、条件Mask实用、增量保存回载、非有限/断梯度/原生失败停止、默认入口不启动GPU、播放器兼容及四项成果检查；规定语法、编译和diff检查通过。测试只用临时合成图或小随机CPU模型，不冒充真实预测/正式训练。
+- 真实入口 `--dry-run` 已通过两例原PNG/正式权重存在及VACE结构头/CPU加载接口，未反复计算大文件SHA。NVML只读显示A6000无其他任务；没有创建 `outputs/vace/lora_roof_smoke/`，没有正式权重加载、GPU调用或训练。当前GPU峰值和实际结构恢复结果未知。
+- 用户启动后最多新增六次17帧推理、一轮300更新。Base、train、100、300各独立进程，训练正常退出后才评估；输出training四文件、04/06各四文件，临时预测清理。训练更新完成提示不是进程成功证据，parent检查正常退出与完成标记；失败保留权重并停止。该实验只能用于训练题过拟合验证，不能据此声称泛化或81帧三维一致性。
+
+## 2026-10-20：八例硬边界缺口合成
+
+- 用户明确授权直接执行CPU实验。`scripts/composite_vace_results.py` 顺序完成P01–P08，tmux `vace_p01_17f:vace_composite` 显示8/8 SUCCESS，耗时46.0秒、退出0；未导入Torch/DiffSynth、未加载权重或执行GPU任务。
+- 输出 `outputs/vace/composite_check/01–08/`，共24文件，每例仅 `01_仅缺口补全.mp4`、`02_四方视频对比.mp4`、`03_关键帧对比.png`。两个视频均81帧/16FPS，512×512及2048×544，完整解码、色彩格式与逐帧拼接对应通过；总览2560×2176、四行五列PNG逐像素回读通过。
+- 复用原 `adapt_images` 的Exact二值白区规则，不做Mask形态操作或羽化，硬合成函数没有GT参数。白区严格取原预测MP4解码像素、黑区严格取Damaged；P01/P02/P03分别27帧全黑Mask保留，其余五例无全黑帧。正常MP4量化不等同于改变合成规则。
+- 五视角按B000/B080、最大白区、白区面积至少最大值25%的候选中预测对GT平均RGB误差最大帧、全黑帧和默认视角补齐。P01选000/015/036/059/080；P02选000/036/060/071/080；P03选000/020/040/049/080；P04选000/003/020/066/080；P05选000/020/030/052/080；P06选000/006/020/040/080；P07选000/020/046/047/080；P08选000/020/023/043/080。GT用于诊断选图，不影响任何合成像素。
+- 逐例查看总览：P01/P02墙面和背景恢复原始灰度，但矩形边界细缝更明显；P03局部补丁/边缘残留；P04未损区域干净，屋顶凹槽和台阶仍在；P05补片黑线仍在；P06深色洞口没有解决；P07端部补片明暗不一致、接缝清晰；P08条带补片及屋顶接线可见。这是像素保留实验，不是三维几何或时序一致性证明，当前应优先研究缺口内部结构恢复，同时记录边界融合问题。
+- 独立前后比较原 `test/` 32文件SHA、大小与mtime全部一致，源ZIP大小/mtime不变，自有临时目录无残留。新增6项针对性测试，完整272项CPU回归通过（41.756s），规定语法/编译/diff检查通过。未产生永久JSON、日志或逐帧副本，未开启下一轮实验。
+
+## 2026-10-20：修正三栏视频播放偏色
+
+- 已在可见tmux窗口 `vace_color_fix` 实际完成全部八例CPU修复，终端P01–P08均SUCCESS、退出0、GPU推理次数0。独立对比修复前后32项SHA：只有八个02三栏视频改变，八个原始预测与16张PNG全都未变；八目录各四文件，编码元数据全部符合High/yuv420p/BT.709，自有临时目录无残留。
+- 用户截图为B033，白底变紫、灰色建筑偏绿。实测首版八例三栏均为libx264rgb、High 4:4:4 Predictive、gbrp、gbr色彩空间。FFmpeg自身解码像素正确未能验证用户播放器兼容性，首轮验收遗漏了这一点；不能将此前“解码通过”视为实际播放验收。
+- 改用CPU libx264、H.264 High/level4.0、yuv420p，明确BT.709 primaries/transfer/matrix及有限范围，CRF12、faststart。保留完整三栏Before/Prediction/GT、81帧/16FPS/1536×544、同号512×512面板，不进行美化或结构修改。RGB→YUV与有损编码存在微小量化误差，不再声称比较视频逐像素无损。
+- 现有布局只重建02对比视频，01原始预测及03/04两张PNG保护SHA/inode/mtime；临时新视频验收后替换，失败恢复旧视频，回滚异常保留自有恢复目录。全八例统一预检仍包括真实源身份、原始预测、PNG与旧RGB全部81帧逐像素对应。
+- 新验收同时要求H.264/yuv420p/BT.709元数据及全81帧各栏颜色/帧序：每通道MAE与均值偏差≤3/255，99%像素误差≤12/255；该门限覆盖实测色彩量化误差，拒绝紫绿偏色/栏位互换。测试包括白底保持白、明确拒绝RGB交付、颜色与错栏异常、单视频发布/验收失败回滚和保护其他文件。
+- 完整266项CPU回归通过（40.623s），其中离线后处理16项通过；规定语法/编译/diff检查通过。抽看修正后P01/B033，白底、灰色建筑和三栏标签正常；服务器没有可直接复验用户播放器的浏览器，不声称已在该播放器实测。
+
+## 2026-10-20：首版八例离线重排（RGB视频后续因播放偏色被修正）
+
+- 在现有tmux的 `vace_layout` 窗口实际执行 `scripts/reorganize_vace_results.py --apply`，退出0，P01–P08均SUCCESS。八例已有两视频完整81帧/16FPS与源身份通过；交接包CRC/6077载荷SHA/5832PNG/相机绑定重新通过，无GT或Mask缺失。
+- 每例只替换旧 `02_补前补后对比.mp4` 和 `03_补前补后总览.png`，分别升级为 `02_补前_补后_GT_三栏对比.mp4`、`03_补前_补后_GT_三行总览.png`；`04_四栏验证.png`仅重命名为 `04_缺损_Mask_预测_GT_四栏验证.png`，八例图像文件SHA均保持不变。
+- 三栏视频为1536×544、81帧/16FPS，采用CPU libx264rgb CRF0无损编码，实际解码全部81帧逐像素等于同号Damaged/原预测解码帧/GT的拼接。三行总览2560×1632，B000/B020/B040/B060/B080的三行五列逐像素通过；四栏B020源图/Mask/GT逐像素对应，既有预编码预测图与原MP4解码帧仅容许原编码误差。
+- 原始 `01_补全结果.mp4` 从未移动或重新编码，替换前后inode/大小/mtime/SHA一致。最终独立复核八个原始SHA及每目录恰好四文件，通过；自有 `.vace_relayout_*` 临时目录无残留，没有永久日志/JSON/输入或逐帧副本。
+- 离线执行器不导入Torch/DiffSynth、不加载权重、不启动GPU、不修改原始数据/冻结参数/其他历史输出。抽看P01总览，布局清晰、三行标签和完整主体正常。10项新增CPU回归与完整260项测试通过（38.677s），规定语法/编译/diff检查通过。
+
+原始预测处理前后相同SHA256：
+
+| 样本 / 源 | SHA256 |
+| --- | --- |
+| P01 / 465 | `af2f7538d1ee863cca504d57e436f5cd97cf138e7b16bc0994861d1c548ba945` |
+| P02 / 763 | `9d97d15b02075f697f95dceda1af4ab2c028a69ea7aea72fbbbf88548c01efae` |
+| P03 / 871 | `ff4d2a9b2daa07e8242788477a02a5d689f49c09ff56a418e7df4f8c882f1fe2` |
+| P04 / 1227 | `37cc1eea6a9fb00236a894639847bf43033c2c519fac914ff9ff3cf1e71f2e45` |
+| P05 / 1259 | `e3f57f1268ef69ecf98da425bc6bfada722d1ca3499c8557371fc2585ac91f47` |
+| P06 / 1848 | `2ae0a6b3d34b2e91f10310a4ea9c36ab94ab4554323b5aa7cebb6f85ad3096bf` |
+| P07 / 2297 | `65358dad80c3d40884414910d25141c0cf4fe8543f343e8a7d0ebb8b339c76d3` |
+| P08 / 939 | `98e48505c5ce96c0e4d8bec0d98c6eeb3302d539dc8033165ae368d66879d332` |
+
+结果位置：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/test/01–08/`。没有发现缺帧、错位或视频损坏；这是可视化重排验收，不是补全质量的定量结论。旧恢复说明均为历史，禁止重算已完成预测。
+
+## 2026-10-20：P04启动前SHA失败，准备显式恢复
+
+- tmux实际退出1：P04/source1227的sample_preflight中T5 `Reused component SHA256 mismatch: text_encoder`，尚未加载该例模型。P02/source763与P03/source871各已30步成功、81帧结果验收并发布，峰值17.14GiB allocated /25.73GiB reserved；不是OOM。
+- 本轮只读复核01–03：全部四文件/两个视频完整81帧16FPS通过；P01四SHA等于原件，P02/P03的总览与四栏源身份逐像素对应。04–08不存在，无产物删除或重算。
+- T5原件连续三次独立全SHA匹配批准值，文件大小、inode、mtime/ctime稳定；先前实际错误hash未记录，当前未复现。无法据此定位或排除底层读取/内存/文件系统问题，不声称硬件已修复或权重持续损坏。
+- 仅改项目层：严格单次全hash验证增加expected/actual/路径/大小/前后身份；新增显式resume验收连续成功前缀，parent/gate双重核对后只排P04–P08，保留01–03；不绕过hash、不下载或改模型/推理参数/第三方核心、不启动GPU。用户命令 `scripts/run_vace_building_test.sh --resume --tmux`。
+- 恢复只读预检实际通过32.1s，现有权重全SHA与全部输入合同正常，队列仅P04–P08。完整250项CPU回归通过35.630s（新增44项），语法/编译/diff通过；原始两个ZIP及冻结配置SHA未变，01–03四文件未改，无新模型结果或GPU峰值。本次修复是安全续跑/错误诊断，不代表未复现的底层异常已根治。
+
+## 2026-10-20：Pilot8 接收与七例批量准备（不重跑P01）
+
+- 新包 `data/buildingfiller_import/P02_P08_20261020/BuildingFiller_Pilot8_AllRes_v1.zip`，41,547,426 bytes，SHA256 `7f8eff9ddb3c05e43fe5a8623258f9dceb6fa61d547b244c4f2d441099b4fcf4`。包含8例/三分辨率，CRC、6077载荷SHA、5832PNG、1944帧/相机及24OBJ绑定通过；8例有效人工accepted。保留原 `training_ready=false/generation_verified=false`，仅用作功能验证。
+- P01实际目录 `outputs/vace/P01_465_81f_20261019_171510_1691517/` 两视频81帧/16FPS、原始512×512、两PNG有效；Damaged/Mask/GT面板与原数据逐像素匹配。安全复制到 `outputs/vace/test/01/`，原件保留且四项SHA完全一致；没有重复推理P01。旧实验无manifest，媒体本身不支持独立反推历史seed/prompt/权重，保留代码与冻结配置未见差异。
+- 仅剩队列：P02/763、P03/871、P04/1227、P05/1259、P06/1848、P07/2297、P08/939，对应test/02–08。各81帧512 GT/Damaged/Exact完整；P02黑Exact023–049、P03黑Exact000–016与071–080，后五例无黑帧，按各自原数据处理。
+- 沿用P01实际保留代码/固定配置与统一正负prompt：原始VACE-1.3B、无LoRA、完整81/512×512/16FPS/seed20261018/30步/CFG5/fullBF16，一次整序列。GT只在预测后读020，B080真实参与。模型全哈希、当前A6000约47.13GiB空闲/无其他GPU任务及七例实际CPU loader已通过。
+- 已执行新入口 `--prepare`，只产生P01四文件安全副本，未创建02–08或启动GPU。用户执行 `scripts/run_vace_building_test.sh --tmux` 后才串行运行七例；真实进度、失败立即停止、已有输出拒覆盖、自有/tmp清理，成功每例严格四文件。没有新模型预测或七例效果结论。
+- 复制后只读 `--dry-run` 再通过全部七例CPU合同及P01复用门禁；完整206项测试通过（新增56项），规定语法/编译/diff检查通过。覆盖P01禁止排队、先全量门禁、固定参数、GT预测后读、七例串行、错误立即停止并保留成功输出、原生退出码/中断、四文件与临时清理；无真实GPU测试。GT隔离断言使用完整视频解码像素而非MP4容器字节可重复性，首次hash波动未确认根因，未改正式编码或模型逻辑。
+
+## 2026-10-20：P01 81 帧视觉验证阶段 A 历史（后续已完成）
+
+- 固定原始 VACE、无 LoRA、B000–B080、512×512、16FPS、seed20261018、30步、CFG5；同一冻结文本和白区生成/灰127适配，27黑Mask不改。一次完整序列，B080独立预测，GT仅推理后B020四栏对照。
+- 权重完整哈希/结构与全部81数据和CPU loader检查通过；A6000空闲47.13GiB、无其他GPU任务、项目盘358.8GiB。81帧长度合法、默认高效SDPA可用，真实峰值与效果仍待本次终端运行。
+- 新极简入口复用现有适配和加载能力，实时进度且不落盘日志/状态；匿名pipe和自有系统临时目录保证中断/native异常不伪成功，正常失败清理临时编码文件。最终只四个指定文件，无定量指标或中间副本，不依赖旧17帧outputs。
+- 阶段 A 只读预检和 CPU 合成 fixture 测试，没有生成真实81帧预测、重跑17帧、下载、修改依赖或第三方核心，也没有新建永久实验输出目录。
+
+## 2026-10-20：VACE 首次真实实验的阶段 A，未运行 GPU
+
+- 正式 7,146,067,848 bytes 文件完整 SHA256 匹配官方 `c46a6f5f7d32c453c3983bbc59761ea41cd02ad584fb55d1a7ee2b76145847a2`，1264/439 总/VACE 张量；T5/VAE/Tokenizer 全部完整核验。原 T2V DiT、LoRA、缓存不使用。
+- CUDA/BF16、约 47.1 GiB 空闲、NVML 无其他 GPU 进程、项目盘约 359 GiB 空闲，tmux/ffmpeg/ffprobe/现有依赖可用。证据 `outputs/vace_model_audit/P01_465_20261020_20261019T161614Z/`。
+- 新 CPU 准备 `outputs/vace/P01_465_17f_baseline_cpu_prepare_20261020_20261019T162331/`：17 帧 source005–021、RGB ModelMask、白区 RGB127 条件、独立 GT，实际 CPU loader 形状 `[1,3,17,512,512]` 及 Mask 0/1 通过。冻结 JSON 未改。
+- 前台入口 `scripts/run_vace_p01_465_17f.sh` 只由用户终端启动；真实 tqdm/阶段、无缓冲实时日志、退出码和异常状态已接通。模型子进程成功后再独立解码验收并生成 B020 Before/After、四栏、四视角总图、同步视频及像素/时序诊断。
+- CPU 测试使用临时合成 fixture，不是正式模型预测；未在生产输出写伪造预测。尚无 GPU 加载/显存峰值/生成效果证据，不自动追加实验或 81 帧测试。
+
+## 2026-10-19：VACE 执行器 / 权重核查，仅 CPU
+
+- 固定配置不变，005–021、17 帧、512×512、16 fps、seed 20261018、30 步、CFG 5、原始正式 VACE、不加载 LoRA。
+- 官方文件 7,146,067,848 bytes，SHA256 `c46a6f5f7d32c453c3983bbc59761ea41cd02ad584fb55d1a7ee2b76145847a2`，文件头 1264 张量/439 VACE 张量，与本地双分支加载注册结构一致。实际只读取远程元数据/约 130 KB 文件头。
+- 其他目录候选虽同结构，但少 32 bytes、SHA256 `fcd12e2a8fab331ba0ab28dca371d90036a868287767f35677ff3f8e74db0969`，消除 metadata 差异后的张量载荷仍不匹配官方；不用于正式基线。58 个训练检查点同样排除。
+- 公用 T5/VAE 的完整本地 SHA256 已匹配官方 DiffSynth 转换仓库，Tokenizer 可复用；新增下载仅约 7.15 GB，当前未下载。HF 下载 HEAD/Range 200/206、ModelScope 元数据 200。
+- 新 `scripts/vace_p01.py` 与 `scripts/download_vace_p01.sh` 提供严格冻结配置、默认只读、独立 CPU 准备、显式下载/GPU 运行开关；模型哈希和结构不符拒绝，绝不以 T2V 或未确认候选替代。
+- 真实准备输出 `outputs/vace/P01_465_17f_baseline_cpu_prepare_20261019/` 已保存 Mask、填灰条件帧、原件副本、独立 GT、映射及哈希；落盘文件经当前 DiffSynth CPU 预处理形状/极性检查通过。没有模型原始预测或补全指标。
+- 外层 GPU 执行器记录子进程真实退出，原始预测 PNG 与可选合成分开；GPU 真实加载/显存/效果未测试，下载和推理均等待用户确认。来源证据在 `outputs/vace_model_audit/P01_465_20261019/`，实际操作见 [执行说明](docs/VACE_P01_EXECUTION.md)。
 
 ## 当前准备：P01 源 465 / VACE-1.3B（2026-10-18）
 
@@ -13,136 +133,97 @@
 
 操作与限制见 [P01 交接与 VACE 方案](docs/BUILDINGFILLER_P01_VACE_HANDOFF.md)。以下历史 T2V 台账保持独立。
 
-## 历史 T2V 记录（原有 Git 版本）
+## 1. 双 RTX 3060 历史实验
 
-以下保留本次同步前的 T2V 记录，其训练终态和操作描述不代表当前状态。当前目标、检查结果和运行授权以本文件开头的 P01 章节及其交接方案为准。此前 T2V 审计及训练代码修改仍留在服务器工作区，未纳入本次提交。
+`building_train_1912_all_256_cooled_lora`（2026-09-04 至 09-08）：256×256、17 帧片段、rank 8、学习率 5e-5、1 epoch；1912 个训练视频切成 9560 个片段，历史记录为 4780 optimizer updates，末步 loss 约 0.02147。阶段视频视角覆盖和变化不足；不作为 A6000 初始化来源。该权重目录当前不在服务器。
 
-本文档记录各轮实验的配置、结果和失败原因。历史实验保留，不把不同 GPU、数据划分或输出目录混在一起。
+更早的 smoke / pilot / balanced 实验配置、人工评审和报告代码保留在 `code/Python_3D_Scanner/training/`，Windows 路径为历史运行环境，不能直接当作当前 A6000 命令。
 
-## Experiment: building_train_1912_all_256_cooled_lora
+## 2. A100 准备失败与正式实验
 
-- 时间：2026-09-04 至 2026-09-08
-- 目的：在本地双 RTX 3060 上验证建筑 LoRA 训练链路。
-- 配置：256×256、17 帧片段、LoRA rank 8、1 epoch、学习率 5e-5。
-- 数据：1912 个源视频切成 9560 个片段。
-- 结果：完成 4780 个 optimizer steps，末步 loss 约 0.02147。
-- 结论：阶段视频显示视角覆盖不足、变化较少，不作为当前实验的初始化权重。
-- 输出：checkpoints/building_train_1912_all_256_cooled_lora
-- 处理：权重保留，不删除、不覆盖。
+2026-09-13 至 09-14 的准备任务遇到 DiffSynth 导入路径、librosa 缺失和同时写同一缓存目录的问题，最后出现 torch.save iostream 错误。旧残缺缓存 222 个文件曾按用户要求删除；这些准备任务没有训练结果。
 
-## Experiment: building_wan_a100_preparation_failures
+`building_wan`：单卡 A100、1912 个 building_v1 训练样本、384×384、81 帧、rank 16、学习率 2e-5、8 epochs、累积 1。历史 Job 1155 记录正常完成 15296 optimizer updates，最终 loss 约 0.0207207；当前 `checkpoints/building_wan/` 保留 step-400 至 step-15296 共 39 份 LoRA。历史路径 `/home/share/CHUANJUN/building_wan` 与 mv2v 环境不适用于当前 A6000。
 
-- 时间：2026-09-13 至 2026-09-14
-- 目的：验证 A100 环境并生成 384×384、81 帧缓存。
-- 配置：单卡 A100、building_v1 train 1912 个样本。
-- 失败原因：早期任务分别遇到 DiffSynth 导入路径、librosa 缺失，以及两个任务同时写同一缓存目录；最后在约 210/221 份时出现 torch.save iostream 错误。
-- 处理：按用户要求删除旧版残缺缓存中的 222 个中间文件；原始数据、模型和历史 checkpoint 未删除。
-- 结论：A100、CUDA 和 BF16 可用，但这些准备任务没有训练结果。
+## 3. A6000 单轨统一 prompt
 
-## Experiment: building_wan
+实验开始于 2026-09-23。数据 `data/single_orbit_videos`、固定划分 `configs/single_orbit_same_prompt_v1`，训练 1992、验证 234、测试 118；384×384、81 帧、rank 16、学习率 2e-5、计划总预算 8 epochs。统一 prompt 描述白色背景中的灰色无纹理建筑、固定仰角平滑 360° 环绕。当前不使用 Cap3D。
 
-- 时间：2026-09-14
-- 目的：在单卡 A100 上训练一般建筑物的 81 帧环绕视频 LoRA。
-- 配置：384×384、81 帧、1912 个样本、LoRA rank 16、学习率 2e-5、8 epochs、每 400 步保存。
-- 结果：Job 1155 正常完成 15,296 个 optimizer steps，最终 loss 约 0.0207207，保留 step-400 至 step-15296 共 39 份 LoRA。
-- 验证：已准备固定 prompt、seed 和阶段权重验证配置；当时尚未生成视频。
-- 输出：checkpoints/building_wan
-- 说明：这是历史 A100 结果，不是当前 A6000 续训来源。
+缓存格式 `compact-sft-shared-context-bf16-v2`：样本去掉重复文本 context，共享 context 单独保存；格式名不保证 latent 落盘 dtype。1992 个样本、共享文件和标记已存在。
 
-## Experiment: building_wan_a6000_single_orbit
+| 保留权重段 | 物理 batch / 累积 / worker | 初始 step / 跳过 batch | 保留 loss 范围 |
+|---|---|---|---|
+| original，400–2400 | 2 / 2 / 2 | 0 / 0 | 1–2742 |
+| epoch4，2800–3600 | 1 / 4 / 0 | 2400 / 4800 | 2401–3927 |
+| final，4000–11200 | 1 / 4 / 0 | 3600 / 6000 | 3601–11562 |
 
-- 开始时间：2026-09-23
-- 目的：在单张 RTX A6000 上先用单轨建筑视频和统一 prompt 训练；逐栋独立 prompt 留到后续。
-- GPU：1× NVIDIA RTX A6000，约 47.4 GiB
-- 环境：/home/shi/miniconda3/envs/scj
-- 数据：data/single_orbit_videos
-- 固定划分：configs/single_orbit_same_prompt_v1
-- 样本数：训练 1992、验证 234、测试 118
-- 配置：384×384、81 帧、物理 batch 2、梯度累积 2、有效 batch 4、LoRA rank 16、学习率 2e-5、8 epochs。
-- Prompt：训练、验证和测试使用同一条统一建筑旋转 prompt；本轮不使用 Cap3D 逐栋描述。
-- 缓存：compact-sft-shared-context-bf16-v2；每个样本保存视频 latent，共享文本 context 单独保存一份。
-- 原输出：checkpoints/building_wan_a6000_single_orbit（2026-09-29 合并到 checkpoints/building_wan_a6000_single_orbit_all/ 下）
+这里的 step 是 logger 的物理 batch 计数。当前脚本默认 batch 1 / 累积 4 / worker 0，有效 batch 4；不要把这些 checkpoint 步号称为 optimizer updates。
 
-### 当前状态
+### 故障与恢复历史
 
-- 1992/1992 个缓存样本已完成。
-- 原训练已进入正式训练阶段，并保存了 step-2400.safetensors。
-- 训练约在第 2742 个 batch 处退出，日志为 logs/a6000_single_orbit_20260924_172511.log。
-- 退出信息为 free(): invalid next size (normal)，不是 GPU OOM。
-- 复查确认 step-2400.safetensors 可以被 safetensors.safe_open 正常读取。
-- 训练脚本已将 dataset_num_workers 默认改为 0，降低多进程 native 内存释放导致崩溃的风险。
-- 续训脚本已改为使用 --lora_checkpoint，避免把 LoRA 权重误当成完整训练状态。
-- 续训输出将写入独立目录 checkpoints/building_wan_a6000_single_orbit_resumed_exact；脚本会按 checkpoint 原 batch 自动换算数据游标，并写入 run_manifest.json。
-- 续训和推理验证尚未重新启动。
+- 原训练日志 `a6000_single_orbit_20260924_172511.log` 在 batch 2742 记录 `free(): invalid next size (normal)`。step-2400 可读，后续使用 `--lora_checkpoint`。
+- resumed_exact 在日志 step 4225 后记录 `free(): invalid next size (fast)`；batch 1 / 累积 4 / worker 0 未消除故障。
+- 2026-09-28 从可读 step-4000 进行 GDB 诊断，skip 6400、initial 4000；diag 未产出可用权重。
+- epoch4_resume_20260928_171131 在约 3927 处记录 SIGABRT / 退出码 134。
+- epoch4_resume_20260928_174226 产出 2800/3200/3600，历史记录为暂停脚本停止，保留暂停记录和日志。相近 loss 末步并不能独立证明与上一段发生同一故障。
+- 以 step-3600 和 skip 6000 / initial 3600 续跑到最后保留段。续跑恢复权重，不恢复 optimizer/RNG 或原始 shuffle。
+- 09-28 历史清理记录列出 resumed、resumed_b1、resumed_exact、diag（空）、resumed_epoch4（空）和双3060目录（当时实际已不在服务器）共 6 项；旧路径不应继续使用。
+- 09-29 三段权重合并并平铺到 `checkpoints/building_wan_a6000_single_orbit_all/`，28 份权重每 400 一份，无分段子目录。保留 `loss_from_*`、`training_args_from_*`、`run_manifest_from_*`，可用其中 step 范围追溯来源。
 
-### 续训和验证
+### 训练完成状态：历史报告待核实
 
-正确续训：
+09-29 历史文档报告 02:25 正常完成 8 epochs、最后权重 step-11200。本次核对发现最终 loss 到 11562，而按保存参数和当前引擎语义应到 13536；保留日志尾部没有完整正常退出记录。不能把最高权重文件名当作最终训练步，也不能独立确认已耗尽预算或认定崩溃。保持权重与日志原样，不自动补训。
 
-~~~bash
-cd /mnt/windowsE/chuanjun/building_wan
-WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python \
-  bash scripts/resume_wan81_a6000.sh
-~~~
+### 已生成的验证
 
-续训完成后先预检：
+- `outputs/validation/9.28/`：base、B-step800、B-step2400、A-step3200、A-step3600，共 5 个完成视频。
+- `outputs/validation/validation_all_single_orbit/`：base 加 28 份 LoRA，共 29 个视频。元数据记录 2026-09-29 16:40:25 至 17:08:36（Asia/Shanghai）完成；384×384、81 帧、seed 20260924、30 推理步、CFG 5、18 fps、LoRA alpha 1。
+- `_review/` 已保存截图、拼图及 v1 像素指标。v1 前景占比的分母不是完整图像，应作为历史诊断；二阶帧差包含正常运动。不能据此确认几何或完整环绕效果。
+- 本次未运行推理，也未重新解码全部视频；核对文件存在及已有完成元数据。
 
-~~~bash
-/home/shi/miniconda3/envs/scj/bin/python scripts/validate_wan81_a6000.py \
-  --checkpoint-dir checkpoints/building_wan_a6000_single_orbit_resumed_exact
-~~~
+## 4. 2026-10-14 开发审计与修复
 
-确认预检通过并明确要生成视频后，加上 --run。验证只做固定条件的 base/LoRA 对比，不自动计算量化指标。
+见 [审计记录](docs/PROJECT_AUDIT_20261014.md)。修复续训平铺路径、暂停累计样本单位、改变 batch 的游标换算、Python 传递、项目进程定位、后台失败报告、输出隔离与 launcher 锁。当前 Python 验证预检改为真正不写输出，统一核对固定划分及 prompt，跳过结果前核对推理参数和权重来源。像素诊断 v2 使用全图分母并准确命名二阶变化。
 
-## 实验纪律
+增加 CPU 回归测试及未来正常训练结束标记；本次修改不生成历史成功标记，不更改缓存、权重、旧输出或旧暂停记录，也不启动训练/推理。
 
-- 不删除 cache、data、models、checkpoints 或 outputs。
-- 不把续训写入原输出目录。
-- 不同时启动两个写同一目录的进程。
-- 没有视频验证前，不声称模型效果已经确认。
+## 5. 实验纪律
 
-## 2026-09-28：原生崩溃诊断续跑
+新实验使用独立目录，不并发写同一缓存/输出，不把 val/test、Cap3D 混入当前训练。逐栋 prompt 需要重新设计缓存。效果判断通过固定条件、多 seed 对比和人工评估，不能只按 loss 或最后 checkpoint 选择。
 
-resumed_exact 在日志 step 4225 后发生 free(): invalid next size (fast)；
-batch 1 / accumulation 4 / worker 0 未消除故障，根因尚未定位。
-step-4000.safetensors 的 600 个张量已加载并通过有限值检查，历史输出保留。
-诊断从该权重开始：INITIAL_STEPS=4000，SKIP_BATCHES=6400
-（前次跳过 4800，加上 checkpoint 保存前新增的 4000-2400）。
-这是权重续训和样本预算换算，不恢复 optimizer/RNG，也不保证相同 shuffle 顺序。
-WAN_DEBUG_GDB=1 启用 GDB 全线程原生堆栈、py-bt、共享库清单及
-PYTHONFAULTHANDLER/TORCH_SHOW_CPP_STACKTRACES；默认不开启。
-诊断保持原训练参数，不修改系统 core_pattern，不删除历史产物。
-独立输出：checkpoints/building_wan_a6000_single_orbit_diag_20260928
-独立日志：logs/a6000_diag_20260928.log
-启动后需现场确认 loss 更新；本记录不代表崩溃已修复。
+## 6. 2026-10-14 复审后的补修
 
-## 2026-09-28（续）：暂停/续跑机制、epoch4 续训、目录清理
+复审三项问题已处理：验证按 args.run 加锁，支持缩写且不会绕过锁；短 batch 经 shuffle 后不再假设它位于末尾，局部 epoch 的来源/目标游标无法确定时拒绝换算；暂停输出路径兼容分隔和等号两种形式。补测还修复当前 scj Python 缺少 pidfd API 的兼容问题，权重读取仍在 scj，信号控制通过系统 Python 核对进程身份后执行。
 
-- 原生崩溃诊断跑（diag_20260928）未产出可用权重，目录内容已确认为空。
-- 新增 checkpoint 类型续训 epoch4_resume_20260928_171131：从更早权重续训，在约 step 3927 处以退出码 134（SIGABRT）崩溃，日志 logs/a6000_epoch4_resume_20260928_171131.log 显示 GDB 捕获到原生 SIGABRT 信号。
-- 新增续训 epoch4_resume_20260928_174226：从同一更早权重重启，产出 step-2800/3200/3600 后被暂停脚本手动停止，未复现 free() 崩溃。日志：logs/a6000_epoch4_resume_20260928_174226.log。
-- 用该轮 step-3200/3600 权重与 step-2400/800/base 生成了固定 prompt、固定 seed 对比视频，保存在 outputs/validation/9.28/（A-step3200.mp4、A-step3600.mp4、B-step2400.mp4、B-step800.mp4、base.mp4）。
-- 新增暂停/续跑脚本 scripts/pause_wan81_a6000.sh 和 scripts/resume_from_pause.sh：暂停脚本记录正在运行训练的最新 checkpoint 和游标到 logs/pause_state_*.json；续跑脚本读取该记录后重新计算 skip_train_batches / initial_train_steps 并重启训练，不恢复 optimizer/RNG。
-- 用暂停记录以 epoch4_resume_20260928_174226 的 step-3600.safetensors 为 --lora_checkpoint 续跑，新输出目录 checkpoints/building_wan_a6000_single_orbit_resumed_20260928_190750，日志 logs/a6000_resume_from_pause_20260928_191930.log。该训练进程（pid 630785）仍在运行，已产出 step-4000/4400/4800/5200/5600/6000/6400/6800。
-- 应用户要求清理历史 checkpoints 目录，删除以下 6 个（含 2 个空目录），原始 checkpoint 文件不可恢复：
-  - checkpoints/building_wan_a6000_single_orbit_resumed
-  - checkpoints/building_wan_a6000_single_orbit_resumed_b1
-  - checkpoints/building_wan_a6000_single_orbit_resumed_exact
-  - checkpoints/building_wan_a6000_single_orbit_diag_20260928（空）
-  - checkpoints/building_wan_a6000_single_orbit_resumed_epoch4_20260928（空，注意和保留的 `_174226` 不是同一目录）
-  - checkpoints/building_train_1912_all_256_cooled_lora（本地 3060 早期验证跑，实际已不在服务器上）
-- 清理后 checkpoints/ 只保留 4 项：building_wan（A100 多栋历史结果）、building_wan_a6000_single_orbit（单轨 400–2400）、building_wan_a6000_single_orbit_resumed_epoch4_20260928_174226（2800–3600）、building_wan_a6000_single_orbit_resumed_20260928_190750（当时正在跑）。
-- 本文档和 PROJECT_CONTEXT.md、TRAINING.md、SESSION_HANDOFF.md 中此前提到的 resumed_exact 已不存在；续训输出目录以每次暂停记录生成的新目录名为准，不再固定写死 resumed_exact。以下路径在 2026-09-29 的目录合并后统一加了 building_wan_a6000_single_orbit_all/ 前缀。
+增加入口和进程的 CPU 集成验证，测试总计为本轮工具 23 项与既有训练工具 12 项，均通过，无跳过。测试进程只在临时目录执行 sleep，不训练、不推理；历史产物没有修改。GPU 训练完成状态和原生崩溃根因仍未因这轮代码修复得到证明。
 
-## 2026-09-29：训练跑完 8 epochs、checkpoints 合并并平铺
+## 7. 用户授权的原生崩溃复现实验（2026-10-14 至 15）
 
-- 训练于 2026-09-29 02:25 自然跑完 8 个 epochs，最后一个权重 step-11200，进程正常退出，无崩溃。
-- 单轨三段的输出先合并到 checkpoints/building_wan_a6000_single_orbit_all/，随后应用户要求把全部权重平铺到该目录下，三个子目录已删除。
-- 平铺后目录内共 28 个权重，step-400 ~ step-11200 连续无缺口，每 400 步一个，约 1.2G。
-- 三段各自的元数据改名保留，避免 loss.csv / training_args.json 互相覆盖：
-  - loss_from_original_step400_2400.csv、training_args_from_original_step400_2400.json
-  - loss_from_epoch4_step2800_3600.csv、training_args_from_epoch4_step2800_3600.json、run_manifest_from_epoch4_step2800_3600.json
-  - loss_from_final_step4000_11200.csv、training_args_from_final_step4000_11200.json、run_manifest_from_final_step4000_11200.json
-- 注意：权重平铺后没有文件能单独标识「某个 step 属于哪一段」，追溯来源只能靠上面的元数据和 log 时间戳。
-- 路径变更同步到脚本：validate_wan81_a6000.py 和 compare_lora_a6000.sh 的默认 checkpoint 目录都指向平铺后的 building_wan_a6000_single_orbit_all/；resume_wan81_a6000.sh 和 pause_wan81_a6000.sh 的历史默认输出路径仍带 building_wan_a6000_single_orbit_all/ 前缀。
-- 单轨 8 epochs 已跑完，续训脚本的历史默认目标 resumed_exact 依然不存在，不要再按旧路径直接启动续训。
+此前用户选定跑完剩余 2336 batch 并检查真实退出、权重和 loss；最新停止和清理要求已覆盖此前继续运行的授权。
+
+| 诊断 | 范围与结果 |
+|---|---|
+| GDB 基线 | 完整模型，从 step-11200 起；新增 166 batch 后 SIGSEGV，退出 255；UnsafeViewBackward0 析构处 |
+| 主机内存检查 | 同配置覆盖 196 batch，Valgrind 报告 0 错误；主动停止，退出 143，未完成预算 |
+| 小模型 | 深层 checkpoint、缩小 DiT、LoRA + Accelerate 组合各 2000 次 GPU 反向均退出 0 |
+| 独立 CPU / RAM | CPU 运算校验 120 秒退出 0；8 GiB memtester 一轮完整通过 |
+| 全量缓存 | 1992 个 latent 全部 FP32、预期形状、有限、无梯度；共享 context 正常 |
+| GPU 内存检查 | 实际 4 个完整 batch / 一次累积更新，报告 0 错误；主动停止，原计划 8 batch 未完成 |
+| 固定种子短对照 | 普通/串行各 8 batch，各复测一次，均正常退出；更新后同模式复测也有数值波动，未通过逐位一致检查 |
+| 普通反向长对照 | 256 batch 正常结束，step-11456 权重 600 张量均有限；旧 GDB 后续命令出错返回 1，Python 实际正常退出 |
+| 串行反向完整预算 | 10-15 03:52–06:07；2336 batch、step 11201–13536，全部 loss 有限；6 份权重各 600 个 BF16 张量均有限且 schema 匹配；Python 正常退出，无原生崩溃；串行产物已删除 |
+
+串行测试末步 loss 0.00538101838901639。旧 GDB 原始返回码为 1，原因是
+Python exited normally 后仍执行不可用的 py-bt；未把它登记为原生崩溃。
+新 GDB helper 已修复误判，但此次 GPU 长测启动于修复之前，仍使用旧命令。
+
+按用户要求，删除 native_stability_20261015_serial_full、
+native_stability_20261015_parity_serial、native_stability_20261015_parity_serial_repeat
+三个 checkpoint 目录（共 8 份权重）及对应日志、混合对照报告、临时监督脚本，
+合计 350824306 bytes。只保留文档摘要，原始串行报告已不可读取。
+历史平铺 28 份权重、缓存和验证视频保留，来源 step-11200 哈希未变；
+普通反向及基线崩溃证据保留，未更换 scj 依赖或修改第三方训练核心。
+
+一次完整串行预算通过仅表示本次未复现；普通反向也有通过的对照，首次非法
+写入与根因仍未确认。当前无训练进程，不再启动训练或验证推理。
+详情与原始日志路径见 [诊断记录](docs/NATIVE_STABILITY_20261014.md)。
