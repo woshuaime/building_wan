@@ -1,31 +1,33 @@
 # Training
 
-更新时间：2026-10-20 18:29:58 +09:00。首次LoRA-300/81帧批次在P04推理后CPU制图阶段失败，退出1；修复及298项CPU测试通过，待一次补跑授权，未自动重试。17帧训练的首次启动命令仍仅是历史说明。
+更新时间：2026-10-20 20:09:57 +09:00。LoRA-300八例81帧已经全部完成，八个worker和两个批次均退出0；当前只需查看成果，不再启动推理或训练。
 
-## 当前：查看LoRA-300的81帧推理
+## 当前：查看已完成的LoRA-300八例81帧结果
 
-当前窗口已回到shell。P04完成30步及VAE解码，随后因PIL/NumPy制图类型不匹配而失败；首次临时预测已被清理，目录为空。修复已通过实际81帧媒体CPU测试；依据AGENTS.md不自动GPU重试。修复后原始01会先保存，若后续CPU制图失败，可用同一入口 `--render-only 04 --output-root <本轮根目录>` 仅补图，不调用模型。
+结果根目录为 `outputs/vace/lora300_eval81/run_20261020_194300_145372/`，每例01–08恰好四项媒体。P04/P06扩展到81帧仍明显优于Base；六例迁移中P05/P07/P08明显改善，P01/P02有限，P03部分视角变差。详细判断及指标见EXPERIMENTS.md。
 
-真实终端为已有会话 `vace_p01_17f` 的窗口4 `lora300_eval81`，pane `%4`：
+真实终端为已有会话 `vace_p01_17f` 的窗口4 `lora300_eval81`，pane `%4`，已回shell。以下只读查看已完成记录：
 
 ```bash
 tmux attach-session -t vace_p01_17f
-# 会话内 Ctrl+b，然后按 4；以下仅只读查看进度
-tmux capture-pane -p -t vace_p01_17f:4.0 -S -40
+# 会话内 Ctrl+b，然后按 4
+tmux capture-pane -p -t vace_p01_17f:4.0 -S -60
 ```
 
-已执行 `WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/run_vace_lora300_eval81.sh --run-trained`。该模式计划只运行P04→P06再退出供视觉检查，本次实际在P04制图阶段失败。不能当作状态查询反复启动。结果根目录 `outputs/vace/lora300_eval81/`；默认无参数或 `--dry-run` 仅CPU检查，补跑获授权后会在已有根目录下新建时间戳子目录，后续六例需传入该实际子目录。
-
-P04/P06若仍整体明显优于Base，当前授权允许在同一可见终端执行其余六例：
+已执行两阶段，以下仅记录复现方式，不是新的启动指令：
 
 ```bash
+WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/run_vace_lora300_eval81.sh --run-trained
+# P04/P06各81帧完成后，已逐帧确认改善并在终端打印结论，才执行：
 WAN_PYTHON=/home/shi/miniconda3/envs/scj/bin/python bash scripts/run_vace_lora300_eval81.sh \
-  --run-transfer --output-root /mnt/windowsE/chuanjun/building_wan/outputs/vace/lora300_eval81
+  --run-transfer --output-root /mnt/windowsE/chuanjun/building_wan/outputs/vace/lora300_eval81/run_20261020_194300_145372
 ```
 
-本轮推理入口固定唯一已完成LoRA-300/vace/scale1，不包含训练分支；fresh worker串行，真实30步进度，打印耗时/显存/结果/退出码。Base八例已有同条件结果直接复用。没有自动重试、81帧分段、降低分辨率或额外Base调用。
+首次 `--run-trained` 曾在P04推理成功后的CPU制图阶段失败；用户明确授权修复后重跑，上述成功run因此使用时间戳子目录。修复已提交 `ea51376`：制图前统一NumPy像素，01原始视频先保存；如将来CPU制图失败，可用 `--render-only 04 --output-root <对应根目录>` 从保留的01补齐三项比较，不调用模型。当前八例均完整，无需补图或重跑。
 
-每例最终四文件为 `01_微调后补全.mp4`、`02_Base_微调后_GT_对比.mp4`、`03_关键帧总览.png`、`04_Mask验证.png`；四栏顺序Before/Base/LoRA-300/GT。512×512主体不独立缩放，视频81帧/16FPS、High/yuv420p/BT.709，完整解码后发布。默认关键帧000/020/040/060/080；只有默认视角漏掉主要缺口时才按Mask选帧并打印真实编号。RGB误差只作辅助，不能代替结构和连续视角检查。
+本轮入口默认无参数或 `--dry-run` 只做CPU检查，固定唯一已完成LoRA-300/vace/scale1，不包含训练分支；fresh worker串行运行并打印实际30步/耗时/显存/结果/退出码。八例Base已有同条件结果均复用。两个批次369.2/1129.4秒，峰值17.141/25.832GiB allocated/reserved；新训练0、Base补跑0，含首次失败共9次LoRA推理，成功交付8例。没有自动重试、分段、降分辨率或追加实验。
+
+每例四文件为 `01_微调后补全.mp4`、`02_Base_微调后_GT_对比.mp4`、`03_关键帧总览.png`、`04_Mask验证.png`；四栏顺序Before/Base/LoRA-300/GT。512×512主体不独立缩放，视频81帧/16FPS、High/yuv420p/BT.709，完整解码及帧序验证通过。总览均用000/020/040/060/080，Mask图按最大可见白区选真实帧号。RGB误差只作辅助，不能代替结构/时序检查；EXPERIMENTS.md使用Base/LoRA最终原始视频双方解码后的统一指标。
 
 ## GPU运行后的固定交接流程
 
