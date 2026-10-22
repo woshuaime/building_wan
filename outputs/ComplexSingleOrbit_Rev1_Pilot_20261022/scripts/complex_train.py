@@ -274,14 +274,14 @@ def train(method):
                 write_json(RUN/'training'/f'{method}_progress.json',{'method':method,'actual_updates':completed,'updated_at':now(),**result})
                 bar.set_postfix(cs=row['cs'],start=row['start'],loss=f'{result["loss"]:.6f}');bar.update(1)
                 if completed%10==0:
-                    save_resume(milestone=completed in (100,200,300))
+                    save_resume(milestone=completed in (100,200))
                     live=read_json(RUN/'progress.json')
                     live['config_id']=c['config_id']
                     live['actual_updates'][method]=completed
                     live.update(updated_at=now(),current_building=row['cs'],current_window_start=int(row['start']))
                     write_json(RUN/'progress.json',live)
                     print(f'{method}: {completed}/300 actual updates; elapsed={time.monotonic()-begin:.1f}s; resume saved',flush=True)
-                if completed in (100,200,300):
+                if completed==300:
                     save_adapter(pipe,out/f'step{completed}.safetensors',completed)
                 del inputs,m,e
             bar.close()
@@ -289,6 +289,10 @@ def train(method):
             save_resume()
             raise
     require(completed==len(history)==300 and effective,'Incomplete optimizer budget')
+    # If interruption happened after the final resume state was saved but before
+    # its adapter export, finish that export without another optimizer update.
+    if not (out/'step300.safetensors').exists():
+        save_adapter(pipe,out/'step300.safetensors',300)
     mark_complete(f'train_{method}',actual_updates=completed,elapsed_seconds=time.monotonic()-begin,
         initialization_sha256=initial_hash,sampling_sha256=c['paired_sampling_sha256'],
         weight_path=str(out/'step300.safetensors'),weight_sha256=sha(out/'step300.safetensors'),
