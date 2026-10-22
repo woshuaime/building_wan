@@ -149,10 +149,12 @@ def optimize(pipe, optimizer, inputs, m, e, method, row):
     require(loss.ndim == 0 and bool(torch.isfinite(loss)) and loss.requires_grad, 'Invalid or disconnected loss')
     loss.backward()
     norm = torch.nn.utils.clip_grad_norm_(params, config()['training']['max_grad_norm'], error_if_nonfinite=True)
-    watched = next((p for p in params if p.grad is not None and bool(p.grad.abs().max() > 0)), None)
-    before = watched.detach().clone() if watched is not None else None
+    # Zero scheduler weight can yield zero current gradients while Adam moments
+    # still change weights; observe an actual parameter in that case as well.
+    watched = next((p for p in params if p.grad is not None and bool(p.grad.abs().max() > 0)), params[0])
+    before = watched.detach().clone()
     optimizer.step()
-    changed = watched is not None and not torch.equal(watched.detach(), before)
+    changed = not torch.equal(watched.detach(), before)
     require(bool(torch.stack([torch.isfinite(p).all() for p in params]).all()), 'Non-finite LoRA weight')
     return {'loss':float(loss.detach()), 'grad_norm':float(norm), 'time_weight':tw,'timestep':timestep,'parameters_changed':changed}
 
@@ -273,6 +275,11 @@ def train(method):
                 bar.set_postfix(cs=row['cs'],start=row['start'],loss=f'{result["loss"]:.6f}');bar.update(1)
                 if completed%10==0:
                     save_resume(milestone=completed in (100,200,300))
+                    live=read_json(RUN/'progress.json')
+                    live['config_id']=c['config_id']
+                    live['actual_updates'][method]=completed
+                    live.update(updated_at=now(),current_building=row['cs'],current_window_start=int(row['start']))
+                    write_json(RUN/'progress.json',live)
                     print(f'{method}: {completed}/300 actual updates; elapsed={time.monotonic()-begin:.1f}s; resume saved',flush=True)
                 if completed in (100,200,300):
                     save_adapter(pipe,out/f'step{completed}.safetensors',completed)
@@ -285,6 +292,8 @@ def train(method):
     mark_complete(f'train_{method}',actual_updates=completed,elapsed_seconds=time.monotonic()-begin,
         initialization_sha256=initial_hash,sampling_sha256=c['paired_sampling_sha256'],
         weight_path=str(out/'step300.safetensors'),weight_sha256=sha(out/'step300.safetensors'),
+        optimizer_parameter_step_range=[min(int(s['step']) for s in optimizer.state.values()),
+                                        max(int(s['step']) for s in optimizer.state.values())],
         peak_allocated_bytes=torch.cuda.max_memory_allocated(),peak_reserved_bytes=torch.cuda.max_memory_reserved())
     print(f'TRAINING {method} COMPLETE: 300/300 optimizer updates; {out / "step300.safetensors"}',flush=True)
 

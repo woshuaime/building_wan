@@ -93,7 +93,11 @@ def compute_metrics(methods):
                 row[metric+'_valid_buildings']=len(values)
             summary.append(row)
         write_csv(RUN/f'metrics/{split}_summary.csv',summary)
-        write_csv(RUN/'00_看结果'/('训练集指标对比.csv' if split=='train' else '验证集指标对比.csv'),summary)
+        names={'method':'方法','buildings':'建筑数','masked_mae':'缺损区MAE','masked_mse':'缺损区MSE',
+            'masked_psnr':'缺损区PSNR_dB','structure_sobel_l1':'结构带Sobel_L1','known_mae':'保留区变化MAE',
+            'loop_full_mae':'闭环全图MAE','loop_masked_mae':'闭环首帧缺损区MAE'}
+        readable=[{label:r[key] for key,label in names.items()} for r in summary]
+        write_csv(RUN/'00_看结果'/('训练集指标对比.csv' if split=='train' else '验证集指标对比.csv'),readable)
     differences=[]
     for cs in IDS:
         rows={r['method']:r for r in buildings if r['cs']==cs}

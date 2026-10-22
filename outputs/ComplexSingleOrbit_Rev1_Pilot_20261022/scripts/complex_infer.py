@@ -43,10 +43,16 @@ def infer(method,cs):
         load_stage_lora(pipe,path,c)
         changed=not torch.equal(before,layer.weight.detach().cpu())
         require(changed,'Adapter did not change actual VACE backbone weights')
-        loaded={'path':str(path),'sha256':sha(path),'scale':1.0,'branch':'vace','weight_changed':True}
+        weight_id=c['legacy_lora']['sha256'] if method=='L' else read_json(completion_path(f'train_{method}'))['weight_sha256']
+        loaded={'path':str(path),'sha256':weight_id,'scale':1.0,'branch':'vace','weight_changed':True}
         del state,before
     require(pipe.audio_encoder is None,'Unexpected postprocessing audio branch')
-    console=ConsoleState(total_steps=30)
+    def progress_event(event):
+        live=read_json(RUN/'progress.json')
+        live.update(config_id=c['config_id'],updated_at=now(),inference_stage=event['stage'],
+            inference_steps=event['completed_steps'],inference_elapsed_seconds=round(event['elapsed'],2))
+        write_json(RUN/'progress.json',live)
+    console=ConsoleState(total_steps=30,event_sink=progress_event)
     with torch.inference_mode(),console.vae_stages(pipe.vae):
         output=pipe(**inference_arguments(c,sample),progress_bar_cmd=console.progress)
     require(len(output)==81 and console.completed_steps==30,'Incomplete model result')
