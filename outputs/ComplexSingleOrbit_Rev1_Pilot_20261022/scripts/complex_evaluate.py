@@ -11,7 +11,7 @@ METHOD_LABELS={'Before':'Before (Damaged)','GT':'GT (Reference)','B':'B | Base',
 ERRORS=['masked_mae','masked_mse','masked_psnr','structure_sobel_l1','known_mae','loop_full_mae','loop_masked_mae']
 
 def safe_value(value):
-    if value is None:return 'N/A'
+    if value is None or math.isnan(value):return 'N/A'
     if math.isinf(value):return 'Infinity' if value>0 else '-Infinity'
     return float(value)
 

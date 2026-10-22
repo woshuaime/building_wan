@@ -22,6 +22,7 @@ class MetricTests(unittest.TestCase):
         exact=reduced(pixel_sums(x,x,x,~m,~m))
         self.assertEqual(exact['masked_psnr'],'Infinity')
         self.assertEqual(exact['known_mae'],'N/A')
+        self.assertEqual(safe_value(float('inf')-float('inf')),'N/A')
 
     def test_sobel_normalization_and_reflect(self):
         ramp=np.broadcast_to(np.arange(8)[None,:,None]/8,(8,8,3)).copy()
