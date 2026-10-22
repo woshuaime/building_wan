@@ -1,8 +1,10 @@
 # Project Context
 
-更新时间：2026-10-22T18:43:43+08:00。Complex12 Rev1小试已实际启动；当前infer_B_CS01，已完成1/60条轨迹，C/U/S正式更新均0。完成状态以新run/progress.json为准；下方Pilot8记录属于历史结果。
+更新时间：2026-10-22T18:59:02+08:00。Complex12 Rev1执行中，当前infer_B_CS05；5/60条输出有效，C/U/S正式更新0。CS04保存后曾原生异常退出，已独立验证81帧并复用；根因未确认，不能称退出正常或问题已修复。
 
 ## 当前：Complex12 Rev1十二栋单轨小试（执行中）
+
+- 18:54:17 B/CS04完成30步、VAE解码、81 PNG保存及读回后，发生`free(): invalid next size (fast)`，worker退出-6、父任务停止。独立CPU再次解码全部81帧，确认配置/尺寸/数量一致，保留有效输出，不重新消耗GPU；异常事实保存在run的`logs/errors.md`和`checks/B_CS04_post_exit_validation.json`。后续只继续缺失任务，使用已有GDB退出监测器采集真实退出码和异常堆栈；4项CPU退出监测测试通过，未更换环境/模型/训练参数，未声称根因修复。
 
 - 本轮明确授权来自2026-10-22任务书及9节补充交付规范；其C/U/S各300次训练授权仅适用于本轮，不受上轮“只推理”限制。范围固定12栋、512×512、单轨81帧、16FPS；不扩数据、不加seed/预算、不改骨干。
 - Run：`/mnt/windowsE/chuanjun/building_wan/outputs/ComplexSingleOrbit_Rev1_Pilot_20261022`。数据：`/mnt/windowsE/chuanjun/building_wan/data/buildingfiller_import/Complex12/BuildingFiller_Complex12_512_Rev1_20261022`；原包SHA校验并解压，包内verify_package.py --decode-images退出0，5832张PNG/12栋、72闭环对及Rev1人工accepted已确认。原始数据保持只读；本轮脚本、缓存、配置、权重、预测和媒体都在run内。

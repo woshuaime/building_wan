@@ -29,6 +29,9 @@ def main():
             if marker.exists():
                 record=read_json(marker)
                 require(record['config_id']==c['config_id'],f'Completed job config mismatch: {job}')
+                if record.get('worker_exit_code',0)!=0:
+                    require(job.startswith('infer_') and record.get('independent_output_validation'),
+                            f'Abnormal worker exit requires independent output review: {job}')
                 if job.startswith('infer_'):
                     _,method,cs=job.split('_')
                     require(valid_prediction(method,cs),'Marked output invalid')
@@ -37,7 +40,7 @@ def main():
                     require(record['actual_updates']==300 and Path(record['weight_path']).is_file(),'Training result incomplete')
                     progress['actual_updates'][job[-1]]=300
                 finished.add(job)
-        env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',PYTHONUNBUFFERED='1',OMP_NUM_THREADS='4',MKL_NUM_THREADS='4',
+        env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',PYTHONUNBUFFERED='1',PYTHONFAULTHANDLER='1',OMP_NUM_THREADS='4',MKL_NUM_THREADS='4',
                  TMPDIR=str(RUN/'tmp'),HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',TOKENIZERS_PARALLELISM='false')
         progress['completed_trajectories']=complete_count
         for job,args,stage in jobs:
@@ -48,6 +51,8 @@ def main():
             write_json(RUN/'progress.json',progress)
             print(f'\nSTAGE {stage}: {job}; completed trajectories {complete_count}/60; {now()}',flush=True)
             command=[PYTHON,'-u',str(RUN/'scripts'/args[0]),*args[1:]]
+            if args[0] in ('complex_train.py','complex_infer.py'):
+                command=['gdb','--batch','--quiet','-x',str(RUN/'scripts/native_exit.py'),'-ex','wan-run','--args',*command]
             with (RUN/'logs'/f'{job}.log').open('a',encoding='utf-8') as log:
                 log.write(f'\nSTART {now()}\n');log.flush()
                 process=subprocess.Popen(command,cwd=PROJECT,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
@@ -56,6 +61,10 @@ def main():
                     print(line,end='',flush=True);log.write(line);log.flush()
                 returncode=process.wait()
                 log.write(f'\nEXIT {returncode} {now()}\n')
+            if completion_path(job).exists():
+                record=read_json(completion_path(job))
+                record['worker_exit_code']=returncode
+                write_json(completion_path(job),record)
             if returncode!=0:
                 progress.update(status='failed',failed_job=job,exit_code=returncode,updated_at=now())
                 for method in ('C','U','S'):
