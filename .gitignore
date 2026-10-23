@@ -16,6 +16,12 @@ __pycache__/
 *.ckpt
 opencode.json
 
-outputs/
+outputs/*
+!outputs/README.md
 logs/
 *.egg-info/
+
+# New run artifacts stay out of Git; experiment run links are tracked explicitly.
+experiments/**/runs/*/
+experiments/**/runs/*.mp4
+experiments/**/runs/*.png

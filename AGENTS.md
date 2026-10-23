@@ -2,15 +2,16 @@
 
 ## 1. 项目范围
 
-当前项目研究BuildingFiller残缺建筑序列的VACE条件补全。八例81帧基线和CPU缺口回贴已完成；P04/P06两例17帧VACE条件LoRA首轮也已正常完成300更新及6次比较推理。接手先查看现有run和成果，不自动另起GPU任务。
+当前项目研究BuildingFiller残缺建筑序列的VACE条件补全。八例基线、CPU缺口回贴、P04/P06两例17帧LoRA及八例81帧扩展评估均已完成；最新Complex12 Rev1也已完成C/U/S各300更新及五方法60条81帧轨迹。接手先从experiments/README.md查看现有run和成果，不自动另起GPU任务。
 
 历史Wan2.1-T2V-1.3B LoRA用于灰色建筑外观、环绕视角和视频时序学习；单轨统一prompt、逐栋prompt和Cap3D的划分及缓存规则仍适用于各自历史实验，不能混入当前VACE两例任务。
 
 目录职责：
 
+- experiments：每个研究想法独立目录，放专用代码、配置入口、结果链接和说明；新运行按docs/PROJECT_STRUCTURE.md组织。
 - code/Python_3D_Scanner：数据划分、缓存、训练入口和验证入口。
 - code/DiffSynth-Studio：第三方训练与推理引擎。项目层能解决的问题不要直接改第三方核心。
-- scripts：训练、续训、验证和服务器启动脚本。
+- scripts：已有公共适配器、兼容启动入口、训练/验证工具和CPU回归。Complex12专用源码位于experiments/vace/complex12_rev1/scripts。
 - configs：固定的数据划分和实验配置。
 
 ## 2. 当前服务器环境
@@ -35,7 +36,7 @@ A100 的 mv2v 环境和 /home/share/CHUANJUN/building_wan 路径只属于历史�
 
 ## 3. 当前VACE实验与历史T2V配置
 
-当前VACE配置是 `configs/vace_roof_smoke_v1.json`，详细说明见 `docs/VACE_P04_P06_LORA_SMOKE.md`：
+已完成的两例VACE smoke配置是 `configs/vace_roof_smoke_v1.json`，详细说明见 `docs/VACE_P04_P06_LORA_SMOKE.md`。以下预算只属于该历史实验；Complex12使用自己run中的冻结配置，不能混用：
 
 - 仅P04/source1227和P06/source1848，各固定B000–B016，512×512，GT/Damaged/Exact同帧；B080不参与选窗。
 - GT用于官方FlowMatch训练监督；Damaged填灰127与二值ModelMask用于VACE条件。推理不读取GT，不使用GT首尾帧或视频初始化。
@@ -63,6 +64,7 @@ A100 的 mv2v 环境和 /home/share/CHUANJUN/building_wan 路径只属于历史�
 
 - data/、models/、cache/、已有 checkpoints/ 和 outputs/ 默认只读，不擅自删除。
 - 新实验必须使用独立输出目录，不能覆盖历史权重。
+- 新想法先建experiments/<任务>/<想法>/，新产物放outputs/<任务>/<想法>/<run>/。已有大型结果不为整理而搬动；runs链接只导航，不复制成果。正式源码不再放进outputs。
 - 训练崩溃后先保留旧输出，再把续训结果写到独立目录。
 - .safetensors LoRA文件不能用--resume_from_checkpoint当作完整训练状态；历史T2V入口的增量续训使用--lora_checkpoint。当前VACE smoke入口没有完整状态resume，不将旧T2V参数套用到本轮。
 - 同一缓存目录或输出目录不能被两个进程同时写入。

@@ -10,8 +10,10 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageFilter
 
-RUN = Path(__file__).resolve().parents[1]
-PROJECT = RUN.parents[1]
+SCRIPTS = Path(__file__).resolve().parent
+PROJECT = SCRIPTS.parents[3]
+# Preserve the completed pilot's artifact location independently of source code.
+RUN = PROJECT / 'outputs/ComplexSingleOrbit_Rev1_Pilot_20261022'
 DATA = PROJECT / 'data/buildingfiller_import/Complex12/BuildingFiller_Complex12_512_Rev1_20261022'
 PYTHON = '/home/shi/miniconda3/envs/scj/bin/python'
 sys.path.insert(0, str(PROJECT / 'scripts'))

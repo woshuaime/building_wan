@@ -6,6 +6,12 @@ from complex_common import *
 
 def main():
     c=config()
+    progress=read_json(RUN/'progress.json')
+    if progress.get('status')=='complete':
+        require(progress.get('config_id')==c['config_id'],'Completed experiment config mismatch')
+        print('实验已完成；所有任务保持原结果。',flush=True)
+        print(RUN/'00_看结果/README_从这里开始.md',flush=True)
+        return
     with (RUN/'logs/run.lock').open('a') as lock, (PROJECT/'logs/.wan_a6000_gpu.lock').open('r') as gpu_lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         fcntl.flock(gpu_lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -50,9 +56,9 @@ def main():
             progress.update(stage=stage,current_job=job,updated_at=now())
             write_json(RUN/'progress.json',progress)
             print(f'\nSTAGE {stage}: {job}; completed trajectories {complete_count}/60; {now()}',flush=True)
-            command=[PYTHON,'-u',str(RUN/'scripts'/args[0]),*args[1:]]
+            command=[PYTHON,'-u',str(SCRIPTS/args[0]),*args[1:]]
             if args[0] in ('complex_train.py','complex_infer.py'):
-                command=['gdb','--batch','--quiet','-x',str(RUN/'scripts/native_exit.py'),'-ex','wan-run','--args',*command]
+                command=['gdb','--batch','--quiet','-x',str(SCRIPTS/'native_exit.py'),'-ex','wan-run','--args',*command]
             with (RUN/'logs'/f'{job}.log').open('a',encoding='utf-8') as log:
                 log.write(f'\nSTART {now()}\n');log.flush()
                 process=subprocess.Popen(command,cwd=PROJECT,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,

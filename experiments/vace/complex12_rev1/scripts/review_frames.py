@@ -2,6 +2,22 @@
 from PIL import ImageDraw
 from complex_evaluate import *
 
+def make_views(cs, methods):
+    output = RUN / 'review' / cs
+    output.mkdir(parents=True, exist_ok=True)
+    path = output / f'keyframes_{"".join(methods)}.png'
+    if path.exists():
+        return path
+    views = config()['evaluation']['keyframes']
+    order = ['Before', 'GT', *methods]
+    canvas = Image.new('RGB', (512 * len(views), 544 * len(order)), 'white')
+    for row, method in enumerate(order):
+        for col, frame in enumerate(views):
+            canvas.paste(tile(cs, method, frame), (col * 512, row * 544))
+    canvas.save(path)
+    print(path, flush=True)
+    return path
+
 def make_sheets(cs,methods):
     # All methods use the same fixed full-frame reduction; no selected best results.
     output=RUN/'review'/cs
