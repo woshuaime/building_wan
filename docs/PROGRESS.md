@@ -1,39 +1,13 @@
-# Progress
+# 进度查询：兼容入口
 
-## Current phase
+更新：2026-10-23（UTC+09:00）。项目当前摘要见 [PROJECT_CONTEXT](../PROJECT_CONTEXT.md)，跨实验完成证据见 [EXPERIMENTS](../EXPERIMENTS.md)。
 
-Migration/bootstrap on the laboratory A6000 server.
+Complex12 Rev1已完成C/U/S各300更新、60/60条轨迹和全部12栋媒体/指标。没有需要自动继续的GPU阶段。读取 [progress.json](../outputs/ComplexSingleOrbit_Rev1_Pilot_20261022/progress.json) 或从项目根执行：
 
-## Completed
+```bash
+/home/shi/miniconda3/envs/scj/bin/python experiments/vace/complex12_rev1/scripts/status.py
+```
 
-- Confirmed the working copy path, SSH identity, Ubuntu kernel, and RTX A6000 hardware identity.
-- Confirmed this copy is not currently a Git worktree.
-- Confirmed no Slurm commands, project Conda environment, Claude SDK, or MCP Python SDK are currently available in the non-interactive shell.
-- Added a dependency-free project MCP worker scaffold for GPT-to-Claude delegation.
-- Added project routing/safety rules and A6000-oriented context/handoff/experiment documents.
-- Added secret and generated-artifact ignore rules.
-- Validated the worker's MCP initialize, tool listing, and non-mutating dry-run responses without calling Claude.
-- Confirmed Codex discovers the project-level `claude_worker` server as enabled.
-- Confirmed the project secret scan finds no Anthropic key material.
+不要用resume.sh或训练/推理启动脚本查询进度。命令语义与历史实验状态读取见 [TRAINING](../TRAINING.md)。
 
-## In progress
-
-- Repository origin and branch strategy are not decided.
-- The final Python/CUDA environment has not been migrated or validated.
-- Claude API credentials/connectivity are intentionally not live-tested yet.
-
-## Not completed
-
-- No repository has been initialized or cloned.
-- No dependency installation has been performed.
-- No GPU framework/CUDA tensor test has been run.
-- No training command or long-running process has been started.
-- Copied paths and scripts have not yet been fully ported from school A100/Slurm assumptions to direct A6000 execution.
-
-## Next phase
-
-1. Decide whether this directory becomes a new repository or is replaced/connected to an existing remote repository.
-2. Create or migrate the A6000 Python environment and verify PyTorch/CUDA.
-3. Set `ANTHROPIC_API_KEY` in the user/SSH environment (never in the project).
-4. Run the worker's non-mutating live API smoke test, then let GPT review the result.
-5. Audit training paths/configs and create an A6000 short-smoke-test launcher before any long training.
+更新前进度全文保存在 [历史快照](history/20261023_before_md_refresh/docs/PROGRESS.md)。历史轮次、PID、GPU占用和“下一步”只属于记录时刻，不能据此自动重启任务。

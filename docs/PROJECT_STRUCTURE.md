@@ -1,24 +1,28 @@
-# 项目目录约定
+# 项目目录与文档维护约定
 
-2026-10-23整理：按研究想法组织工作入口，运行产物保持原位置。此次没有训练、推理、重编码或改动模型计算。
+更新：2026-10-23（UTC+09:00）。按研究想法组织工作入口，已有大型成果保持物理位置。目录整理与本次Markdown维护均未启动训练、推理或媒体重编码。
 
-## 三层关系
+## 1. 公共代码、实验和运行产物
 
-1. 项目公共层：scripts/的适配器、检查工具、兼容入口，以及code/中的训练基础和第三方引擎。
-2. 实验层：experiments/<vace或t2v>/<想法名>/，放研究问题、专用代码和配置入口。
-3. 运行层：outputs/<任务>/<想法名>/<run编号>/，放某一次实际运行的冻结配置、权重、预测、指标、日志和可视化。
+| 层次 | 位置 | 职责 |
+| --- | --- | --- |
+| 公共层 | scripts/、code/Python_3D_Scanner/training/ | 已有适配器、通用工具、兼容入口、回归 |
+| 第三方引擎 | code/DiffSynth-Studio/ | 供应商源码，项目层能解决的问题不改其核心 |
+| 实验层 | experiments/<任务>/<想法>/ | 一个研究问题的说明、专用实现、配置入口、runs链接 |
+| 运行层 | outputs/<任务>/<想法>/<run_id>/ | 一次实际运行的权重、预测、指标、日志、可视化与冻结参数 |
+| 公共数据与模型 | data/、models/、cache/、历史checkpoints/ | 保留原始来源和已有大文件，不因归类搬动 |
 
-已有结果采用既有路径，不为统一名字迁移大型成果。experiments中的runs链接把物理结果归到对应想法下；一个成果只保留一份。
+实验代表研究问题，run代表一次执行。更换损失设计或研究问题新建idea；相同想法的重复实验新建run。多个方法可以作为同一配对实验的子组，但数据、初始化、预算和评测关系应写清楚。
 
-## 以后新增实验
+## 2. 新实验建议结构
 
 ```text
 experiments/vace/<idea>/
 ├── README.md
-├── scripts/                 # 专用实现
-├── configs/                 # 实验配置
+├── scripts/
+├── configs/
 └── runs/
-    └── <run_id> -> 对应的outputs目录
+    └── <run_id> -> 对应outputs目录
 
 outputs/vace/<idea>/<run_id>/
 ├── 00_看结果/
@@ -30,39 +34,52 @@ outputs/vace/<idea>/<run_id>/
 └── progress.json
 ```
 
-具体run只创建实际需要的目录。训练缓存、恢复状态、采样表等放在该run内；不是每个实验都必须具备所有产物。没有可用方法就写明未执行，不造空结果。
+只创建实际需要的内容，必要恢复状态、采样表、缓存和resume入口归到对应run。没有执行的方法写明未执行，不制造空预测、假权重或完成状态。模板见 [实验模板](../experiments/_template/README.md)。
 
-更换研究问题或损失设计时新建idea目录；相同想法的重复运行使用新run编号。数据划分、初始化、种子和预算先写清楚，再在授权范围内运行。成功结果的配置及完成记录不覆盖。
+专用源码在experiments维护，公共能力从scripts/code复用。现有公共入口不为目录整洁而随意迁移；跨实验导入和已有测试应保持可用。
 
-共享能力先复用项目层；只有某个实验使用的脚本放在该实验scripts/。不在outputs里继续开发正式源码。历史scripts入口保留，以兼容跨实验导入、已有测试和命令，不做本轮无关的计算逻辑重构。
+## 3. 已有目录如何归类
 
-## 本次具体变化
+| 原位置 | 当前导航/维护位置 | 处理 |
+| --- | --- | --- |
+| outputs/vace/test | experiments/vace/pilot8_base/runs/base81 | 链接；结果不搬 |
+| outputs/vace/composite_check | experiments/vace/pilot8_composite/runs/cpu_check | 链接；标明CPU回贴 |
+| outputs/vace/lora_roof_smoke/run_20261020_165237_150325_2048720 | experiments/vace/pilot8_lora17/runs/20261020 | 链接 |
+| outputs/vace/lora300_eval81/run_20261020_194300_145372 | experiments/vace/pilot8_lora81/runs/20261020 | 链接 |
+| outputs/ComplexSingleOrbit_Rev1_Pilot_20261022 | experiments/vace/complex12_rev1/runs/20261022 | 链接 |
+| Complex12原scripts下13个Python | experiments/vace/complex12_rev1/scripts | 源码已迁移；原scripts保留兼容链接 |
+| Complex12原resolved_config.json | experiments/vace/complex12_rev1/configs/pilot_20261022.json | 配置链接，唯一内容仍在原run |
+| outputs/validation下历史结果 | experiments/t2v各实验runs | 链接 |
 
-| 原位置 | 现在的位置或用途 |
+Complex12代码显式区分PROJECT、SCRIPTS、RUN，原resume.sh仍可定位源码与输出。当前RUN固定服务已完成实验，新想法不能直接复用其输出目录、配置或完成标记。
+
+## 4. 文档分工与优先级
+
+| 文档 | 负责内容 |
 | --- | --- |
-| outputs/ComplexSingleOrbit_Rev1_Pilot_20261022/scripts/下13个Python脚本 | experiments/vace/complex12_rev1/scripts/ |
-| 原Complex12 scripts路径 | 指向新源码目录的兼容链接，原resume.sh不变 |
-| Pilot8 Base、Composite、LoRA17、LoRA81结果 | 分别从各自experiments目录的runs链接打开，物理结果不变 |
-| Complex12视频、预测、指标、权重、配置 | 仍在原ComplexSingleOrbit_Rev1_Pilot_20261022目录 |
-| 四份根文档的旧详细过程 | docs/history/20261023_before_structure/逐字归档 |
-| 根README及四份状态文档 | 简洁的当前事实、实验索引、操作与交接 |
+| 根README.md | 项目目的和阅读入口 |
+| 根PROJECT_CONTEXT.md | 当前事实、环境和未解决事项 |
+| 根EXPERIMENTS.md | 实验台账、横向结果和结论边界 |
+| 根TRAINING.md | 服务器操作、状态读取、恢复和检查 |
+| 根SESSION_HANDOFF.md | 下一会话需要知道的事实 |
+| AGENTS.md | 项目工作规则与授权边界 |
+| experiments各README | 该想法的数据、配置、代码、结果和局限 |
+| docs专项说明 | 数据交接、技术细节、历史故障和工具 |
+| docs/DOCUMENTATION_INDEX.md | 文档全量清单、更新范围与检查 |
+| run内报告/日志 | 该次执行的冻结证据，后续文档不倒改 |
 
-Complex12代码显式区分PROJECT、SCRIPTS和RUN：源码位置变化不会将输出写到experiments。当前代码服务这一已完成run；下一项想法不能直接复用该固定RUN。
+docs旧PROJECT_CONTEXT/EXPERIMENTS/HANDOFF/PROGRESS现在只作兼容导航，不再维护第二套“当前状态”。若旧日志或归档与当前总览冲突，应按记录时间和适用实验解释；不能删去旧失败记录来制造一致。
 
-## Git与历史记录
+## 5. 历史保护与Git
 
-代码、实验说明、配置来源和结果链接入Git。数据、模型、视频、预测图、权重、日志、缓存与临时文件不入Git。runs目录里的链接只记录目标路径，Git不会沿链接打包成果。
+原始数据、模型、权重、视频、预测图、日志和缓存默认只读且不入Git。runs链接仅记录目标路径，Git不会沿链接打包成果。其他平台不支持链接时，从实验README的原路径定位；GitHub上无法读取服务器媒体属于部署差异。
 
-已在Git中的旧run/resolved_config.json、mask_loss_mapping.md、resume.sh作为历史来源保留；它们不是未来把新源码放回outputs的理由。已有冻结配置保持唯一内容，实验configs入口指向原文件。
+chuanjun.code-workspace只描述Windows工作区，不加入服务器绝对路径。已跟踪的旧run配置、损失映射和resume文件作为历史来源保留，不代表未来把源码放回outputs。
 
-Linux服务器支持这些目录链接；平台不支持链接时，可用实验README所列的原始结果位置和新的源码路径。当前chuanjun.code-workspace仍只描述Windows工作区，未写入Linux绝对路径。
+本次全面更新针对32份项目维护Markdown。第三方文档、数据包说明、冻结run报告、.pre_git_sync与既有历史快照不改写；9份容易误导的旧说明逐字保存到 [更新前归档](history/20261023_before_md_refresh/README.md)。完整范围见 [文档索引](DOCUMENTATION_INDEX.md)。
 
-旧日志/配置中的实际时间、路径、PID、提交号保留原记录。它们只代表当时，不覆盖新的完成状态；当前状态统一看根目录PROJECT_CONTEXT.md及对应run/progress.json。
+## 6. 结构整理与本次文档检查的区别
 
-## 本次检查记录
+此前结构整理已经通过298项项目CPU回归、8项Complex12专用CPU检查、两个状态入口兼容检查、159个本地导航链接及6466个成果文件元数据比对。这些是该次结构整理的记录，不冒充本次重新执行结果。
 
-- 298项项目CPU回归通过（50.447秒），8项Complex12专用CPU检查通过（2.110秒）。
-- 规定shell语法、Python编译和git diff --check通过。
-- 新旧两个状态入口均从项目外的工作目录正常读取complete、60/60、C/U/S各300；未启动模型。
-- 20份当前导航文档的159个本地链接有效。
-- 6466个已有成果文件的inode、大小及mtime与整理前一致；不重复计算大型文件哈希。
+本次Markdown维护另执行项目规定检查、当前文档链接核对、归档原文核对及已有成果/非Markdown修改保护检查，具体结果统一记录在 [文档索引](DOCUMENTATION_INDEX.md)。文档任务不需要新的GPU验证或全项目哈希审计。

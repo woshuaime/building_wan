@@ -1,19 +1,41 @@
-# 运行产物存储
+# 运行产物存储与结果入口
 
-日常请从 [实验目录](../experiments/README.md) 进入。这里保留已有成果的物理路径，模型权重、视频、图像、指标和缓存没有搬动。
+更新：2026-10-23（UTC+09:00）。日常请从 [experiments](../experiments/README.md)按研究问题进入。这里保留成果的真实物理路径；已有视频、PNG、指标、权重和冻结配置没有搬动。
 
-| 原目录 | 所属想法 / 入口 |
+## 已有目录
+
+| 物理目录 | 内容与状态 | 对应说明 |
+| --- | --- | --- |
+| ComplexSingleOrbit_Rev1_Pilot_20261022/ | C/U/S各300更新，60条81帧、4860PNG、12视频/12图，全部完成 | [Complex12](../experiments/vace/complex12_rev1/README.md) |
+| vace/test/ | 八例Base原始输出及对照，各四成果 | [Base](../experiments/vace/pilot8_base/README.md) |
+| vace/composite_check/ | 八例CPU硬边界回贴，各三成果 | [Composite](../experiments/vace/pilot8_composite/README.md) |
+| vace/lora_roof_smoke/ | 两例17帧训练、100/300权重、六次对照 | [LoRA17](../experiments/vace/pilot8_lora17/README.md) |
+| vace/lora300_eval81/ | 同一LoRA-300八例81帧，32项成果 | [LoRA81](../experiments/vace/pilot8_lora81/README.md) |
+| vace/P01_465_81f_20261019_171510_1691517/ | P01最早81帧结果，后续Base来源之一 | [P01说明](../docs/VACE_P01_EXECUTION.md) |
+| buildingfiller_handoff/ | P01接收、解包与验收材料 | [交接说明](../docs/BUILDINGFILLER_P01_VACE_HANDOFF.md) |
+| validation/validation_all_single_orbit/ | T2V Base及28权重的29比较视频 | [单轨T2V](../experiments/t2v/single_orbit/README.md) |
+| validation/building_wan/、validation/9.28/ | 早期loss等结果及比较 | [早期T2V](../experiments/t2v/early_experiments/README.md) |
+
+## 直接查看最新实验
+
+打开 [Complex12的00_看结果](ComplexSingleOrbit_Rev1_Pilot_20261022/00_看结果/README_从这里开始.md)，可查看CS01–CS12同步视频、关键帧总览、训练/验证指标及 [中文结论](ComplexSingleOrbit_Rev1_Pilot_20261022/00_看结果/最终实验结论.md)。原始预测在predictions，科研指标在metrics，正式step300在checkpoints/C、U、S。
+
+原run/scripts现在是指向experiments/vace/complex12_rev1/scripts的兼容链接。原resume.sh、冻结配置和完成记录未迁移。已完成任务不通过删标记或改配置强行重跑。
+
+## 新运行的目录职责
+
+`outputs/<任务>/<想法>/<run_id>/`内部按需使用：
+
+| 子目录/文件 | 内容 |
 | --- | --- |
-| ComplexSingleOrbit_Rev1_Pilot_20261022/ | [十二栋配对实验](../experiments/vace/complex12_rev1/README.md) |
-| vace/test/ | [八例Base](../experiments/vace/pilot8_base/README.md) |
-| vace/composite_check/ | [CPU回贴诊断](../experiments/vace/pilot8_composite/README.md) |
-| vace/lora_roof_smoke/ | [P04/P06 17帧LoRA](../experiments/vace/pilot8_lora17/README.md) |
-| vace/lora300_eval81/ | [八例81帧LoRA](../experiments/vace/pilot8_lora81/README.md) |
-| vace/P01_465_81f_20261019_171510_1691517/ | [P01早期完整轨迹](../experiments/vace/pilot8_base/README.md) |
-| buildingfiller_handoff/ | [Pilot8数据交接](../experiments/vace/pilot8_base/README.md) |
-| validation/validation_all_single_orbit/ | [历史T2V单轨](../experiments/t2v/single_orbit/README.md) |
-| validation/building_wan/、validation/9.28/ | [早期T2V](../experiments/t2v/early_experiments/README.md) |
+| 00_看结果/ | 面向观看的README、视频、总览、简明指标和结论 |
+| checkpoints/ | 正式权重与必要恢复状态 |
+| predictions/ | 原始模型预测，供统一评估 |
+| metrics/ | 逐帧/逐栋指标、训练/验证汇总、loss |
+| logs/ | 必要执行和错误记录 |
+| resolved_config.json、progress.json | 冻结运行参数与真实进度 |
+| resume.sh、采样表等 | 实际需要的可恢复入口与配对依据 |
 
-新运行按outputs/<任务>/<想法名>/<run编号>/保存。每个run内部区分00_看结果、checkpoints、predictions、metrics、logs及冻结配置，创建实际需要的部分。未来专用源码放experiments，不在本目录继续开发。
+一个新研究问题先建experiments目录；同一想法不同运行用新的run_id。源码不再正式存放outputs；现存兼容链接不作为新代码存储惯例。
 
-Complex12原scripts路径现在是兼容链接；原resume.sh、配置与结果仍有效。
+历史成果默认只读。文档更新不重写run中的最终报告、损失映射、日志和配置，也不删除失败记录。模型、媒体、日志、缓存默认不入Git；本README是导航文件，不改变产物保护规则。

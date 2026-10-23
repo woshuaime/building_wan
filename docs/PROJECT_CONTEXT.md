@@ -1,39 +1,9 @@
-# Project Context
+# 项目状态：兼容入口
 
-## Stable goal
+更新：2026-10-23（UTC+09:00）。当前状态统一维护在 [根目录PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md)。
 
-Fine-tune and evaluate Wan2.1-T2V-1.3B with LoRA so that the model learns the appearance and complete rotating views of general building models.
+最新事实：Pilot8 Base、Composite、两例LoRA17、八例LoRA81均已完成；Complex12 Rev1的C/U/S各300真实更新、五方法60条81帧预测也已完成。当前A6000/scj环境和正式VACE权重已被实际使用，旧文档中的“环境尚未迁移”“模型未到位”不再描述现在。
 
-## Current execution environment
+本文件不重复维护第二套状态。数据/模型、输出位置、未解决故障和后续边界请读根文档；实际结果从 [experiments](../experiments/README.md)进入。
 
-- Current working copy: `/mnt/windowsE/chuanjun/building_wan`
-- Current SSH host/user: `shi@vccip`
-- Target GPU: NVIDIA RTX A6000 (hardware detected through PCI/driver metadata)
-- Operating system: Ubuntu Linux 6.8
-- Scheduler: no Slurm commands detected on this host; do not use copied school-cluster `sbatch` instructions here.
-- Python environment: not migrated yet. The only currently confirmed interpreter is `/usr/bin/python3`.
-- Internet/API path: the SSH session inherits the existing reverse-proxy environment. Claude API connectivity is not considered verified until a safe API smoke test succeeds.
-
-The root-level `PROJECT_CONTEXT.md`, `TRAINING.md`, `SESSION_HANDOFF.md`, and `EXPERIMENTS.md` were copied from the former school A100/Slurm environment. They are historical migration evidence, not instructions for the A6000 host.
-
-## Main modules
-
-- `code/Python_3D_Scanner`: project-owned collection, preparation, training, validation, and experiment logic.
-- `code/DiffSynth-Studio`: third-party Wan training/inference engine; modify only when the project layer cannot solve the issue.
-- `data/`, `models/`, `cache/`, `checkpoints/`, `outputs/`: large or generated assets; read-only by default.
-
-## Agent architecture
-
-- GPT Codex is the sole main agent, planner, reviewer, risk owner, and final decision-maker.
-- Claude API is an execution worker invoked only after explicit user approval.
-- The project-level MCP server `claude_worker` exposes one delegation tool to Codex and runs inside the SSH workspace.
-- Claude receives bounded project file and command tools. It cannot write to protected artifact directories through its file tool, cannot run destructive commands, and cannot train unless GPT explicitly enables training for that delegation.
-- Every Claude execution result returns to GPT for diff/config/log/result review.
-
-## Architecture decisions
-
-1. Use a small project-local stdio MCP server instead of a second chat window or a large orchestration framework.
-2. Use only Python standard-library code at bootstrap time, so the integration can be validated before the project Conda environment exists.
-3. Read credentials only from environment variables. Never store API keys in the repository, handoff, or logs.
-4. Preserve copied school-cluster experiment records as history while creating new A6000-specific progress and experiment records here.
-5. Until Git is created or cloned, report Git state as unavailable; never fabricate a branch, commit, or diff.
+更新前原文逐字保存在 [历史快照](history/20261023_before_md_refresh/docs/PROJECT_CONTEXT.md)，其中时间、路径、未完成状态仅代表当时，不触发新训练或重跑。

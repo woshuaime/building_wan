@@ -1,17 +1,19 @@
 # P04/P06 VACE条件补全LoRA小样本验证
 
+文档更新：2026-10-23（UTC+09:00）。本页保留2026-10-20两例17帧首轮的完整参数和当时验收范围。后续[八例81帧评估](../experiments/vace/pilot8_lora81/README.md)及[Complex12 Rev1](../experiments/vace/complex12_rev1/README.md)也已经完成，属于独立实验，不能倒改本run的pending_user_review。权重/结果快捷入口见[LoRA17实验页](../experiments/vace/pilot8_lora17/README.md)。
+
 本说明记录两例训练题的过拟合验证。它检查条件补全训练链路是否真实工作、生成表面能否更接近同帧GT；两例均参与训练，结果不能作为独立测试或81帧环绕一致性证据。
 
-## 1. 当前运行与证据
+## 1. 首轮完成证据（2026-10-20）
 
-最终核查时间：**2026-10-20 17:05:32 +08:00**。首轮已正常完成；当前查看结果和人工验收，不再次启动训练。
+最终核查时间：**2026-10-20 17:05:32 +08:00**。首轮已正常完成；下表记录当时的查看与人工验收状态，不再次启动训练。
 
 | 项目 | 已核查事实 |
 | --- | --- |
 | 项目目录 | `/mnt/windowsE/chuanjun/building_wan` |
 | Python | `/home/shi/miniconda3/envs/scj/bin/python` |
 | Run | `outputs/vace/lora_roof_smoke/run_20261020_165237_150325_2048720/` |
-| tmux | `vace_p01_17f:3.0`，pane `%3` |
+| 当时tmux | `vace_p01_17f:3.0`，pane `%3`；不保证服务器重启后仍存在 |
 | Base | P04/P06两次17帧推理均完成，阶段退出0 |
 | 训练 | loss.csv为update1–300，两例各150次；训练worker正常退出0 |
 | 权重 | 100/300步各43,780,800 bytes，均为真实vace LoRA增量 |
@@ -20,7 +22,7 @@
 | 整体状态 | runtime为complete/complete；终端打印COMPLETED，总耗时749.247秒 |
 | 待人工确认 | 完整17帧时序/闪烁和用户视觉验收；runtime为pending_user_review |
 
-本轮由用户在VS Code Remote-SSH终端启动，Codex本次只读检查已有运行和成果、维护文档。训练前5步终端逐次确认有限loss、有效梯度、optimizer仅含LoRA及参数实际变化；最终training_result也确认gradient_check_passed和parameters_changed为true。100/300阶段均实际加载150个vace目标层的LoRA。
+该首轮由用户在VS Code Remote-SSH终端启动，后续文档核对读取了已有运行和成果。训练前5步终端逐次确认有限loss、有效梯度、optimizer仅含LoRA及参数实际变化；最终training_result也确认gradient_check_passed和parameters_changed为true。100/300阶段均实际加载150个vace目标层的LoRA。
 
 中期17:00:09曾记录210更新、两例各105次和100步权重；该记录仅为过程证据，已被以上最终状态更新，不再作为待完成任务。
 
@@ -65,7 +67,7 @@
 | P04 | source1227，A2 Medium | 屋顶凹槽、补丁或台阶 | 未损区域变干净，但凹槽和台阶仍在 |
 | P06 | source1848，A3 Medium | 深色洞口、表面没有闭合 | 保留区域恢复，但黑洞仍在 |
 
-当前先学习这两道题，控制训练预算和输入变量。既有81帧预测只提供问题线索；不能截取其中17帧冒充本轮单次17帧Base。
+该首轮只学习这两道题，控制训练预算和输入变量。既有81帧预测只提供问题线索；不能截取其中17帧冒充本轮单次17帧Base。
 
 ## 3. 数据来源与固定窗口
 
@@ -205,7 +207,7 @@ Base/100/300的逐帧数组只保存在本轮独占系统临时目录供跨进�
 
 ## 9. 查看、重连与失败处理
 
-本轮已回到shell，可重连查看完成记录：
+以下为2026-10-20使用过的会话。仅当tmux现有会话仍包含该名称时才重连；不存在则直接读后面的experiment.json，不创建会话或重跑：
 
 ~~~bash
 tmux attach-session -t vace_p01_17f
@@ -274,6 +276,6 @@ Base阶段实测峰值为15.865GiB allocated /17.309GiB reserved，训练阶段�
 | `scripts/vace_roof_results.py` | 两视频/两PNG、逐帧对齐和播放器兼容校验 |
 | `scripts/run_vace_roof_smoke.sh` | 指定scj Python、离线依赖模式和可恢复终端 |
 
-准备阶段294项CPU回归通过，包含真实tiny Wan/VACE与官方损失的反向链、GT隔离、Mask真用、LoRA增量重载、异常停止和媒体编码；这些测试使用临时合成数据/小随机模型。本次文档维护再次以空CUDA_VISIBLE_DEVICES运行294项CPU测试通过（45.607秒），语法、编译、diff检查通过；没有额外GPU计算。正式GPU执行证据独立记录在第1节，不能把CPU测试当正式训练结果。
+准备阶段294项CPU回归通过，包含真实tiny Wan/VACE与官方损失的反向链、GT隔离、Mask真用、LoRA增量重载、异常停止和媒体编码；这些测试使用临时合成数据/小随机模型。2026-10-20的后续文档核对再次以空CUDA_VISIBLE_DEVICES运行294项CPU测试通过（45.607秒），语法、编译、diff检查通过；这些是当时记录，没有额外GPU计算。2026-10-23本次Markdown维护的检查单独记录在[文档索引](DOCUMENTATION_INDEX.md)。正式GPU执行证据独立记录在第1节，不能把CPU测试当正式训练结果。
 
-本轮后续保持停止边界：不自动扩大数据、跑81帧、增加Depth/相机条件、换14B或追加训练。后续正式训练与测试划分不得将已经学过P04/P06的LoRA当作无泄漏初始化。
+该首轮的预算边界到300更新和六次17帧推理为止。后来经独立授权的八例81帧与Complex12已另存结果；本次不自动扩大数据、追加训练、增加Depth/相机条件或换14B。正式训练与测试划分不得将学过P04/P06的LoRA当作无泄漏初始化。

@@ -1,10 +1,12 @@
 # Project Rules
 
+更新：2026-10-23（UTC+09:00）。当前事实见 [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)，文档清单见 [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md)。以下工作规则继续有效；历史实验参数仅适用于其对应run。
+
 ## 1. 项目范围
 
 当前项目研究BuildingFiller残缺建筑序列的VACE条件补全。八例基线、CPU缺口回贴、P04/P06两例17帧LoRA及八例81帧扩展评估均已完成；最新Complex12 Rev1也已完成C/U/S各300更新及五方法60条81帧轨迹。接手先从experiments/README.md查看现有run和成果，不自动另起GPU任务。
 
-历史Wan2.1-T2V-1.3B LoRA用于灰色建筑外观、环绕视角和视频时序学习；单轨统一prompt、逐栋prompt和Cap3D的划分及缓存规则仍适用于各自历史实验，不能混入当前VACE两例任务。
+历史Wan2.1-T2V-1.3B LoRA用于灰色建筑外观、环绕视角和视频时序学习；单轨统一prompt、逐栋prompt和Cap3D的划分及缓存规则仍适用于各自历史实验，不能混入VACE条件补全实验。
 
 目录职责：
 
@@ -27,7 +29,7 @@
 
 已确认的运行条件：
 
-- GPU：1张NVIDIA RTX A6000，标称48GB；本轮监控显示约47.99GiB总显存，实际空闲量以运行时查询为准。
+- GPU：1张NVIDIA RTX A6000，标称48GB；历史监控显示约47.99GiB总显存，实际空闲量以运行时查询为准。
 - PyTorch：2.11.0+cu128。
 - 训练使用单进程、单卡，不使用 DDP。
 - A6000 训练脚本通过 WAN_PYTHON 覆盖 Python 路径；在服务器上应显式指定 scj，再执行脚本。
@@ -121,4 +123,14 @@ GPU任务运行时，CPU回归可显式设置 `CUDA_VISIBLE_DEVICES=''`，不启
 
 chuanjun.code-workspace 只描述本地 Windows 工作区，不写服务器 Linux 绝对路径；除非本地目录结构发生变化，否则保持不动。
 
-根目录 PROJECT_CONTEXT.md / TRAINING.md / EXPERIMENTS.md / SESSION_HANDOFF.md 是当前文档入口；docs/ 的迁移快照和 .pre_git_sync_20260924/ 是历史证据。扫描器 README 所述 src/ 当前缺失，不能把历史 GUI 操作描述当作已验证能力。
+根目录 PROJECT_CONTEXT.md / TRAINING.md / EXPERIMENTS.md / SESSION_HANDOFF.md 是当前文档入口；docs/ 原迁移快照已经归档，其原路径只保留兼容导航，.pre_git_sync_20260924/ 仍是历史证据。扫描器 src/ 当前缺失，不能把历史 GUI 操作描述当作已验证能力。
+
+## 8. Complex12完成记录与文档维护
+
+- Complex12 Rev1的固定run为outputs/ComplexSingleOrbit_Rev1_Pilot_20261022；C/U/S各300真实optimizer更新、B/L/C/U/S共60条81帧、4860张原始预测、12视频/12总览及指标报告已经完成。日常查看experiments/vace/complex12_rev1/scripts/status.py，不把resume.sh当状态查询。
+- 训练CS01/03/05/06/07/09/10/11，验证CS02/04/08/12；17帧连续窗训练、81帧评估，训练seed20261022、推理seed20261018。C/U/S使用共同新初始化，各自新优化器与相同随机序列；L仅为旧P04/P06参考。
+- C从40更新恢复完整optimizer/RNG到300；B/CS04保存完整预测后原生退出−6，独立验证后保留有效成果。这些事实不等于原生故障根因已经解决，也不授权重复成功任务。
+- 专用源码、数据身份、loss映射、指标口径与局限见experiments/vace/complex12_rev1/README.md及原run。不能将历史T2V的weights-only续训或两例smoke预算套到Complex12。
+- 当前状态统一在根目录四份文档；docs/PROJECT_CONTEXT、EXPERIMENTS、HANDOFF、PROGRESS只作兼容导航。专题和实验README负责细节，run中的报告/配置/日志作为冻结证据。
+- 文档全面维护针对项目自有当前说明，不改第三方文档、原始数据包说明、已有run报告和历史快照。更正历史事实时另记补充和日期，不把原日志改成成功记录。
+- 2026-10-23的Markdown更新保留现有非Markdown工作区修改，只提交相关文档；没有训练、推理、依赖更新或外部worker调用。完成证据与检查以docs/DOCUMENTATION_INDEX.md和实际Git记录为准。
