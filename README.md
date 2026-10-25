@@ -160,3 +160,10 @@ Exact是配对数据提供的缺损定位，本项目尚未评估自动检测缺
 首份为 [Complex12 Rev1十二栋单轨完整实验报告](upload/20261022_Complex12_Rev1_十二栋单轨实验报告.md)。正文直接包括数据身份、五种方法、损失与采样、实际参数、运行异常和恢复、训练/验证数值、十二栋视觉观察、问题帧与下一步建议；只复制这一份MD也能理解实验。原视频、权重和指标留在原run，未搬动。
 
 Complex12仍为C/U/S各300真实更新、五方法60条81帧已完成。本次仅整理报告和同步文档。以后每组实验完成后都在upload新增对应报告，并在原长期MD内继续追加历史，不能用报告入口替代旧正文。详细约定见 [upload/README.md](upload/README.md) 与 [AGENTS.md](AGENTS.md) 第10节。
+
+
+## 2026-10-26：OriginalHard 结果与效果复核
+
+[最新观看入口](outputs/vace/complex12_originalhard_eval/run_20261026_012033/00_看结果/README_从这里开始.md)位于outputs/vace/complex12_originalhard_eval/run_20261026_012033/00_看结果，不在旧Complex12目录。已有权重五方法60条81帧（40复用、20新推理），0新训练，12视频/12图/指标与结论齐全。
+
+CS09/11改善明显，CS10/12仍有错误连接和坡面，CS12首尾形状不一致；S没有稳定压过C/U。可单独复制的详细[OriginalHard报告](upload/20261026_Complex12_OriginalHard_已有权重评测报告.md)已补齐，保留参数、真实执行、逐栋数值、反例帧和下一步建议。旧成果及本文件历史原样保留。

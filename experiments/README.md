@@ -53,3 +53,10 @@ T2V学习外观与环绕生成，VACE学习Damaged/Mask条件补全；不共享L
 ## 2026-10-26：OriginalHard 已有权重评测（执行中）
 
 [新实验入口](vace/complex12_originalhard_eval/README.md)使用已训练的B/L/C/U/S、完整81帧；本轮训练更新0。CS01–CS08输入完全一致，40条预测复用；CS09–CS12新缺损需20条推理。run为 `/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eval/run_20261026_012033`，最终仍提供十二栋五方法同步对比。当前运行快照见根PROJECT_CONTEXT，完成结论待实际复核后追加。
+
+
+## 2026-10-26：OriginalHard 完成与复核补记
+
+此前“执行中”是启动时快照，现已完成40条复用+20条新推理、五方法60条81帧、12视频/12总览、指标与中文报告，新训练0。入口为[OriginalHard实验](vace/complex12_originalhard_eval/README.md)，[完整报告](../upload/20261026_Complex12_OriginalHard_已有权重评测报告.md)。
+
+新缺损CS09/11明显改善，CS10/12连接形状仍不可靠；S没有稳定优于C/U。四栋中3栋旧训练、1栋旧验证，完整8/4身份汇总另列。下一步仅建议困难结构缺损覆盖对照，未启动。

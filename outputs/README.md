@@ -45,3 +45,12 @@
 日期采用UTC+09:00。用户新增 [upload/](../upload/README.md) 用于每组实验的独立详细Markdown，首份为 [Complex12报告](../upload/20261022_Complex12_Rev1_十二栋单轨实验报告.md)。可携带报告在正文复述必要方法、参数、结果与解释，方便另一台机器阅读；本目录中的原始权重、预测、指标、日志和冻结报告继续作为实验证据保留。
 
 本次没有搬动、覆盖或复制既有大成果，也没有用新的说明去改写原run的失败记录。以后新想法的run继续按既定outputs规范隔离，收尾时额外写upload报告并更新长期MD。
+
+
+## 2026-10-26：最新 OriginalHard 结果位置
+
+直接打开[OriginalHard 的00_看结果](vace/complex12_originalhard_eval/run_20261026_012033/00_看结果/README_从这里开始.md)或[评审图册](vace/complex12_originalhard_eval/run_20261026_012033/00_看结果/评审图册.html)。物理路径：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eval/run_20261026_012033/00_看结果/`。
+
+这里是已完成的已有权重评测：40复用+20新推理、60条81帧、12同步视频/12总览、指标和[最终中文结论](vace/complex12_originalhard_eval/run_20261026_012033/00_看结果/最终实验结论.md)。没有新训练或新checkpoint。CS09/11明显改善，CS10/12结构仍不理想。完整可携带报告见[upload](../upload/20261026_Complex12_OriginalHard_已有权重评测报告.md)。
+
+旧Rev1结果仍在上文原目录，未搬动或覆盖。本轮按新想法规范放在outputs/vace/complex12_originalhard_eval下，不能只在outputs第一层寻找。

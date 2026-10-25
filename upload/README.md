@@ -40,3 +40,12 @@
 报告完成或修订时，同时按日期追加 [PROJECT_CONTEXT](../PROJECT_CONTEXT.md)、[EXPERIMENTS](../EXPERIMENTS.md)、[TRAINING](../TRAINING.md)、[SESSION_HANDOFF](../SESSION_HANDOFF.md)，并更新本索引、对应实验 README 及必要导航。保留各原文件历史正文；`upload/` 报告补充跨机器阅读，不替代长期项目发展记录或冻结 run 证据。
 
 持续要求已写入 [AGENTS.md](../AGENTS.md)，目录职责见[项目结构说明](../docs/PROJECT_STRUCTURE.md)。按项目规则检查差异、执行必要检查，只提交相关文档；大文件继续保留在原处。
+
+
+## 2026-10-26：OriginalHard 完整报告新增
+
+| 实验 | 实际状态 | 报告 |
+| --- | --- | --- |
+| Complex12 OriginalHard已有权重评测，run_20261026_012033 | 新训练0；40旧轨迹复用+20新推理，60条81帧、12视频/12总览与指标齐全；困难四栋完整连续帧复核完成 | [完整评测报告](20261026_Complex12_OriginalHard_已有权重评测报告.md) |
+
+报告包括真实旧训练/验证身份、五方法与权重、固定推理文本、20条执行、CPU准备修正、指标定义、12栋数值、四栋逐段视觉反例、局限与下一步建议。CS10/12的结构恢复不可靠，未把交付完成写成效果全部合格。仅复制这一份MD即可阅读关键内容；媒体留在原run，本次没有自动向家中机器传输。

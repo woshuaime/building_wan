@@ -168,3 +168,12 @@ chuanjun.code-workspace 只描述本地 Windows 工作区，不写服务器 Linu
 - 完成报告不等于授权下一轮GPU任务；下一步建议单列，不能据此自动续训、改模块或重跑成功轨迹。
 
 本次已为完成的Complex12 Rev1补齐[独立报告](upload/20261022_Complex12_Rev1_十二栋单轨实验报告.md)，既有冻结run报告保留原样；没有新训练、推理或媒体重编码。
+
+
+## 11. 2026-10-26：OriginalHard 已有权重评测完成
+
+固定run为 `outputs/vace/complex12_originalhard_eval/run_20261026_012033`，B/L/C/U/S共60条81帧、4860 PNG、12视频/12总览与指标/报告完成；40条复用CS01–08，20条新增CS09–12，新增训练0。专用源码见experiments/vace/complex12_originalhard_eval/scripts，完整报告见[upload](upload/20261026_Complex12_OriginalHard_已有权重评测报告.md)。完成状态经本次复核收尾，不能把启动时的awaiting_visual_review历史删掉。
+
+CS09/10/11是旧训练建筑的新缺损，只有CS12是旧验证建筑的新缺损。CS09/11有效，CS10连接面错误，CS12错误折面与首尾不一致；S相对C/U的困难四栋平均MAE仅低1.97%/1.49%，不宣称结构加权稳定胜出。全81帧联系图复核与实际播放应区分。
+
+下一实验建议是固定骨干和预算的困难缺损数据覆盖对照，尚未执行或获新GPU授权。只读查看progress或无参数resume.sh，不把已完成推理当作默认下一步。旧权重、旧run、失败日志和长期文档历史继续保护。

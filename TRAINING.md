@@ -521,3 +521,24 @@ bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eva
 用户进一步明确“跑起来就行，就可以结束这轮对话了，不需要实时监控，我在vscode的tmux能看到过程即可”。01:31:02（UTC+09:00）核查时，runner与C/CS09 worker实际存活，C去噪17/30，40条复用、2条新增已完成；VS Code所连tmux客户端位于complex12_rev1的originalhard81窗口。
 
 按此要求结束本轮主动跟踪，保留既有队列继续运行。队列包含剩余推理、统一指标、12栋视频/总览和复核图；计算结束状态为awaiting_visual_review。详细视觉分析、最终中文结论、upload实验报告和完成文档需下次接手核对真实产物后补齐，不能将本轮“已启动”写成“实验已全部完成”。长期文档的历史正文和旧实验产物继续保留。
+
+
+## 2026-10-26：OriginalHard 完整轨迹复核与结果收尾
+
+复核记录：2026-10-26T02:41:09+09:00（UTC+09:00）。本次接手已核对20个新worker退出0、40条复用，共60条81帧/4860 PNG，12视频/12总览和统一指标均完成；用户要求审查困难结构效果后，逐段查看CS09–CS12全部81帧联系图及六个原尺寸问题帧。新增训练更新0，本次没有启动新GPU任务。此前启动/待复核快照按原文保留。
+
+run：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eval/run_20261026_012033`。直接观看入口：[00_看结果](outputs/vace/complex12_originalhard_eval/run_20261026_012033/00_看结果/README_从这里开始.md)；完整可携带报告：[OriginalHard已有权重评测](upload/20261026_Complex12_OriginalHard_已有权重评测报告.md)。最终结论在run的00_看结果/最终实验结论.md，核查后progress更新为complete。完成指执行和报告完整，不表示补全质量全部合格。
+
+CS09、CS11明显改善；CS10连接面/折线仍错，C的MAE最低；CS12错误折面及首尾形状差异明显，旧L反而最好。新缺损四栋B/L/C/U/S的MAE为0.069922/0.036078/0.036619/0.036443/0.035899。S比B降低48.66%，但比C/U只低1.97%/1.49%；S相对C保留区变化增加4.17%、全图闭环误差增加13.78%，不能称S稳定胜出。CS12的S首尾缺损区误差0.126121，L为0.029390。
+
+身份不能混淆：CS01–CS08输入不变且五方法复用；CS09/10/11是旧训练建筑新缺损，仅CS12为旧验证建筑新缺损。不是12栋全新建筑泛化，不能用完整8/4均值掩盖困难4栋。视觉结论来自连续静态帧与原尺寸图，视频有程序全帧解码证据，本次未做实时播放或量化高频闪烁。
+
+当前没有训练或推理待自动追加。只读状态命令仍为：
+
+```bash
+bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eval/run_20261026_012033/resume.sh
+```
+
+不要为查看效果添加--run/--resume，不通过删完成标记触发GPU。40条旧预测是链接，导出原始PNG时须沿链接复制；大成果留在原run。本次报告与原始CSV/连续帧复核一致，指标定义未改；根文档按日期追加。
+
+收尾实测：2026-10-26T02:42:50+09:00，progress=complete；60轨迹/4860 PNG与12总览可读，12视频完整解码证据齐全。298项CPU回归（57.214秒）及9项专用检查通过；详细检查见文档索引和run/logs/final_review.done.json。
