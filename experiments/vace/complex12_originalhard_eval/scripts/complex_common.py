@@ -1,0 +1,136 @@
+"""OriginalHard inference-only data and bookkeeping helpers; derived from Rev1."""
+import csv
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+
+import numpy as np
+from PIL import Image, ImageFilter
+
+SCRIPTS = Path(__file__).resolve().parent
+PROJECT = SCRIPTS.parents[3]
+# Preserve the completed pilot's artifact location independently of source code.
+RUN = Path(os.environ['ORIGINALHARD_RUN_ROOT']).resolve()
+require_root = PROJECT / 'outputs/vace/complex12_originalhard_eval'
+if not RUN.is_relative_to(require_root):
+    raise ValueError('OriginalHard RUN_ROOT must be inside its own output directory')
+SOURCE_RUN = PROJECT / 'outputs/ComplexSingleOrbit_Rev1_Pilot_20261022'
+def data_root():
+    return Path(config()["data_root"])
+PYTHON = '/home/shi/miniconda3/envs/scj/bin/python'
+sys.path.insert(0, str(PROJECT / 'scripts'))
+sys.path.insert(0, str(PROJECT / 'code/DiffSynth-Studio'))
+TRAIN = ['CS01', 'CS03', 'CS05', 'CS06', 'CS07', 'CS09', 'CS10', 'CS11']
+VAL = ['CS02', 'CS04', 'CS08', 'CS12']
+IDS = [f'CS{i:02}' for i in range(1, 13)]
+TEMPORAL_GROUPS = [[0], list(range(1, 5)), list(range(5, 9)), list(range(9, 13)), list(range(13, 17))]
+
+def require(ok, message):
+    if not ok:
+        raise ValueError(message)
+
+def now():
+    return datetime.now(timezone(timedelta(hours=9))).isoformat(timespec='seconds')
+
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding='utf-8'))
+
+def write_json(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name + '.tmp')
+    temp.write_text(json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + '\n', encoding='utf-8')
+    os.replace(temp, path)
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for block in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+def config():
+    c = read_json(RUN / 'resolved_config.json')
+    fingerprint = c.pop('config_id')
+    require(hashlib.sha256(json.dumps(c, sort_keys=True, ensure_ascii=False).encode()).hexdigest() == fingerprint,
+            'Frozen configuration changed')
+    c['config_id'] = fingerprint
+    return c
+
+def index():
+    return {s['display_id']: s for s in read_json(data_root() / 'dataset_index.json')['samples']}
+
+def source_path(cs, role, frame):
+    require(cs in IDS and role in ('gt', 'damaged', 'exact', 'structure_raw') and 0 <= frame <= 80,
+            'Unexpected source identity')
+    return data_root() / index()[cs][role] / f'{frame:03}.png'
+
+def read_image(path, mode='RGB'):
+    with Image.open(path) as im:
+        require(im.size == (512, 512), f'Unexpected image dimensions: {path}')
+        return im.convert(mode).copy()
+
+def source(cs, role, frame):
+    return read_image(source_path(cs, role, frame), 'L' if role in ('exact', 'structure_raw') else 'RGB')
+
+def conditions(cs, start=0, count=81):
+    # This inference loader never opens GT RGB or GT structure.
+    from vace_p01 import adapt_images
+    result = {'conditioning': [], 'model_mask': [], 'cs': cs, 'start': start}
+    for frame in range(start, start + count):
+        damaged, exact = source(cs, 'damaged', frame), source(cs, 'exact', frame)
+        mask, condition = adapt_images(damaged, exact)
+        result['conditioning'].append(condition)
+        result['model_mask'].append(mask)
+    return result
+
+def labels(cs, start, count):
+    ms, es = [], []
+    for frame in range(start, start + count):
+        m = np.asarray(source(cs, 'exact', frame)) > 0
+        # Dilation precedes intersection; damaged_region is intentionally unused.
+        raw = source(cs, 'structure_raw', frame)
+        e = (np.asarray(raw.filter(ImageFilter.MaxFilter(7))) > 0) & m
+        ms.append(m)
+        es.append(e)
+    return np.stack(ms), np.stack(es)
+
+def write_csv(path, rows, fieldnames=None):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = list(rows)
+    with path.open('w', newline='', encoding='utf-8-sig') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames or list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+def read_csv(path):
+    with Path(path).open(newline='', encoding='utf-8-sig') as f:
+        return list(csv.DictReader(f))
+
+def completion_path(job):
+    return RUN / 'logs' / (job + '.done.json')
+
+def mark_complete(job, **extra):
+    write_json(completion_path(job), {'job': job, 'config_id': config()['config_id'], 'completed_at': now(), **extra})
+
+def valid_prediction(method, cs, decode=True):
+    marker = completion_path(f'infer_{method}_{cs}')
+    folder = RUN / 'predictions' / method / cs
+    if not marker.exists():
+        return False
+    value = read_json(marker)
+    require(value['config_id'] == config()['config_id'], f'Configuration mismatch: {marker}')
+    require(sorted(p.name for p in folder.glob('*.png')) == [f'{i:03}.png' for i in range(81)],
+            f'Incomplete marked prediction: {folder}')
+    if decode:
+        for i in range(81):
+            read_image(folder / f'{i:03}.png')
+    return True
+
+def lora_path(method):
+    require(method in ('L', 'C', 'U', 'S'), 'Unknown adapter')
+    return Path(config()['weights'][method]['path'])

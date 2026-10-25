@@ -453,3 +453,16 @@ S在缺损均值上最好，L在保留区变化和全图闭环均值上最好。
 | 尚未执行的建议 | 固定数据与骨干，做C/U/S多训练种子配对重复，先确认结构加权收益是否稳定 |
 
 未来每完成一组实验，在 [upload索引](upload/README.md) 登记对应独立报告。较早历史实验本轮没有全部补写成upload报告，仍保留在原台账及各实验入口；不能将“尚未整理报告”误写成“实验未运行”。本台账继续按日期追加，不删除此前尝试和当时结论。
+
+
+## 2026-10-26：OriginalHard 已有权重评测启动快照
+
+核查时间：2026-10-26T01:27:12+09:00。用户已授权对上传的 OriginalHard 使用已有 B/L/C/U/S 跑完整 81 帧，并要求“旧的相同的就不用跑了”。本轮新增训练更新为 **0**，C/U/S 沿用已完成的 Rev1 step300，L 为旧 P04/P06 参考。
+
+新实验入口：[OriginalHard](experiments/vace/complex12_originalhard_eval/README.md)。真实 run：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eval/run_20261026_012033`。源码位于 experiments/vace/complex12_originalhard_eval/scripts，旧大结果保持原位。
+
+逐帧核对后，CS01–CS08 的 GT/Damaged/Exact/结构图及相机记录与旧版一致，五方法共40条预测已解码后链接复用；CS09–CS12 的缺损不同，新增20条推理。最终展示60条，其中40条复用、20条新推理。新缺损中的CS09/10/11来自旧训练身份，CS12来自旧验证身份；应单独汇总四栋及3/1子组，不能称为十二栋新建筑泛化。
+
+此刻 runner PID 1678408 实际存活，tmux 为 complex12_rev1:originalhard81；状态 running，当前 infer_L_CS09，有效轨迹 41/60（复用40，新推理1）。这是一条运行中快照，不代表全部推理、媒体或视觉结论已经完成。
+
+首次CPU准备因不适用的“Exact外GT与Damaged完全相等”断言停止，未启动GPU；随后修正为记录差异，保留Damaged作为已知区参照，输入未改。两次准备日志均保留。298项项目CPU回归通过（50.783秒）。旧B/CS04异常退出−6但经独立验证的有效结果照实复用，历史故障不改写成正常退出。各方法新结果与逐栋观察待实际完成后追加。

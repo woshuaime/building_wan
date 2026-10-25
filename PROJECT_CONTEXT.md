@@ -362,3 +362,16 @@ Complex12源码已归到experiments/vace/complex12_rev1/scripts/，原run/script
 当前结论：C对B的缺口MAE在训练/验证集分别降低71.00%/64.21%；S对U的验证缺口MAE仅降低1.80%，四栋中仅CS12更好。S相对C的验证保留区MAE和全图闭环误差分别增加4.35%/20.38%，复杂屋脊仍有亮缝、折面和凹槽。建议先验证C/U/S多训练种子下的配对收益是否稳定；该建议未执行。
 
 用户新增持续要求：每组实验结束都在upload保留对应的完整报告，正文自包含关键参数、结果、局限和下一步；同日同步根长期MD、对应实验README与报告索引。保留所有既有历史，旧数据、权重、媒体和冻结run报告维持原位。报告整理不等于自动传输或下一轮实验授权。
+
+
+## 2026-10-26：OriginalHard 已有权重评测启动快照
+
+核查时间：2026-10-26T01:27:12+09:00。用户已授权对上传的 OriginalHard 使用已有 B/L/C/U/S 跑完整 81 帧，并要求“旧的相同的就不用跑了”。本轮新增训练更新为 **0**，C/U/S 沿用已完成的 Rev1 step300，L 为旧 P04/P06 参考。
+
+新实验入口：[OriginalHard](experiments/vace/complex12_originalhard_eval/README.md)。真实 run：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eval/run_20261026_012033`。源码位于 experiments/vace/complex12_originalhard_eval/scripts，旧大结果保持原位。
+
+逐帧核对后，CS01–CS08 的 GT/Damaged/Exact/结构图及相机记录与旧版一致，五方法共40条预测已解码后链接复用；CS09–CS12 的缺损不同，新增20条推理。最终展示60条，其中40条复用、20条新推理。新缺损中的CS09/10/11来自旧训练身份，CS12来自旧验证身份；应单独汇总四栋及3/1子组，不能称为十二栋新建筑泛化。
+
+此刻 runner PID 1678408 实际存活，tmux 为 complex12_rev1:originalhard81；状态 running，当前 infer_L_CS09，有效轨迹 41/60（复用40，新推理1）。这是一条运行中快照，不代表全部推理、媒体或视觉结论已经完成。
+
+推理保持512×512/81帧/16FPS/30步/CFG5/seed20261018及Rev1实际文本；GT仅用于后评测，原始预测不回贴。最终按原约定交付12视频、12总览、分身份及困难样本指标、中文结论和upload独立报告。下一步是继续现有队列和复核，不追加训练。

@@ -48,3 +48,8 @@ T2V学习外观与环绕生成，VACE学习Damaged/Mask条件补全；不共享L
 [Complex12 Rev1完整报告](../upload/20261022_Complex12_Rev1_十二栋单轨实验报告.md) 已整理完成，写清B/L/C/U/S的区别、C/U/S各300真实更新、60条完整轨迹、异常恢复和训练/验证结果。实验本身没有重跑，结果仍在原run。
 
 以后每组实验收尾时，除了更新本目录对应README和根长期MD，还需新增对应upload报告并登记索引；较早实验仍保留各自原入口，不能用新报告索引删去原研究过程。格式见 [upload要求](../upload/README.md)。
+
+
+## 2026-10-26：OriginalHard 已有权重评测（执行中）
+
+[新实验入口](vace/complex12_originalhard_eval/README.md)使用已训练的B/L/C/U/S、完整81帧；本轮训练更新0。CS01–CS08输入完全一致，40条预测复用；CS09–CS12新缺损需20条推理。run为 `/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eval/run_20261026_012033`，最终仍提供十二栋五方法同步对比。当前运行快照见根PROJECT_CONTEXT，完成结论待实际复核后追加。

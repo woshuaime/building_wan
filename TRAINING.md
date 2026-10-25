@@ -495,3 +495,22 @@ GUI测试依赖缺失src/，不能把上述CPU回归写成全部GUI能力通过�
 以后每组实验的收尾顺序为：核对实际进程/退出和产物、核对真实更新与评测、在upload写该组独立报告、同步长期MD和实验README、完成项目规定检查与相关Git记录。报告必须写清故障和恢复、未完成内容、训练与验证差异，不用loss下降或权重存在替代完整结果。
 
 本次只写文档，未训练、推理、修改冻结参数或重编码媒体。新建议需要另一次实验的明确范围，不能把报告里的后续方向当成现在自动执行的命令。格式与必填信息见 [upload/README.md](upload/README.md)。
+
+
+## 2026-10-26：OriginalHard 已有权重评测启动快照
+
+核查时间：2026-10-26T01:27:12+09:00。用户已授权对上传的 OriginalHard 使用已有 B/L/C/U/S 跑完整 81 帧，并要求“旧的相同的就不用跑了”。本轮新增训练更新为 **0**，C/U/S 沿用已完成的 Rev1 step300，L 为旧 P04/P06 参考。
+
+新实验入口：[OriginalHard](experiments/vace/complex12_originalhard_eval/README.md)。真实 run：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eval/run_20261026_012033`。源码位于 experiments/vace/complex12_originalhard_eval/scripts，旧大结果保持原位。
+
+逐帧核对后，CS01–CS08 的 GT/Damaged/Exact/结构图及相机记录与旧版一致，五方法共40条预测已解码后链接复用；CS09–CS12 的缺损不同，新增20条推理。最终展示60条，其中40条复用、20条新推理。新缺损中的CS09/10/11来自旧训练身份，CS12来自旧验证身份；应单独汇总四栋及3/1子组，不能称为十二栋新建筑泛化。
+
+此刻 runner PID 1678408 实际存活，tmux 为 complex12_rev1:originalhard81；状态 running，当前 infer_L_CS09，有效轨迹 41/60（复用40，新推理1）。这是一条运行中快照，不代表全部推理、媒体或视觉结论已经完成。
+
+本轮没有训练入口或新检查点。日常只读查看：
+
+```bash
+bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_originalhard_eval/run_20261026_012033/resume.sh
+```
+
+已启动的同一入口加 --run/--resume 才会执行队列，不用它重复启动当前进程。终端显示真实去噪30步、当前方法/建筑、耗时、保存状态。成功结果复用；进程异常保留输出与退出码，不自动重试。CPU评测保持旧指标定义，另增hard_summary区分新缺损四栋及身份。
