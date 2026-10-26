@@ -54,3 +54,12 @@
 这里是已完成的已有权重评测：40复用+20新推理、60条81帧、12同步视频/12总览、指标和[最终中文结论](vace/complex12_originalhard_eval/run_20261026_012033/00_看结果/最终实验结论.md)。没有新训练或新checkpoint。CS09/11明显改善，CS10/12结构仍不理想。完整可携带报告见[upload](../upload/20261026_Complex12_OriginalHard_已有权重评测报告.md)。
 
 旧Rev1结果仍在上文原目录，未搬动或覆盖。本轮按新想法规范放在outputs/vace/complex12_originalhard_eval下，不能只在outputs第一层寻找。
+
+
+## 2026-10-27：C_mix 完整评测、视觉复核与收尾
+
+最新C_mix结果在[00_看结果](vace/complex12_cmix_pilot/run_20261026_222008/00_看结果/README_从这里开始.md)，物理路径：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_20261026_222008/00_看结果/`。优先Hard CS10/CS12，再看Rev1 CS10新增B020反例；[中文最终报告](vace/complex12_cmix_pilot/run_20261026_222008/00_看结果/最终实验结论.md)，[便携报告](../upload/20261027_Complex12_C_mix_混合训练与配对评测报告.md)。
+
+实际300更新（250/50）、16条81帧/1296PNG、32视频、6固定Hard图+1新增反例全部交付，metrics含逐栋配对、分组及Rev1退步明细。Hard结构未获可靠改善，Rev1 CS10明显退步；完成交付与效果达标分开记录。
+
+这一组按既定目录规则独立放在outputs/vace/complex12_cmix_pilot/run_20261026_222008内，旧Rev1与OriginalHard仍在原处，没有覆盖或搬动。

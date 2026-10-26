@@ -569,3 +569,20 @@ bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_2
 ```
 
 恢复完整adapter/optimizer/RNG状态并执行剩余采样行，不用safetensors代替恢复状态；成功轨迹复用。当前正在运行，不再次启动恢复命令。
+
+
+## 2026-10-27：C_mix 完整评测、视觉复核与收尾
+
+本轮正式训练已经结束，后续查看结果不需要重新训练或运行队列。run为`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_20261026_222008`；[实验说明](experiments/vace/complex12_cmix_pilot/README.md)、[完整报告](upload/20261027_Complex12_C_mix_混合训练与配对评测报告.md)保留准确参数与结论。
+
+训练实际为共同初始化+新AdamW的300更新，250/50混合；仅vace LoRA，普通C、rank/alpha16、lr5e-5、17帧、BF16骨干/FP32 LoRA。原表随机与顺序逐行保留，缓存按版本/建筑/窗口隔离。Rev1/Hard各4/3步合法零时间权重仍按预算执行；无重抽、补步或本轮中断恢复。最终step300可读且300个tensor有限，完整恢复状态另存resume_latest.pt（update300）及100/200里程碑。
+
+现在只读查看状态：
+
+```bash
+CUDA_VISIBLE_DEVICES='' bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_20261026_222008/resume.sh
+```
+
+不带参数仅调用status.py；`--run/--resume`是执行入口，不是状态查询。当前16条预测、32视频和报告已经完成，不要为了刷新入口重新执行GPU队列或删除完成标记。原evaluate.done.json保留当时“等待用户通知复核”的快照，最终收尾看progress.json及logs/final_review.done.json。
+
+本次效果没有达标：Hard CS10/CS12关键结构未解决，Rev1 CS10新条纹明显；详细逐栋证据见报告。该现象不构成自动训练下一组的授权。CPU检查使用CUDA_VISIBLE_DEVICES为空，不为文档收尾触发CUDA训练。

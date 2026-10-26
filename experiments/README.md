@@ -65,3 +65,10 @@ T2V学习外观与环绕生成，VACE学习Damaged/Mask条件补全；不共享L
 ## 2026-10-26：C_mix 固定配比实验启动与后续交接
 
 [C_mix实验](vace/complex12_cmix_pilot/README.md)已获授权，固定300更新、250/50混合及16条新推理。2026-10-26T22:26:41+08:00真实更新33/300；run为`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_20261026_222008`。计算和媒体自动执行，报告/视觉复核依用户要求等待通知，尚无效果结论。
+
+
+## 2026-10-27：C_mix 完整评测、视觉复核与收尾
+
+[C_mix实验](vace/complex12_cmix_pilot/README.md)已完成：300更新（250/50）、16条81帧、1296原PNG、32视频、6固定图+1反例，完整静态轨迹复核与[便携报告](../upload/20261027_Complex12_C_mix_混合训练与配对评测报告.md)齐全。实际位置`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_20261026_222008`，直接打开[看结果](../outputs/vace/complex12_cmix_pilot/run_20261026_222008/00_看结果/README_从这里开始.md)。
+
+Hard CS10连接、CS12形状/闭环未解决；Rev1有10/12栋MAE退步，CS10条纹最明显，当前保留旧C参考。建议中的纯Rev1复现对照未执行；不再自动展开新实验。

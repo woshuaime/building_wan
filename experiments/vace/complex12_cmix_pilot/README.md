@@ -64,3 +64,17 @@ bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_2
 ## 2026-10-26：C_mix 固定配比实验启动与后续交接
 
 2026-10-26T22:26:41+08:00：已发生33/300次更新；runner PID 2179781，tmux complex12_rev1:cmix_pilot。9项专用检查及298项项目CPU回归通过；无额外GPU试跑。队列继续推理/指标/媒体，视觉结论和最终报告待用户通知。
+
+
+## 2026-10-27：C_mix 完整评测、视觉复核与收尾
+
+用户通知后已完成所有收尾，前述启动/等待说明保留为历史快照。[看结果](/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_20261026_222008/00_看结果/README_从这里开始.md)，[同内容便携报告](/mnt/windowsE/chuanjun/building_wan/upload/20261027_Complex12_C_mix_混合训练与配对评测报告.md)，准确run为`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_20261026_222008`。
+
+- 300行真实优化器更新和原采样字段全部核对；250/50、CS09/10/11 Hard各20/14/16；零scheduler权重Rev1 4步/Hard 3步，无补步。最终optimizer steps=[300,300]。
+- 16/16完整81帧、1296PNG，32视频与6张固定Hard问题图完成；新增Rev1 CS10/B020反例，没有替换原反例。Hard CS01–08链接复用Rev1，不另计轨迹。
+- 1训练+16推理+1评估worker全部一次START及EXIT 0；训练约27分06秒，整体计算/媒体墙钟80分26秒。本run无重试/恢复。
+- 16条全000–080联系图复核、七张原尺寸图核对；视频完整解码和同帧对齐沿用生成阶段记录。本次未实时播放全部视频、未定量测闪烁或三维结构。
+
+结果未达到双重目标：Hard CS10 MAE−4.07%而Sobel+12.06%，连接仍错；Hard CS12 MAE−1.78%、MSE+9.65%、Sobel+5.01%，缺口首尾0.115625→0.117000。Rev1有10/12栋MAE退步，CS10出现百叶状条纹，MAE0.009775→0.127054；所有16输入known MAE及全图首尾均变差。
+
+保留旧C作为参考。后续仅建议当前入口纯Rev1、相同初始化/300预算对照，先看Rev1 CS10和Hard CS10/12三条，定位显著退化；未执行，不自动扩大预算或加模块。最终完成状态见progress.json与logs/final_review.done.json；原evaluate.done.json的待复核字段是计算结束时快照，不覆盖改写。
