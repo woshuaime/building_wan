@@ -167,3 +167,8 @@ Complex12仍为C/U/S各300真实更新、五方法60条81帧已完成。本次�
 [最新观看入口](outputs/vace/complex12_originalhard_eval/run_20261026_012033/00_看结果/README_从这里开始.md)位于outputs/vace/complex12_originalhard_eval/run_20261026_012033/00_看结果，不在旧Complex12目录。已有权重五方法60条81帧（40复用、20新推理），0新训练，12视频/12图/指标与结论齐全。
 
 CS09/11改善明显，CS10/12仍有错误连接和坡面，CS12首尾形状不一致；S没有稳定压过C/U。可单独复制的详细[OriginalHard报告](upload/20261026_Complex12_OriginalHard_已有权重评测报告.md)已补齐，保留参数、真实执行、逐栋数值、反例帧和下一步建议。旧成果及本文件历史原样保留。
+
+
+## 2026-10-26：C_mix 固定配比实验启动与后续交接
+
+2026-10-26T22:26:41+08:00：普通C_mix已实际发生33/300更新，后续队列为16条推理、配对指标与视频。入口：[C_mix实验](experiments/vace/complex12_cmix_pilot/README.md) / [结果目录](outputs/vace/complex12_cmix_pilot/run_20261026_222008/00_看结果/README_从这里开始.md)。按用户最新要求，启动后结束对话，视觉复核及最终报告待另行通知。

@@ -60,3 +60,8 @@ T2V学习外观与环绕生成，VACE学习Damaged/Mask条件补全；不共享L
 此前“执行中”是启动时快照，现已完成40条复用+20条新推理、五方法60条81帧、12视频/12总览、指标与中文报告，新训练0。入口为[OriginalHard实验](vace/complex12_originalhard_eval/README.md)，[完整报告](../upload/20261026_Complex12_OriginalHard_已有权重评测报告.md)。
 
 新缺损CS09/11明显改善，CS10/12连接形状仍不可靠；S没有稳定优于C/U。四栋中3栋旧训练、1栋旧验证，完整8/4身份汇总另列。下一步仅建议困难结构缺损覆盖对照，未启动。
+
+
+## 2026-10-26：C_mix 固定配比实验启动与后续交接
+
+[C_mix实验](vace/complex12_cmix_pilot/README.md)已获授权，固定300更新、250/50混合及16条新推理。2026-10-26T22:26:41+08:00真实更新33/300；run为`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_20261026_222008`。计算和媒体自动执行，报告/视觉复核依用户要求等待通知，尚无效果结论。

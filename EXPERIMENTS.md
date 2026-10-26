@@ -488,3 +488,18 @@ CS09、CS11明显改善；CS10连接面/折线仍错，C的MAE最低；CS12错�
 本轮20条worker合计3731.366秒（加载+推理+保存），峰值allocated/reserved 17.143/25.832GiB；02:30:08统一评测完成、02:30:25复核图完成。CPU准备断言修正和旧B/CS04原生退出记录继续保留，无新GPU失败或成功轨迹重跑。下一实验仅建议固定预算的数据覆盖对照，未执行。
 
 收尾实测：2026-10-26T02:42:50+09:00，progress=complete；60轨迹/4860 PNG与12总览可读，12视频完整解码证据齐全。298项CPU回归（57.214秒）及9项专用检查通过；详细检查见文档索引和run/logs/final_review.done.json。
+
+
+## 2026-10-26：C_mix 固定配比实验启动与后续交接
+
+核查时间：2026-10-26T22:26:41+08:00。用户授权一组普通C_mix的300更新、16条81帧推理及配对指标/视频，随后要求确认训练启动即可结束对话，视觉复核和最终报告等待另行通知。当前running，已记录33/300次真实优化器更新、推理0/16；这不是完成或效果确认。
+
+实际run：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_cmix_pilot/run_20261026_222008`。研究入口：[C_mix](experiments/vace/complex12_cmix_pilot/README.md)，观看入口：[00_看结果](outputs/vace/complex12_cmix_pilot/run_20261026_222008/00_看结果/README_从这里开始.md)。tmux为`complex12_rev1:cmix_pilot`（%2），runner PID 2179781，GDB worker PID 2179822。
+
+从旧Rev1 shared_initialization及原始VACE开始，新AdamW，普通C损失与参数不变。旧300行顺序/窗口/随机字段保留；局部Random(20261026)按CS09/10/11抽20/14/16行Hard，合计Rev1 250/Hard 50。验证CS02/04/08/12任何版本不入训练。条件缓存按版本、建筑、窗口隔离；合法零scheduler权重计数、不重抽不补步。两版改变了缺损位置与连接线索，不是同一缺口单纯扩大。
+
+队列依次完成300更新、Hard CS09–12和Rev1 CS01–12共16条/1296原始PNG、原指标与分组/逐栋新旧变化、Rev1退步项、32视频和六张固定问题帧。旧C结果复用；Hard CS01–08展示复用新Rev1；不重跑B/L/U/S。计算结束标记awaiting_visual_review，用户通知后再进行完整视觉复核、run中文报告和同内容upload报告。当前不提前写效果结论。
+
+本轮9项专用CPU检查通过（0.658秒），298项项目CPU回归通过（50.410秒），规定shell语法/Python编译与差异检查通过；没有额外GPU试跑。旧run、数据、第三方引擎及19项无关工作区修改保持原样。冻结配置ID：`386098b4cc71d7a446b5d2dcba635e8a8a3142dcaa3e6bd8629299406fb0c545`。
+
+依据[严重缺损只读诊断](upload/20261026_Complex12_CS09-CS12_严重缺损只读诊断报告.md)第7节。Hard仅50更新、CS10仅14；结论只覆盖本固定预算配比。CS12是唯一Hard未训练建筑，属于开发验证。

@@ -177,3 +177,8 @@ AGENTS新增用户要求及规则沿革；目录说明、文档导航、实验�
 298项CPU回归全部通过，57.214秒；9项OriginalHard专用指标/输入隔离测试通过，0.067秒。规定shell语法、两个Python入口编译、git diff --check通过。60条/4860 PNG本次全部解码可读，12张总览本次解码可读；12视频的81帧完整解码与同帧对齐沿用实际生成阶段delivery_media.json记录，未重新编码。
 
 新增文档与报告68个本地链接有效；12栋×5方法的60个缺损MAE均与源CSV的六位小数一致。11份原有文档完整前缀保留，19份原有非Markdown工作字节未变、不纳入提交。run的progress已更新为complete，完成依据存入logs/final_review.done.json；本次没有GPU任务、依赖更新或外部文件传输。
+
+
+## 2026-10-26：C_mix 固定配比实验启动与后续交接
+
+新增C_mix专用代码、配置/结果导航及实验README，按日期追加根README/PROJECT_CONTEXT/EXPERIMENTS/TRAINING/SESSION_HANDOFF/AGENTS、实验总索引和upload索引。已有历史与冻结报告保留；此前诊断报告本次作为执行依据纳入相关Git记录。9项专项CPU检查、298项项目回归、规定shell/Python语法检查通过。2026-10-26T22:26:41+08:00真实更新33/300；报告与视觉复核等待用户后续通知。
