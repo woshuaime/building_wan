@@ -197,3 +197,14 @@ AGENTS新增用户要求及规则沿革；目录说明、文档导航、实验�
 298项项目CPU回归通过（49.876秒），9项C_mix专项通过（0.706秒）；规定shell语法、Python编译、git diff --check通过。1296原PNG本次全部解码，32视频元数据核对，完整视频解码/同帧验证沿用实际生成记录；16条全81帧静态复核和七张原尺寸问题图核对已完成。无新GPU任务。
 
 run与upload报告内容一致，新增链接有效；11份既有MD完整历史前缀保留。progress更新为complete，原评估日志的待复核快照保留；最终依据见当前run的logs/final_review.done.json。19项已有非Markdown工作不纳入本次提交。
+
+
+## 2026-10-27：Orbit17线性/循环配对实验已启动
+
+核查时间：2026-10-27T20:16:32+09:00（UTC+09:00）。用户已授权线性组和循环组都执行，并要求确认实际开始训练后结束本轮对话。当前status=running，C_lin17已完成22/600次真实AdamW更新，C_ring17为0/600（待串行执行），推理0/40；日志已有有限loss及参数实际变化。这是启动快照，不是两组完成或效果验证。
+
+新增[Orbit17独立实验说明](../experiments/vace/complex12_orbit17_pair/README.md)及专用代码/配置和run链接；本次按原处追加根README/PROJECT_CONTEXT/EXPERIMENTS/TRAINING/SESSION_HANDOFF/AGENTS、experiments总入口、Orbit17说明、upload索引、outputs导航和本索引。旧正文、冻结报告和第三方文档不改。
+
+本次实测14项Orbit17专项CPU检查通过（1.466秒），298项项目CPU回归通过（50.203秒），规定shell语法/Python编译及git diff --check通过；没有额外GPU试跑。准备时覆盖图首次因服务器缺少matplotlib失败，随后改用现有Pillow生成并通过；没有安装依赖，未重复GPU任务，prepare.log保留实际错误与后续成功。旧run、原始数据、模型、第三方源码及19项既有无关工作区修改保持原样且不纳入本轮提交。
+
+训练启动源码为1a82bd5；本次启动文档随后单独Git记录。正式视觉报告尚未完成，不把CPU检查、更新已发生、未来队列完成和视觉效果确认混写。

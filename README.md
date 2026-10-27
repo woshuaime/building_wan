@@ -181,3 +181,12 @@ CS09/11改善明显，CS10/12仍有错误连接和坡面，CS12首尾形状不�
 直接打开[结果入口](outputs/vace/complex12_cmix_pilot/run_20261026_222008/00_看结果/README_从这里开始.md)，优先看Hard CS10、Hard CS12，再看Rev1 CS10的B020条纹反例。[便携完整报告](upload/20261027_Complex12_C_mix_混合训练与配对评测报告.md)与run报告内容相同，内含训练/数据/参数、完整指标、逐栋结构观察、执行记录与结果路径。
 
 本轮未达到同时改善Hard并保持Rev1的目标：Hard CS10连接面、CS12折面/首尾仍未解决；Rev1有10/12栋缺口MAE退步，CS10从0.009775升到0.127054并出现GT没有的条纹。建议保留旧C参考。下一步仅建议当前入口纯Rev1的小范围复现对照，未启动。本次收尾没有新GPU训练/推理、覆盖旧run或搬动大成果。
+
+
+## 2026-10-27：Orbit17线性/循环配对实验已启动
+
+核查时间：2026-10-27T20:16:32+09:00（UTC+09:00）。用户已授权线性组和循环组都执行，并要求确认实际开始训练后结束本轮对话。当前status=running，C_lin17已完成22/600次真实AdamW更新，C_ring17为0/600（待串行执行），推理0/40；日志已有有限loss及参数实际变化。这是启动快照，不是两组完成或效果验证。
+
+固定run：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_orbit17_pair/run_20261027_200842`。专用源码与说明：[Orbit17实验](experiments/vace/complex12_orbit17_pair/README.md)；[结果导航](outputs/vace/complex12_orbit17_pair/run_20261027_200842/00_看结果/README_从这里开始.md)。tmux=`complex12_rev1:orbit17_pair`（%3），runner PID 2469437，GDB worker PID 2469491；源码提交`1a82bd5`。
+
+这轮比较普通C的线性17帧窗和跨079→000的循环窗；每组600更新，300/600分预算配对，Rev1训练、Hard只评测。自动计算与交付计划为40条81帧/3240原PNG、48视频，完成后等待后续视觉复核及报告。所有旧实验历史继续保留。

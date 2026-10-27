@@ -586,3 +586,32 @@ CUDA_VISIBLE_DEVICES='' bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/co
 不带参数仅调用status.py；`--run/--resume`是执行入口，不是状态查询。当前16条预测、32视频和报告已经完成，不要为了刷新入口重新执行GPU队列或删除完成标记。原evaluate.done.json保留当时“等待用户通知复核”的快照，最终收尾看progress.json及logs/final_review.done.json。
 
 本次效果没有达标：Hard CS10/CS12关键结构未解决，Rev1 CS10新条纹明显；详细逐栋证据见报告。该现象不构成自动训练下一组的授权。CPU检查使用CUDA_VISIBLE_DEVICES为空，不为文档收尾触发CUDA训练。
+
+
+## 2026-10-27：Orbit17线性/循环配对实验已启动
+
+核查时间：2026-10-27T20:16:32+09:00（UTC+09:00）。用户已授权线性组和循环组都执行，并要求确认实际开始训练后结束本轮对话。当前status=running，C_lin17已完成22/600次真实AdamW更新，C_ring17为0/600（待串行执行），推理0/40；日志已有有限loss及参数实际变化。这是启动快照，不是两组完成或效果验证。
+
+固定run：`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_orbit17_pair/run_20261027_200842`。专用源码与说明：[Orbit17实验](experiments/vace/complex12_orbit17_pair/README.md)；[结果导航](outputs/vace/complex12_orbit17_pair/run_20261027_200842/00_看结果/README_从这里开始.md)。tmux=`complex12_rev1:orbit17_pair`（%3），runner PID 2469437，GDB worker PID 2469491；源码提交`1a82bd5`。
+
+两组均只用Rev1训练8栋CS01/03/05/06/07/09/10/11，验证CS02/04/08/12不变；Hard只评测。普通C、原VACE骨干、共享初始LoRA与各自新AdamW，rank/alpha16、lr5e-5、17帧、BF16骨干/FP32 LoRA等原设置保持。线性窗起点0–63，循环窗起点0–79按模80取17帧，080不入训练；跨界先同步取完整17帧再编码。原线性前300行保留；后300行用局部Random(20261027)，循环起点另用Random(20261028)，其他随机字段逐行配对。合法零scheduler权重照常计数，不重抽补步。
+
+已启动的同一队列包含：线性0→300、四条81帧复现探针与CPU提前核对、完整状态恢复线性301→600、循环0→600、循环300四条探针、两组600各16条正式预测，最后统一CPU评测和视频。提前核对保留复现证据，不因主观效果选择性取消循环组。总预算两组各600、40条81帧、3240原PNG；计划48视频、7固定问题图和4张七行探针总览。旧C两版原预测直接复用，无新增B/L/U/S/C_mix推理。
+
+只读状态（不加载模型）：
+
+```bash
+bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_orbit17_pair/run_20261027_200842/resume.sh
+```
+
+查看真实终端：
+
+```bash
+tmux attach -t complex12_rev1
+```
+
+选择`orbit17_pair`窗口；单GPU自动串行，两组并未同时占卡训练。已授权的同run恢复入口为`bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_orbit17_pair/run_20261027_200842/resume.sh --resume`，仅在确认旧runner不活跃后使用，不能用作状态查询。恢复加载完整AdamW/RNG与对应采样位置，stop-update是绝对目标；不要把300权重当完整状态或从300再追加600。异常保留最后有效恢复点和日志，不自动改规格或扩预算。
+
+本次实测14项Orbit17专项CPU检查通过（1.466秒），298项项目CPU回归通过（50.203秒），规定shell语法/Python编译及git diff --check通过；没有额外GPU试跑。准备时覆盖图首次因服务器缺少matplotlib失败，随后改用现有Pillow生成并通过；没有安装依赖，未重复GPU任务，prepare.log保留实际错误与后续成功。旧run、原始数据、模型、第三方源码及19项既有无关工作区修改保持原样且不纳入本轮提交。
+
+每10更新保存完整恢复状态，300/600保存LoRA，300另保留恢复点；两组状态独立。缓存按版本/建筑/完整有序frame_ids/编码设置区分，放在新run。自动队列完成后标记awaiting_visual_review；之后按用户通知进行完整轨迹视觉复核、run最终中文报告及upload同内容便携报告。此时不能预先宣称循环优于线性，也不能把视频解码当人工播放或三维验证。新预算、配比或模块不自动展开。
