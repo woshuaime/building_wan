@@ -208,3 +208,16 @@ run与upload报告内容一致，新增链接有效；11份既有MD完整历史�
 本次实测14项Orbit17专项CPU检查通过（1.466秒），298项项目CPU回归通过（50.203秒），规定shell语法/Python编译及git diff --check通过；没有额外GPU试跑。准备时覆盖图首次因服务器缺少matplotlib失败，随后改用现有Pillow生成并通过；没有安装依赖，未重复GPU任务，prepare.log保留实际错误与后续成功。旧run、原始数据、模型、第三方源码及19项既有无关工作区修改保持原样且不纳入本轮提交。
 
 训练启动源码为1a82bd5；本次启动文档随后单独Git记录。正式视觉报告尚未完成，不把CPU检查、更新已发生、未来队列完成和视觉效果确认混写。
+
+
+## 2026-10-29：Orbit17配对实验复核与最终报告完成
+
+新增[详细便携报告](../upload/20261029_Complex12_Orbit17_线性与循环窗口配对实验报告.md)；[直接看结果](../outputs/vace/complex12_orbit17_pair/run_20261027_200842/00_看结果/README_从这里开始.md)。run与upload报告同内容。同步11份既有Markdown：根README/PROJECT_CONTEXT/EXPERIMENTS/TRAINING/SESSION_HANDOFF/AGENTS、experiments总入口、Orbit17说明、upload索引、outputs导航、本索引；均保留旧正文前缀并按日期追加。旧run冻结报告、原始数据包和第三方说明不改。
+
+本次复核40条完整静态帧序列及7张原尺寸固定问题图；3240原PNG与48视频全部解码。已实测项目CPU298项通过（50.343秒）、Orbit17专项14项通过（1.251秒），这是收尾阶段测试，不是引用启动阶段测试。文档写入后继续执行本项目规定的检查，最终记录见本run logs/final_review.done.json。
+
+结论分别记录像素、结构和首尾：ring同预算MAE 13/16更低，首尾全图15/16更高；Hard CS12改善，CS10连接仍错，Rev1 ring对旧C有4栋MAE退步。历史awaiting_visual_review快照不删，不把交付完成写成模型效果全部成功。19项已有无关工作区修改不纳入本轮提交。
+
+### 最终检查实测（2026-10-29T01:15:09+09:00）
+
+文档写入后的规定项目CPU回归298项通过（53.637秒）；shell语法、Python编译及git diff --check通过。run/upload报告字节一致、44个报告链接及结果导航链接有效；11份既有MD与本轮前Git版本相比只追加，完整历史前缀保留。最终progress=complete，原evaluate.done待复核快照未改；静态图像复核的范围与局限写入报告及logs/final_review.done.json。没有新GPU任务。

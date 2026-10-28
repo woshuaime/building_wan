@@ -70,3 +70,10 @@
 核查时间：2026-10-27T20:16:32+09:00（UTC+09:00）。用户已授权线性组和循环组都执行，并要求确认实际开始训练后结束本轮对话。当前status=running，C_lin17已完成22/600次真实AdamW更新，C_ring17为0/600（待串行执行），推理0/40；日志已有有限loss及参数实际变化。这是启动快照，不是两组完成或效果验证。
 
 本轮新产物均在`/mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_orbit17_pair/run_20261027_200842`，源码在[Orbit17实验](../experiments/vace/complex12_orbit17_pair/README.md)。直接入口：[00_看结果](vace/complex12_orbit17_pair/run_20261027_200842/00_看结果/README_从这里开始.md)。两组计划各600更新、40预测/3240PNG及48视频；入口按真实阶段逐步生成。原有大型结果保持原位置，不复制到新run。
+
+
+## 2026-10-29：Orbit17配对实验复核与最终报告完成
+
+新增Orbit17完成入口：[详细便携报告](../upload/20261029_Complex12_Orbit17_线性与循环窗口配对实验报告.md)；[直接看结果](vace/complex12_orbit17_pair/run_20261027_200842/00_看结果/README_从这里开始.md)。
+
+实际目录`vace/complex12_orbit17_pair/run_20261027_200842/`，两组各600，40×81帧、3240PNG、48视频；旧C复用，不重跑已成功任务。复核结论：循环组像素通常更好，闭环不普遍更好；Hard CS12主要折面改善，CS10连接仍错。大成果和旧run未搬移；这是原run最终收尾，不新建重复GPU实验。
