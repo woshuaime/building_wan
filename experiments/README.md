@@ -88,3 +88,8 @@ Hard CS10连接、CS12形状/闭环未解决；Rev1有10/12栋MAE退步，CS10�
 Orbit17线性/循环配对实验已完成：两组各600、40条81帧/3240原PNG、48视频，静态完整帧复核与最终报告齐全。[详细便携报告](../upload/20261029_Complex12_Orbit17_线性与循环窗口配对实验报告.md)；[直接看结果](../outputs/vace/complex12_orbit17_pair/run_20261027_200842/00_看结果/README_从这里开始.md)。
 
 ring600同预算MAE 13/16更低，但全图首尾15/16更差；CS12主要折面两组600均改善，CS10连接未解决。不是稳定闭环成功结论。源码仍在vace/complex12_orbit17_pair/scripts，大结果未移动；启动快照继续保留。
+
+
+## 2026-11-09：0号建筑点云原版VACE基线
+
+[独立实验入口](pointcloud_vace/0_v2_base/README.md)。用户授权单次81帧832×480原版VACE masked video editing，无LoRA；输入与旧mesh实验隔离。后台流程自动保存原始视频、原始PNG、配置、日志及真实退出状态；确认实际采样后结束会话，效果和完整报告待后续核查。运行快照见根目录长期MD最新补记。

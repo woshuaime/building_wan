@@ -458,3 +458,22 @@ Hard CS12旧C/lin600/ring600缺口MAE为0.056055/0.023890/0.020890，主要错�
 本次CPU完整解码3240原PNG、48条视频及16张展示PNG；全部40条000–080通过连续静态联系图复核（缩略内容），7张固定问题图按完整512内容检查。没有实时视频播放、定量闪烁或三维验证，不能把文件可读写成模型效果全达标。原evaluate.done的待复核状态与既有启动正文保留为历史，当前交付状态以progress和logs/final_review.done.json为准。
 
 下一步仅建议第二训练随机序列的600更新线性/循环配对复验，检验像素收益与首尾代价是否可重复；尚未执行或排队。Hard未训练建筑仅CS12，是开发验证，不能夸大泛化。旧run、权重、原始数据/预测和已有报告保持不变；本次收尾不自动开启任何训练、推理或新模块。
+
+
+## 2026-11-09：0号建筑点云原版VACE单次基线准备
+
+记录时间：2026-11-09T02:20:32.991939+09:00。用户明确授权仅一次原版VACE推理，要求确认实际GPU推理后立即结束会话，不等待完成。本节为启动前准备快照，不是完成或视觉效果结论。
+
+- 研究入口：[0号点云基线](experiments/pointcloud_vace/0_v2_base/README.md)；独立run：`/mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v2_base/run_20261109_021750`。专用源码在experiments/pointcloud_vace/0_v2_base/scripts/run.py，复用既有官方VACE加载与参数适配，不改第三方核心。
+- 输入为data/pointcloud_vace/0_v2的src_video.mp4、src_mask.mp4、prompt.txt；两视频完整解码均81帧832×480/16FPS，时间戳逐帧一致，mask严格0/255且白区全部对应RGB127。原始英文prompt要求离散稀疏彩色点，逐字使用；negative为空、无扩写，无输入修复或mask重制。
+- 一次整序列masked video editing：Wan2.1-VACE-1.3B原始官方权重，无LoRA/训练/旧T2V缓存，30步、CFG5、seed20261018、shift5、VACE scale1、BF16、tiled VAE、full memory。Python为/home/shi/miniconda3/envs/scj/bin/python。启动前NVML没有其他GPU进程，RTX A6000可用；nvidia-smi命令及pynvml模块缺失，已使用项目既有ctypes NVML检查，不安装依赖。
+- 独立后台父进程监督唯一worker，不重试。日志run.log、实际参数config.json、prompt副本、输入绝对路径及SHA256、run.pid/worker.pid、status.json和最终exit.json自动保存。sampling_started.json只在首个扩散步骤完成且CUDA同步后生成。
+- 正常结束先保存raw_vace.mp4及81张raw_frames原始PNG，后尝试input_mask_raw.mp4及五张比较PNG；原始结果不回贴、不被可视化覆盖。无未填灰原始观测视频，不将src_video冒充完整原始视频。
+- 本次只启动；是否生成分离点、是否实心墙、漂移/闪烁和已知点变化均待后续查看。未生成完成报告，不宣称模型效果成功，不启动第二次推理。旧实验run及既有无关工作区修改原样保留。
+
+只读进度：`tail -n 40 /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v2_base/run_20261109_021750/run.log`；状态：`cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v2_base/run_20261109_021750/status.json`。最终视频与exit.json仅在对应阶段实际完成后出现，不通过重新执行入口查看状态。
+
+
+### 2026-11-09 后台派发快照
+
+2026-11-09T02:22:09.011787+09:00：输入与pipeline CPU预处理检查通过，官方VACE/T5/VAE及tokenizer完整SHA核验通过；298项项目CPU回归通过（62.672秒），父进程成功/原生异常/普通失败三项模拟检查、规定shell语法/Python编译及diff检查通过。实际启动独立session 3508602，后台父PID 3508602、worker PID 3508606，stdin为/dev/null、stdout/stderr重定向run.log；run.pid与worker.pid已落盘。此快照仅确认后台派发，采样验收看本run的sampling_started.json及run.log中的真实diffusion_sampling步数；退出与效果仍待实际完成。用户要求一旦确认实际GPU推理就停止主动跟踪，因此不在本轮等待完整结果。
