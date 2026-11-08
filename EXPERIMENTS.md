@@ -581,3 +581,22 @@ CS09、CS11明显改善；CS10连接面/折线仍错，C的MAE最低；CS12错�
 ### 2026-11-09 后台派发快照
 
 2026-11-09T02:22:09.011787+09:00：输入与pipeline CPU预处理检查通过，官方VACE/T5/VAE及tokenizer完整SHA核验通过；298项项目CPU回归通过（62.672秒），父进程成功/原生异常/普通失败三项模拟检查、规定shell语法/Python编译及diff检查通过。实际启动独立session 3508602，后台父PID 3508602、worker PID 3508606，stdin为/dev/null、stdout/stderr重定向run.log；run.pid与worker.pid已落盘。此快照仅确认后台派发，采样验收看本run的sampling_started.json及run.log中的真实diffusion_sampling步数；退出与效果仍待实际完成。用户要求一旦确认实际GPU推理就停止主动跟踪，因此不在本轮等待完整结果。
+
+
+## 2026-11-09：0号建筑点云原版VACE单次基线结果
+
+| 项目 | 实际结果 |
+| --- | --- |
+| 实验/run | pointcloud_vace/0_v2_base；`outputs/pointcloud_vace/0_v2_base/run_20261109_021750` |
+| 模型与输入 | 官方Wan2.1-VACE-1.3B，无LoRA；data/pointcloud_vace/0_v2的两个81帧视频及原始prompt |
+| 参数 | 832×480、16FPS、30步、CFG5、seed20261018、shift5、VACE scale1、BF16、tiled VAE、full memory |
+| 预算与退出 | GPU调用1，训练0、恢复0、重试0；worker返回0，339.2228秒 |
+| 产物 | 81原PNG、2视频、5关键比较PNG、配置/prompt/日志/PID/退出记录 |
+| 视觉 | 全81建筑区域静态复核；灰墙变为暗底密集规则点阵，与周边稀疏观测点不匹配；非自然稀疏点云补全 |
+| 原观测点 | 有重绘；黑区像素加权MAE2.409225/255，27个全黑mask帧均值2.334306/255 |
+| 首尾 | 输入RGB/mask的000与080完全一致；预测白区首尾MAE75.957650/255 |
+| 报告 | [完整实验报告](upload/20261109_0号建筑点云_Wan21_VACE原版基线_实验报告.md) |
+
+前期nvidia-smi/pynvml探测不可用后采用已有ctypes NVML，无依赖安装；正式推理没有失败。两视频本次重新完整解码，原图和关键局部已查看；没有实时播放、光流/点跟踪或完整GT，首尾差异不冒充逐帧三维漂移/闪烁量。没有新增GPU任务或调整prompt/mask/预算。下一步建议先观看现有16FPS视频再决定单变量对照，尚未授权或执行。
+
+本组报告纳入upload统一索引；后续每组实验完成/失败均主动写详细报告并同步累计MD，旧记录原处保留。

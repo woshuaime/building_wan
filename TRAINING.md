@@ -655,3 +655,18 @@ bash /mnt/windowsE/chuanjun/building_wan/outputs/vace/complex12_orbit17_pair/run
 ### 2026-11-09 后台派发快照
 
 2026-11-09T02:22:09.011787+09:00：输入与pipeline CPU预处理检查通过，官方VACE/T5/VAE及tokenizer完整SHA核验通过；298项项目CPU回归通过（62.672秒），父进程成功/原生异常/普通失败三项模拟检查、规定shell语法/Python编译及diff检查通过。实际启动独立session 3508602，后台父PID 3508602、worker PID 3508606，stdin为/dev/null、stdout/stderr重定向run.log；run.pid与worker.pid已落盘。此快照仅确认后台派发，采样验收看本run的sampling_started.json及run.log中的真实diffusion_sampling步数；退出与效果仍待实际完成。用户要求一旦确认实际GPU推理就停止主动跟踪，因此不在本轮等待完整结果。
+
+
+## 2026-11-09：0号建筑点云基线完成后的查看与报告流程
+
+本run已完成，不再执行推理入口：`outputs/pointcloud_vace/0_v2_base/run_20261109_021750`。父PID3508602、worker3508606已退出，真实返回码0；30步完成，339.2228秒，81PNG和两视频已经保存。东京02:27:48对应服务器01:27:48，截图01:28:49没有GPU进程是完成后的正常状态。
+
+```bash
+cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v2_base/run_20261109_021750/exit.json
+ls -lh /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v2_base/run_20261109_021750/raw_vace.mp4 /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v2_base/run_20261109_021750/input_mask_raw.mp4
+cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v2_base/run_20261109_021750/report_review_20261109_024727/final_review.json
+```
+
+原`status.json=complete_awaiting_visual_review`和环境探测中的`GPU_inference_started=false`保留为运行时/加载前快照；实际执行由sampling_started、30步日志、媒体和exit.json证明，本次静态复核状态看新增final_review.json及[报告](upload/20261109_0号建筑点云_Wan21_VACE原版基线_实验报告.md)。不要把旧字段当作重新启动理由。
+
+用户再次明确以后每组实验完成/失败收尾，主动在根upload生成详细MD并登记索引，同步长期MD；报告写实际模型/数据/参数/执行/失败恢复/资源/结果/局限，不将文件可读写成效果通过。若要求启动即结束，在后续确认结束或接手时补报告，不持续在线监控或重跑。当前密集点阵面片、原观测点重绘与首尾不一致均已记录；未实时播放或三维验证。

@@ -38,3 +38,12 @@ ls -lh /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v2_base/run
 ### 2026-11-09 后台派发快照
 
 2026-11-09T02:22:09.011787+09:00：输入与pipeline CPU预处理检查通过，官方VACE/T5/VAE及tokenizer完整SHA核验通过；298项项目CPU回归通过（62.672秒），父进程成功/原生异常/普通失败三项模拟检查、规定shell语法/Python编译及diff检查通过。实际启动独立session 3508602，后台父PID 3508602、worker PID 3508606，stdin为/dev/null、stdout/stderr重定向run.log；run.pid与worker.pid已落盘。此快照仅确认后台派发，采样验收看本run的sampling_started.json及run.log中的真实diffusion_sampling步数；退出与效果仍待实际完成。用户要求一旦确认实际GPU推理就停止主动跟踪，因此不在本轮等待完整结果。
+
+
+## 2026-11-09：执行完成、静态复核与独立报告
+
+[详细报告](../../../upload/20261109_0号建筑点云_Wan21_VACE原版基线_实验报告.md)已写入统一upload目录。实际一次81帧/30步GPU推理，worker退出0，东京02:27:48结束，总耗时339.2228秒；81原PNG、原视频、三栏对比和5张关键帧均已存在。峰值allocated/reserved为18.3960/31.0273GiB。没有失败重试或第二次推理。
+
+本次完整解码两视频和81PNG、静态复核全部81建筑区域及000/020/032/047/060/080原像素局部，结论：原版生成了暗底密集规则点阵/网格面，没有匹配输入稀疏观测点；原观测点有重绘；000/080输入/mask相同而生成白区首尾MAE75.957650/255。未做实时播放、量化闪烁或三维验证，未将点纹理认作真实三维点恢复。
+
+新复核材料在原run的report_review_20261109_024727，最终记录final_review.json；原status的complete_awaiting_visual_review是当时快照并保留。用户要求后续每组实验主动生成upload报告、更新索引与长期MD；本轮无新增GPU任务。
