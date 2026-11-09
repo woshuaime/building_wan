@@ -221,3 +221,12 @@ C_mix固定run为`outputs/vace/complex12_cmix_pilot/run_20261026_222008`；用�
 - 只完成部分阶段也生成注明状态的报告；视觉未复核就标注待复核。若用户要求启动即结束，先完成启动交接，后续确认任务结束或接手收尾时补齐，不能为了等报告而持续监控，更不能重跑成功GPU任务。
 - 报告登记索引，同步README、对应实验README和PROJECT_CONTEXT/EXPERIMENTS/TRAINING/SESSION_HANDOFF；历史正文在原处持续保留，按日期追加。
 - 本次0号点云run已正常退出0，单次81帧/30步、无LoRA；[独立报告](upload/20261109_0号建筑点云_Wan21_VACE原版基线_实验报告.md)已生成。静态复核发现密集点阵面片、已知点重绘和首尾不一致，不宣称点云效果成功。运行时`complete_awaiting_visual_review`作为历史证据保留，本次复核依据见`outputs/pointcloud_vace/0_v2_base/run_20261109_021750/report_review_20261109_024727/final_review.json`。
+
+
+## 2026-11-09：V3三墙对照报告与完成边界
+
+用户通知本组已结束并要求按项目MD写报告。本次已核对固定run`outputs/pointcloud_vace/0_v3_base/run_20261109_175027`单次原版VACE、无LoRA/训练、81帧30步、worker退出0；东京18:03:56（服务器17:03:56）结束，334.8306秒。完整[便携报告](upload/20261109_0号建筑点云_V3三墙对照_Wan21_VACE原版_实验报告.md)已生成并登记upload。
+
+C区以V3mask减V2mask定义，旧A/B用V2白区联合统计，不在无标签包内臆造永久墙面ID；约5.72米为用户描述。C和A/B仍呈暗底规则点纹/面片，不能称稀疏点云补全成功。V3白区首尾MAE46.411138/255，C48.216107，A/B41.056499；局部A/B比旧版下降不冒充整体闭环改善。共同已知区保留MAE2.470153/255，对照V2同区域2.380387。
+
+本次仅CPU完整解码、静态复核与报告/Git收尾，未实时播放、未三维点跟踪、无新GPU任务。旧运行时status和启动正文保留，本次复核证据新增`outputs/pointcloud_vace/0_v3_base/run_20261109_175027/report_review_20261109_185922/final_review.json`。后续建议仍需另行GPU授权。

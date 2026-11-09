@@ -470,3 +470,12 @@ Hard CS12旧C/lin600/ring600缺口MAE为0.056055/0.023890/0.020890，主要错�
 ### 2026-11-09：V3三墙对照后台派发快照
 
 2026-11-09T17:58:21.608660+09:00：已派发独立session 4037385，父PID 4037385、GPU worker PID 4037389，stdin=/dev/null，日志为`/mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/run.log`，身份另存本run launch.json/run.pid/worker.pid。本快照记录后台派发，正式采样验收以本run sampling_started.json或completed_steps=1日志为准。实际配置逐项等同V2，V3输入指纹及包内prompt已核验；298项CPU检查通过（51.218秒），规定语法/编译/diff检查通过。用户要求首步完成即结束会话，不等待完整媒体或效果；后台将自动保存本次产物及真实退出，后续再补upload详细报告，不重跑成功任务。
+
+
+## 2026-11-09：V3三墙对照报告交接
+
+用户通知本组结束并要求按项目MD写报告，现[upload详细报告](upload/20261109_0号建筑点云_V3三墙对照_Wan21_VACE原版_实验报告.md)及索引已补齐，原文件历史只追加。run：`outputs/pointcloud_vace/0_v3_base/run_20261109_175027`，一次原版VACE、无LoRA/训练，81帧832×480/16FPS、30步、CFG5、seed20261018，worker返回0，334.8306秒，东京18:03:56结束。81PNG/两视频/五关键帧齐全，不能再次启动成功任务。
+
+本次全81建筑区域静态复核与9帧V2/V3原像素对比：C生成黑底规则点阵、回程更碎，旧A/B点阵仍在且纹理改变。V3白区首尾MAE46.411138/255，C48.216107，A/B41.056499；局部A/B比V2低45.95%不代表全局闭环修复。共同已知区MAE略升3.77%，无完整GT，不把输出差当质量改善。
+
+本次完整解码两版162PNG和V3两视频，未实时播放/量化闪烁/三维跟踪；报告阶段GPU调用0。新复核记录在`outputs/pointcloud_vace/0_v3_base/run_20261109_175027/report_review_20261109_185922/final_review.json`，原status/log/config保留。启动时f427ea0已本地提交、推送超时，收尾同步main并保留原超时事实。19项无关工作保持原样且不纳入提交。后续实验需新授权。

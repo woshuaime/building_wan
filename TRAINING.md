@@ -688,3 +688,18 @@ cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v2_base/run_20
 ### 2026-11-09：V3三墙对照后台派发快照
 
 2026-11-09T17:58:21.608660+09:00：已派发独立session 4037385，父PID 4037385、GPU worker PID 4037389，stdin=/dev/null，日志为`/mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/run.log`，身份另存本run launch.json/run.pid/worker.pid。本快照记录后台派发，正式采样验收以本run sampling_started.json或completed_steps=1日志为准。实际配置逐项等同V2，V3输入指纹及包内prompt已核验；298项CPU检查通过（51.218秒），规定语法/编译/diff检查通过。用户要求首步完成即结束会话，不等待完整媒体或效果；后台将自动保存本次产物及真实退出，后续再补upload详细报告，不重跑成功任务。
+
+
+## 2026-11-09：V3三墙完成后的只读查看与报告
+
+本run已成功退出，不再执行prepare/supervise：`outputs/pointcloud_vace/0_v3_base/run_20261109_175027`。父PID4037385和worker4037389已退出，真实返回0；30步/81帧齐全，18:03:56东京时间结束，对应服务器17:03:56。
+
+```bash
+cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/exit.json
+ls -lh /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/raw_vace.mp4 /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/input_mask_raw.mp4
+cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/report_review_20261109_185922/final_review.json
+```
+
+[完整报告](upload/20261109_0号建筑点云_V3三墙对照_Wan21_VACE原版_实验报告.md)已按要求进入upload。原status的complete_awaiting_visual_review、环境检查的GPU_inference_started=false和启动待复核MD保留当时身份；本次实际完成与静态复核看新final_review.json，不能把旧快照当重跑理由。
+
+全81帧静态检查和V2配对显示C/A/B仍为暗底点阵面片，首尾不一致；未实时播放或三维验证。运行退出0与效果达标分别记录。启动推送8秒超时不影响后台推理，本轮核对并同步已有main提交；无追加GPU授权。
