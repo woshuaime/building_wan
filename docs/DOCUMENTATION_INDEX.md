@@ -249,3 +249,8 @@ run与upload报告内容一致，新增链接有效；11份既有MD完整历史�
 ### V3报告收尾检查实测（2026-11-09T19:06:18.865090+09:00）
 
 本次298项项目CPU回归通过（51.189秒），规定shell语法、Python编译与git diff --check通过；10份旧MD完整历史前缀保留，19项无关文件字节不变，14个新增本地链接有效。两版视频/输入/prompt/入口身份核验、V3包内文件一致性和逐帧加权指标独立聚合通过。报告/upload与run复核快照内容相同；最终证据在run/report_review_20261109_185922/final_review.json。没有新GPU任务。
+
+
+## 2026-11-10：天然残缺点云 D 组结构 Adapter
+
+[实验入口](../experiments/pointcloud_vace/adapter_d/README.md)。用户仅授权八视角Adapter＋VACE注意力LoRA的D组微调，原版VACE冻结，3,000次更新，832×480连续17帧，首步成功即交接。run为outputs/pointcloud_vace/adapter_d/run_20261110_050724，首步/完成以run真实记录为准。15,881份实测点云及配对mesh已按任务单解压并删除经验证的源ZIP；mesh仅用于弱监督，未知缺口不计损失。八栋评测、其他对照及upload完成报告待后续用户通知，不能自动启动。

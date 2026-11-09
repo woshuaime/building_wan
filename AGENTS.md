@@ -230,3 +230,9 @@ C_mix固定run为`outputs/vace/complex12_cmix_pilot/run_20261026_222008`；用�
 C区以V3mask减V2mask定义，旧A/B用V2白区联合统计，不在无标签包内臆造永久墙面ID；约5.72米为用户描述。C和A/B仍呈暗底规则点纹/面片，不能称稀疏点云补全成功。V3白区首尾MAE46.411138/255，C48.216107，A/B41.056499；局部A/B比旧版下降不冒充整体闭环改善。共同已知区保留MAE2.470153/255，对照V2同区域2.380387。
 
 本次仅CPU完整解码、静态复核与报告/Git收尾，未实时播放、未三维点跟踪、无新GPU任务。旧运行时status和启动正文保留，本次复核证据新增`outputs/pointcloud_vace/0_v3_base/run_20261109_175027/report_review_20261109_185922/final_review.json`。后续建议仍需另行GPU授权。
+
+
+## 2026-11-10：天然残缺点云 D 组结构 Adapter
+
+[实验入口](experiments/pointcloud_vace/adapter_d/README.md)。用户仅授权八视角Adapter＋VACE注意力LoRA的D组微调，原版VACE冻结，3,000次更新，832×480连续17帧，首步成功即交接。run为outputs/pointcloud_vace/adapter_d/run_20261110_050724，首步/完成以run真实记录为准。15,881份实测点云及配对mesh已按任务单解压并删除经验证的源ZIP；mesh仅用于弱监督，未知缺口不计损失。八栋评测、其他对照及upload完成报告待后续用户通知，不能自动启动。
+本run使用独立tmux和既有GPU锁，原模型只读；仅Adapter及rank8/alpha8的VACE q/k/v/o LoRA训练。保留首次更新与整百步完整AdamW/RNG恢复状态，不把仅增量权重当完整恢复点。启动OOM退路由本次任务单明确授权，不能推广为其他历史run的自动重试授权。

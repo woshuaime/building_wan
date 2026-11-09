@@ -703,3 +703,18 @@ cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20
 [完整报告](upload/20261109_0号建筑点云_V3三墙对照_Wan21_VACE原版_实验报告.md)已按要求进入upload。原status的complete_awaiting_visual_review、环境检查的GPU_inference_started=false和启动待复核MD保留当时身份；本次实际完成与静态复核看新final_review.json，不能把旧快照当重跑理由。
 
 全81帧静态检查和V2配对显示C/A/B仍为暗底点阵面片，首尾不一致；未实时播放或三维验证。运行退出0与效果达标分别记录。启动推送8秒超时不影响后台推理，本轮核对并同步已有main提交；无追加GPU授权。
+
+
+## 2026-11-10：天然残缺点云 D 组八视角 Adapter 正式训练启动交接
+
+记录时间：2026-11-10T05:12:38.059111+09:00。用户新授权只实现并启动 D 组，确认首次真实 AdamW 更新后结束会话；八栋开发样例、evaluate.py、A/B/C 对照和视频验证均待训练后另开会话。新实验入口：[D组结构Adapter](experiments/pointcloud_vace/adapter_d/README.md)。
+
+固定 run：`outputs/pointcloud_vace/adapter_d/run_20261110_050724`；独立 tmux `apc2mesh_D_20261110_050724`，启动 shell/随后exec的supervisor PID `129571`。为先登记真实作业身份，启动器使用一次性start.ready放行；放行后无Codex/SSH依赖。GPU worker PID在worker.pid，正式首步凭first_update.json的两组参数改变、AdamW step=1及恢复点保存确认，不能把本段准备快照或模型加载当首步。完整日志run.log、状态status.json、退出exit.json自动记录。
+
+源包apc2mesh_adapter_full_v1.zip已在CRC/数量/任务单可读验证后删除，导入记录为data/pointcloud_vace/apc2mesh_full_v1_import.json。目标目录下有15,881份pointcloud和15,891个mesh文件，完整微调任务与sample-data-organized同级；旧V2/V3保留。仅按候选空间划分.csv中use=train的10,747栋取样，本轮固定3,000栋/3,000更新，seed20261110。原始点云作输入，mesh与一次生成的候选点只给监督；真实互补扫描证据缺失，不虚构真实补充标签。已知/真实补充/弱区分别面积归一，权重1/1/0.3，未知缺口0。首批为11613/Paide、026–042，弱候选38点。
+
+复用V3原版Wan2.1-VACE-1.3B及scj环境，原参数全部冻结；只优化新Adapter142,929参数和VACE self/cross attention q/k/v/o rank=alpha8 LoRA2,949,120参数，共3,092,049。AdamW lr1e-4/wd0/clip1，BF16骨干/FP32增量、batch1/accum1、832×480、连续17帧、gradient checkpointing，原prompt、无旧LoRA。首步后每100步保存完整恢复状态，结束独立保存adapter_final.safetensors和lora_final.safetensors。启动OOM只按任务单依次启用CPU激活卸载、必要时13帧，实际配置与各失败尝试独立记录；首步成功后不自动重跑。
+
+8项专项CPU检查与298项项目CPU回归通过（51.151秒）；计划3,000对点云指纹/解析及mesh配对全部通过，mesh替换不会改变RGB/mask/几何输入。PEFT原地插入接口差异已在CPU联调修正；无额外GPU试跑。包内原渲染入口引用未随包提供的旧路径，本轮训练读取/渲染适配详见实验README，未修改上传脚本或原始点。19项既有无关工作区修改保持原样。
+
+训练完成或明确失败后，按项目规则在upload补详细实验报告并登记索引，同步长期MD；本轮启动交接不等待训练完成，不预写模型效果。只读进度：`tail -n 30 /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/adapter_d/run_20261110_050724/run.log`。
