@@ -21,3 +21,8 @@ V3保留V2所有白区：逐帧检查移除0个白像素，81帧新增合计4870
 后台自动按V2流程保存raw_frames/000–080.png、raw_vace.mp4、三栏input_mask_raw.mp4、五张关键帧PNG、config.json/prompt.txt、run.log、raw_result.json/comparison_result.json、status.json与真实exit.json；原始结果不回贴、不覆盖。可选展示失败单独记录，无自动重试或第二组预算。
 
 只读查看：`tail -n 40 /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/run.log`、`cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/status.json`。完成或明确失败后，后续收尾报告写到`upload/20261109_0号建筑点云_V3三墙对照_Wan21_VACE原版_实验报告.md`，登记upload索引并追加长期MD；当前不预写C墙效果、A/B点阵或闭环结果。
+
+
+### 2026-11-09：V3三墙对照后台派发快照
+
+2026-11-09T17:58:21.608660+09:00：已派发独立session 4037385，父PID 4037385、GPU worker PID 4037389，stdin=/dev/null，日志为`/mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/run.log`，身份另存本run launch.json/run.pid/worker.pid。本快照记录后台派发，正式采样验收以本run sampling_started.json或completed_steps=1日志为准。实际配置逐项等同V2，V3输入指纹及包内prompt已核验；298项CPU检查通过（51.218秒），规定语法/编译/diff检查通过。用户要求首步完成即结束会话，不等待完整媒体或效果；后台将自动保存本次产物及真实退出，后续再补upload详细报告，不重跑成功任务。

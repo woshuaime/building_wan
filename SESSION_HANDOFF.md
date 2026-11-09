@@ -465,3 +465,8 @@ Hard CS12旧C/lin600/ring600缺口MAE为0.056055/0.023890/0.020890，主要错�
 本快照为prepare完成、正式GPU尚未派发；原版权重/T5/VAE/tokenizer完整校验与现有scj/A6000环境检查通过，无其他GPU作业。实际派发身份看本run launch.json、run.pid/worker.pid；第1步完成证据为sampling_started.json或日志completed_steps=1，加载完成不算。后台按V2自动保存raw_vace.mp4、81 raw_frames、三栏input_mask_raw.mp4、日志、配置和真实exit.json。
 
 效果留待输出后复核，不预写C墙补全、A/B点阵或闭环结论；后续完成或明确失败收尾时报告写`upload/20261109_0号建筑点云_V3三墙对照_Wan21_VACE原版_实验报告.md`并登记upload索引。旧V2/mesh实验和原长期历史保留，不重复已成功推理。
+
+
+### 2026-11-09：V3三墙对照后台派发快照
+
+2026-11-09T17:58:21.608660+09:00：已派发独立session 4037385，父PID 4037385、GPU worker PID 4037389，stdin=/dev/null，日志为`/mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20261109_175027/run.log`，身份另存本run launch.json/run.pid/worker.pid。本快照记录后台派发，正式采样验收以本run sampling_started.json或completed_steps=1日志为准。实际配置逐项等同V2，V3输入指纹及包内prompt已核验；298项CPU检查通过（51.218秒），规定语法/编译/diff检查通过。用户要求首步完成即结束会话，不等待完整媒体或效果；后台将自动保存本次产物及真实退出，后续再补upload详细报告，不重跑成功任务。
