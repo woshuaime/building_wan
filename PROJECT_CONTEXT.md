@@ -486,3 +486,16 @@ Hard CS12旧C/lin600/ring600缺口MAE为0.056055/0.023890/0.020890，主要错�
 [详细便携报告](upload/20261109_0号建筑点云_Wan21_VACE原版基线_实验报告.md)覆盖实际输入、原始prompt、模型及组件哈希、条件参数、后台流程、时区、资源、逐帧段观察和局限。本次重新完整解码81原PNG与两视频，静态联系图覆盖全部000–080建筑区域，原像素局部检查000/020/032/047/060/080。实际效果：生成暗底密集点阵/网格面，与稀疏观测点失配；已知点重绘；输入000/080及mask完全相同，原预测白区首尾MAE75.957650/255。全81已知区像素加权MAE2.409225/255，仅作保留程度检查，非GT恢复指标。
 
 交付完成不表示点云补全达标。未实时播放、未量化闪烁/三维漂移，缺完整GT；不能将点纹理等同三维点恢复。原运行时status和日志保留，本次报告复核记录新增在`outputs/pointcloud_vace/0_v2_base/run_20261109_021750/report_review_20261109_024727`。没有新GPU任务。以后每组实验完成或失败收尾均主动在upload生成报告并同步长期MD；启动即结束任务在后续确认完成/接手时补齐，不为报告监控或重跑。
+
+
+## 2026-11-09：0号建筑点云V3三墙对照启动准备
+
+快照时间：2026-11-09T17:52:02.437838+09:00。用户已明确授权本组仅一次原版VACE视频补全，并要求确认本run第1/30步完成或sampling_started.json生成后立即结束会话。实际输入与V2是不同文件，V3保留A/B选区、只增加C墙约5.72米空区（米制尺寸为用户描述，未独立测量）。无新增训练/LoRA/参数搜索授权。
+
+研究入口：[V3三墙实验](experiments/pointcloud_vace/0_v3_base/README.md)；本run：`outputs/pointcloud_vace/0_v3_base/run_20261109_175027`。已有解压输入与data/pointcloud_upload/0_v3_input.zip的三个成员逐字节一致；视频SHA256前16位16eb946b679a056a，mask前16位db445e937f7f0e9a。两视频均81帧832×480/16FPS、逐帧时间戳对齐；mask严格0/255、白区对应RGB127，提示词为包内原文且与V2字节相同。V2白像素移除0，新增C白像素跨81帧合计487026，新增区域外RGB变化0；000/080输入和mask相同。
+
+代码只在experiments/pointcloud_vace/0_v3_base/scripts/run.py做prepare适配，worker/采样/保存/supervise与V2相同；正式model与inference字段已与V2 run_20261109_021750/config.json逐项相等：原版Wan2.1-VACE-1.3B、无LoRA，seed20261018、30步、CFG5、shift5、VACE scale1、BF16、tiled VAE、full memory，negative为空、无扩写。实际传vace_video和vace_video_mask，080保留真实预测，不分段/抽帧/缩放；无旧训练缓存。
+
+本快照为prepare完成、正式GPU尚未派发；原版权重/T5/VAE/tokenizer完整校验与现有scj/A6000环境检查通过，无其他GPU作业。实际派发身份看本run launch.json、run.pid/worker.pid；第1步完成证据为sampling_started.json或日志completed_steps=1，加载完成不算。后台按V2自动保存raw_vace.mp4、81 raw_frames、三栏input_mask_raw.mp4、日志、配置和真实exit.json。
+
+效果留待输出后复核，不预写C墙补全、A/B点阵或闭环结论；后续完成或明确失败收尾时报告写`upload/20261109_0号建筑点云_V3三墙对照_Wan21_VACE原版_实验报告.md`并登记upload索引。旧V2/mesh实验和原长期历史保留，不重复已成功推理。

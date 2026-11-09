@@ -206,3 +206,8 @@ CS09/11改善明显，CS10/12仍有错误连接和坡面，CS12首尾形状不�
 [详细实验报告](upload/20261109_0号建筑点云_Wan21_VACE原版基线_实验报告.md)已统一归档到[upload报告目录](upload/README.md)。本轮在A6000上只执行一次原版Wan2.1-VACE-1.3B masked video editing，无LoRA/训练；81帧832×480/16FPS、30步、CFG5、seed20261018，正常退出0，总耗时339.223秒。原始81PNG、raw_vace.mp4、三栏对比视频与五张关键帧已保存于`outputs/pointcloud_vace/0_v2_base/run_20261109_021750`。
 
 生成墙面呈密集规则点阵、暗底和面片感，尚未匹配周围稀疏观测点；已知点有重绘。输入首尾相同，生成白区首尾MAE75.957650/255，未获得一致闭环。全部81帧建筑区域静态复核及两视频完整解码已完成，未做实时播放或三维验证。用户再次要求以后每组实验完成/失败收尾主动在upload生成详细报告、同步长期MD；原历史正文和旧run保留。
+
+
+## 2026-11-09：0号点云V3三墙对照授权启动
+
+[V3实验入口](experiments/pointcloud_vace/0_v3_base/README.md)。本组仅一次原版VACE推理，沿用V2实际配置；输入保留A/B选区并仅在C墙增加白区与灰填充，81帧832×480/16FPS。当前已完成CPU准备，正式派发与第1步证据看新run的launch.json和sampling_started.json；确认第1步后立即结束本轮会话，不等待结果或预写效果。结果在outputs/pointcloud_vace/0_v3_base/run_20261109_175027，后续报告统一在upload补齐，V2及历史正文保留。

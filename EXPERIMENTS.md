@@ -600,3 +600,16 @@ CS09、CS11明显改善；CS10连接面/折线仍错，C的MAE最低；CS12错�
 前期nvidia-smi/pynvml探测不可用后采用已有ctypes NVML，无依赖安装；正式推理没有失败。两视频本次重新完整解码，原图和关键局部已查看；没有实时播放、光流/点跟踪或完整GT，首尾差异不冒充逐帧三维漂移/闪烁量。没有新增GPU任务或调整prompt/mask/预算。下一步建议先观看现有16FPS视频再决定单变量对照，尚未授权或执行。
 
 本组报告纳入upload统一索引；后续每组实验完成/失败均主动写详细报告并同步累计MD，旧记录原处保留。
+
+
+## 2026-11-09：0号建筑点云V3三墙对照启动准备
+
+快照时间：2026-11-09T17:52:02.437838+09:00。用户已明确授权本组仅一次原版VACE视频补全，并要求确认本run第1/30步完成或sampling_started.json生成后立即结束会话。实际输入与V2是不同文件，V3保留A/B选区、只增加C墙约5.72米空区（米制尺寸为用户描述，未独立测量）。无新增训练/LoRA/参数搜索授权。
+
+研究入口：[V3三墙实验](experiments/pointcloud_vace/0_v3_base/README.md)；本run：`outputs/pointcloud_vace/0_v3_base/run_20261109_175027`。已有解压输入与data/pointcloud_upload/0_v3_input.zip的三个成员逐字节一致；视频SHA256前16位16eb946b679a056a，mask前16位db445e937f7f0e9a。两视频均81帧832×480/16FPS、逐帧时间戳对齐；mask严格0/255、白区对应RGB127，提示词为包内原文且与V2字节相同。V2白像素移除0，新增C白像素跨81帧合计487026，新增区域外RGB变化0；000/080输入和mask相同。
+
+代码只在experiments/pointcloud_vace/0_v3_base/scripts/run.py做prepare适配，worker/采样/保存/supervise与V2相同；正式model与inference字段已与V2 run_20261109_021750/config.json逐项相等：原版Wan2.1-VACE-1.3B、无LoRA，seed20261018、30步、CFG5、shift5、VACE scale1、BF16、tiled VAE、full memory，negative为空、无扩写。实际传vace_video和vace_video_mask，080保留真实预测，不分段/抽帧/缩放；无旧训练缓存。
+
+本快照为prepare完成、正式GPU尚未派发；原版权重/T5/VAE/tokenizer完整校验与现有scj/A6000环境检查通过，无其他GPU作业。实际派发身份看本run launch.json、run.pid/worker.pid；第1步完成证据为sampling_started.json或日志completed_steps=1，加载完成不算。后台按V2自动保存raw_vace.mp4、81 raw_frames、三栏input_mask_raw.mp4、日志、配置和真实exit.json。
+
+效果留待输出后复核，不预写C墙补全、A/B点阵或闭环结论；后续完成或明确失败收尾时报告写`upload/20261109_0号建筑点云_V3三墙对照_Wan21_VACE原版_实验报告.md`并登记upload索引。旧V2/mesh实验和原长期历史保留，不重复已成功推理。
