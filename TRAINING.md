@@ -782,3 +782,10 @@ run.py是执行入口，当前run已存在generation_all_frozen.json，禁止以
 用户授权删除五组已完成点云实验的中间产物，旧run.log/status.json/config.json/PID/缓存及过程checkpoint均已删除；上文基于这些文件的查询命令是历史说明，现在不再适用。直接查看各组保留的实验报告.md及视频；三栋当前交付目录仍为outputs/pointcloud_vace/fixed_points_three/交付_20261110_234704，旧run链接和.archive均已删，不要重建归档或自动重跑。
 
 D训练仅保留checkpoints/adapter_final.safetensors和lora_final.safetensors，哈希与原报告一致；resume_latest.pt、各step完整状态和初始化增量已删除，不能声称还能完整恢复optimizer/RNG或复用原存盘初始化。最终权重仍可用于后续获授权的推理。清理时只停止了占用已结束D日志的旧tail查看进程，没有停止GPU作业。没有修改训练源码或新增训练。
+
+
+## 2026-11-11：五栏视频仅为CPU拼版，查看不用执行入口
+
+当前三栋仍直接打开outputs/pointcloud_vace/fixed_points_three/交付_20261110_234704，视频文件名已改为五栏对比；上排Origin/未填灰残缺点云，下排灰填输入/D-3000/固定三维补点。81帧/16 FPS，每栏832×480，成片2496×1136。
+
+专用媒体工具为experiments/pointcloud_vace/fixed_points_three/scripts/reformat_comparisons.py，只读取原case视频、已有D预测与旧四栏第三栏，没有模型加载或候选生成。它在三条新成片全部完整解码后才替换旧视频，并删除临时编码文件。此次已完成替换，旧四栏已删，不能再次运行它刷新状态；不要调用run.py重建已清理的点集。H.264展示视频不代替原无损帧的评估证据。根规范的shell语法/编译/diff检查及298项CPU回归通过。

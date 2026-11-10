@@ -584,3 +584,10 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 用户回答“都删，只删中间文件、保留视频和报告”，范围是0_v2_base、0_v3_base、adapter_d训练、adapter_d_eval八栋及fixed_points_three本轮。已删除PNG/NPZ/PLY/CSV、日志/配置/状态/PID、样本准备与缓存、过程权重和完整恢复状态；本轮.archive及旧run链接已实际删除，不再只是转移归档。23条视频和两份D最终增量的SHA256核对未变，五组各自保留实验报告.md，upload五份正式报告保留并注明清理。原始数据、预训练模型、源码与其他实验不在清理范围。
 
 当前三栋入口仍为[outputs/pointcloud_vace/fixed_points_three/交付_20261110_234704](outputs/pointcloud_vace/fixed_points_three/交付_20261110_234704)，恰好3 MP4＋1 MD。V2/V3各保留2视频，D八栋保留16视频；D训练只保留报告与checkpoints中的adapter_final.safetensors/lora_final.safetensors。训练已完成3000更新，但optimizer/RNG恢复点已删除，不再可做原完整状态恢复。最新状态以报告为准，不通过缺失旧status判断没跑完，也不自动补跑。
+
+
+## 2026-11-11：三栋五栏视频完成，当前入口更新
+
+用户要求加入Origin并改为上二下三。上排居中为Origin原始点云、未填灰的残缺点云；下排为灰填VACE输入、D-3000输出、固定三维补点。原四栏中的实测参考就是原始点云，已改标Origin；新增的独立画面来自reference/damaged.mp4，用于呈现剔点后未填灰的输入。成片2496×1136、81帧/16 FPS，三条均完整解码通过。当前文件为交付目录内01_檐口_五栏对比.mp4、04_长墙_五栏对比.mp4、07_墙面_五栏对比.mp4及实验报告.md；旧四栏成片已删除，未留副本或中间目录。
+
+本次只用CPU拼版，不重新拟合候选、训练或推理。固定补点画面从已保留旧四栏的第三栏原尺寸裁出，其余使用原case与D视频；旧原始点集/无损帧没有恢复。五栏展示经过H.264重编码，不用于重新计算原指标或首尾无损相等结论。原实验数值保留在同一份upload报告，原始数据、权重与其他组视频不变。298项CPU检查通过；19项无关工作区修改保留。
