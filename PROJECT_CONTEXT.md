@@ -539,3 +539,16 @@ C=V3白区减V2白区，累计487026像素×帧，出现在000–023及070–080
 [训练阶段详细实验报告](upload/20261110_点云D组_八视角结构Adapter微调_训练阶段实验报告.md)已归档。弱目标构造成功165批，当前窗口有效弱区162批（5.4%）、其中有效时间权重159批；真实互补监督0，其余主要为可靠观测区学习。结构上游首次非零梯度在第3步，累计2492批；最终全部24个Adapter/240个LoRA张量改变。该结果证明执行完成，墙面稀疏点、檐口、漂移/闭环效果均尚未验证。八栋推理、evaluate.py及其他对照仍等待用户新授权，本次状态收尾GPU任务0。
 
 完成证据见本run training_complete.json/exit.json及completion_review_20261110_145428/completion_check.json。此前启动快照和全部历史保留；不能把待评测状态当作需要重跑训练。
+
+
+## 2026-11-10：D-3000八栋验收推理后台队列启动
+
+记录时间：2026-11-10T15:12:52.791443+09:00。用户新授权生成训练后D组的八栋验收视频，要求确认进入实际采样后立即交接。新入口：[D组八栋评测](experiments/pointcloud_vace/adapter_d_eval/README.md)。唯一run `outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749`，独立tmux `apc2mesh_D_eval_20261110_150749`，启动shell/随后exec的supervisor PID 459101；本段记录真实队列身份，当前等待一次性start.ready放行，实际GPU worker见worker.pid，首步验收以本run sampling_started.json为准。
+
+只加载训练run_20261110_050724的最终Adapter与LoRA-3000，在同一原版Wan2.1-VACE-1.3B基座上串行推理eave_3230、roof_12512、roof_5670、strip_5016、wall_10416、wall_13697、wall_2534、wall_8079，共8次完整81帧调用。832×480/16FPS，30步/CFG5/seed20261018/shift5/VACE scale1，原prompt逐字使用，negative为空，无扩写或帧080替换。原骨干BF16、增量FP32。
+
+八栋均为diagnostic_only且未进入实际3000栋训练，是开发验收、不是盲测。结构特征先剔除全部hidden_original_point_ids，只用观测P和包内原相机，不读mesh/隐藏点/目标RGB。两个输入视频均完整解码与时间对齐，648/648帧观测P重建在mask外与上传RGB逐值相同；CFG正负两路共享同一32760-token几何。7项专项CPU检查及298项项目CPU回归（50.512秒）通过，原训练源码与19项无关修改保留。
+
+后台每栋自动保存81张raw_frames、raw_vace.mp4、四栏input_mask_D_target.mp4、5张对比PNG/overview及原evaluate.py指标；GT只在原始预测保存后由CPU读取。全队列汇总metrics_summary.json/csv及真实exit.json，完成标记awaiting_visual_review。主run.log同步采样进度，原始预测不回贴或覆盖；不重跑成功轨迹，不训练其他组。wall_10416无隐藏实测点，其恢复指标null应按指标支持量解释。
+
+本轮首步采样确认后即结束，不等待8栋结果，不提前写效果结论。后续完成/失败及视觉复核时追加upload报告；训练阶段报告保留，不能把本启动记录当已生成视频。只读进度：`tail -n 30 -f /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749/run.log`。

@@ -79,3 +79,8 @@ tail -n 30 /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/adapter_d
 唯一run `outputs/pointcloud_vace/adapter_d/run_20261110_050724` 已完成3000次更新，2026-11-10 13:04:49（UTC+09）退出0；Adapter/LoRA最终权重及完整恢复点通过CPU读回核查。[训练阶段报告](../../../upload/20261110_点云D组_八视角结构Adapter微调_训练阶段实验报告.md)已归档。有效弱区仅162/3000批（5.4%），视频效果尚待验收；八栋推理、其他对照及evaluate.py未启动。状态查询不能重跑成功训练，旧启动记录保留。
 
 启动更正：此前--hold/start.ready等待说明未实际生效（shell条件右括号前缺空格，start.ready不存在）；真实首步为05:12:03+09:00。正式训练单次执行并正常完成，本次不修改冻结源码；后续如依赖等待功能，需先修正和测试。
+
+
+## 2026-11-10：D组八栋开发建筑视频验收启动
+
+[八栋评测入口](../adapter_d_eval/README.md)。用户授权D-3000最终增量的8次81帧推理，run为outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749；实际首步看sampling_started.json。沿用832×480/30步/CFG5/seed20261018，原相机与输入，结构分支剔除隐藏实测点。后台自动保存原始PNG/视频、对比与evaluate.py指标；首步即交接，完整效果与报告留后续复核。无新训练或A/B/C组预算。
