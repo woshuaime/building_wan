@@ -236,3 +236,8 @@ C区以V3mask减V2mask定义，旧A/B用V2白区联合统计，不在无标签�
 
 [实验入口](experiments/pointcloud_vace/adapter_d/README.md)。用户仅授权八视角Adapter＋VACE注意力LoRA的D组微调，原版VACE冻结，3,000次更新，832×480连续17帧，首步成功即交接。run为outputs/pointcloud_vace/adapter_d/run_20261110_050724，首步/完成以run真实记录为准。15,881份实测点云及配对mesh已按任务单解压并删除经验证的源ZIP；mesh仅用于弱监督，未知缺口不计损失。八栋评测、其他对照及upload完成报告待后续用户通知，不能自动启动。
 本run使用独立tmux和既有GPU锁，原模型只读；仅Adapter及rank8/alpha8的VACE q/k/v/o LoRA训练。保留首次更新与整百步完整AdamW/RNG恢复状态，不把仅增量权重当完整恢复点。启动OOM退路由本次任务单明确授权，不能推广为其他历史run的自动重试授权。
+
+
+## 2026-11-10：D组八视角Adapter训练阶段完成
+
+唯一run `outputs/pointcloud_vace/adapter_d/run_20261110_050724` 已完成3000次更新，2026-11-10 13:04:49（UTC+09）退出0；Adapter/LoRA最终权重及完整恢复点通过CPU读回核查。[训练阶段报告](upload/20261110_点云D组_八视角结构Adapter微调_训练阶段实验报告.md)已归档。有效弱区仅162/3000批（5.4%），视频效果尚待验收；八栋推理、其他对照及evaluate.py未启动。状态查询不能重跑成功训练，旧启动记录保留。

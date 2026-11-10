@@ -115,3 +115,8 @@ V3三墙对照已获单次原版推理授权，[实验入口](../experiments/poi
 ## 2026-11-10：D组结构Adapter待训练后收尾
 
 本轮[实验入口](../experiments/pointcloud_vace/adapter_d/README.md)只进行D组3,000更新正式训练启动交接。run为outputs/pointcloud_vace/adapter_d/run_20261110_050724。用户要求首步成功即结束，完整实验报告在后续完成或失败收尾时生成；当前不登记尚不存在的完成报告，不启动八栋评测或其他对照。
+
+
+## 2026-11-10：D组八视角Adapter训练阶段完成
+
+唯一run `outputs/pointcloud_vace/adapter_d/run_20261110_050724` 已完成3000次更新，2026-11-10 13:04:49（UTC+09）退出0；Adapter/LoRA最终权重及完整恢复点通过CPU读回核查。[训练阶段报告](20261110_点云D组_八视角结构Adapter微调_训练阶段实验报告.md)已归档。有效弱区仅162/3000批（5.4%），视频效果尚待验收；八栋推理、其他对照及evaluate.py未启动。状态查询不能重跑成功训练，旧启动记录保留。
