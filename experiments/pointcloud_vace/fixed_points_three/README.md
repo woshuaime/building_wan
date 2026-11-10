@@ -1,0 +1,44 @@
+# 三栋固定三维补点与D-3000对照
+
+2026-11-10执行，2026-11-11（UTC+09）完成静态复核与报告。用户授权仅到三栋结果交付；新训练、新Wan推理均为0，500步模块未执行。
+
+固定run：`outputs/pointcloud_vace/fixed_points_three/run_20261110_234704`。三栋同一算法：01=eave_3230、04=strip_5016、07=wall_10416。D-3000复用`outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749`，旧输出不改。
+
+[详细报告](../../../upload/20261110_三栋固定三维补点_与D3000对照_实验报告.md)；[看视频入口](../../../outputs/pointcloud_vace/fixed_points_three/run_20261110_234704/00_看结果/README_从这里开始.md)。
+
+## 实现与数据隔离
+
+专用源码在scripts，读取、投影、点精灵及深度顺序复用adapter_d/scripts/geometry.py；不修改第三方引擎。先剔除hidden_original_point_ids，仅把残缺P/RGB与粗OBB交给candidates.generate。屋面由P法向/RANSAC估计；墙面由P外边界线或三维扫描条带和重力估计，不把OBB轴当表面法向。
+
+同一表面估计扫描方向、实测间距与近邻颜色，候选仅在粗框内，独立保存全候选和选择结果。三栋全部冻结哈希后，新进程才读参考RGB、visible_tracks和隐藏坐标进行评分；mesh始终未读。所有实测点保留，新增XYZ/RGB固定一次，渲染原81相机，不逐帧补点或替换080。
+
+## 实际结果
+
+| 样例 | 遮点 | 候选/保留 | D→固定背景误填% | D→固定前景漏补% |
+| --- | ---: | ---: | --- | --- |
+| 01 | 43 | 99/43（屋面32、墙11） | 87.838→2.167 | 7.238→70.370 |
+| 04 | 42 | 20/6 | 29.865→0.239 | 41.615→100.000 |
+| 07 | 0 | 0/0 | 70.553→0.000 | 不适用 |
+
+三栋000/080独立渲染逐RGB相同，原观测XYZ/RGB零修改。04全候选0.1/0.2/0.3米覆盖4/10/10个（共42），中位/P90为0.746171/2.217914米；保留后2/6/9个，1.942997/3.910702米。6个保留点RGB(231,238,220)，原评分前景阈值下均属背景。**候选位置/条带覆盖是首要瓶颈，筛选和颜色也有问题。** 07通过拒绝新增避免黑块，不代表天然缺口补全。
+
+交付3×81正式PNG、3条无损固定点视频、3条四栏视频、3条P-only视频、候选与合并NPZ/PLY、原evaluate.py指标及42点逐ID距离。9视频/508PNG完整读回，全部243固定帧联系图及12原像素局部静态复核；没有实时视频播放。2项专项与298项项目CPU检查通过。效果有明确失败，complete仅表示交付完整。
+
+## 查看和入口安全
+
+只读状态：
+
+```bash
+cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/fixed_points_three/run_20261110_234704/status.json
+```
+
+run.py是执行入口，不是状态查询；遇到generation_all_frozen.json会拒绝重新生成，避免评分后覆盖候选。当前run已经完成，不执行它刷新状态。若未来用户明确授权复验，应新建时间戳目录后调用：
+
+```bash
+CUDA_VISIBLE_DEVICES='' OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+/home/shi/miniconda3/envs/scj/bin/python \
+/mnt/windowsE/chuanjun/building_wan/experiments/pointcloud_vace/fixed_points_three/scripts/run.py \
+--run /绝对路径/新建且独立的run目录
+```
+
+review.py只在冻结与评分后制图，不修改候选；报告与源码哈希及完整结果索引见固定run。下一步建议不是新任务授权，训练等待用户另行安排。

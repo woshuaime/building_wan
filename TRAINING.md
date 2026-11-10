@@ -751,3 +751,22 @@ cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/0_v3_base/run_20
 [八栋推理与自动指标报告](upload/20261110_点云D组_八栋81帧推理与自动指标_实验报告.md)已归档。参考背景误填29.865%–87.838%，7个可计算白区首尾MAE为50.356–83.551/255；高点中心命中不能抵消背景误填。wall_10416无隐藏实测点，恢复类指标null；wall_2534首帧白区为空，白区首尾MAE无定义。当前仅完整性与自动指标复核，未人工看图/实时播放或三维跟踪，status为complete_awaiting_visual_review，不将生成完成写成视觉效果通过。
 
 progress.json的running是最后批次快照，completed_cases已有8/8；以status.json/exit.json及新completion_check为完成依据，不重启已成功推理。原始日志/配置/视频和启动历史保留，本次新增GPU任务0。下一阶段是现有视频视觉复核；新训练或其他组仍需用户授权。
+
+
+## 2026-11-11：三栋固定三维补点已交付，本轮不是训练
+
+新run `outputs/pointcloud_vace/fixed_points_three/run_20261110_234704`，CPU完成三栋各81帧及原evaluate.py对照，退出0；不加载Wan或增量，不增加训练或D推理。源码在experiments/pointcloud_vace/fixed_points_three/scripts，[报告](upload/20261110_三栋固定三维补点_与D3000对照_实验报告.md)。复用scj Python，CUDA_VISIBLE_DEVICES为空，BLAS/OMP1线程，视频编码2线程。
+
+只读状态与指标命令：
+
+```bash
+cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/fixed_points_three/run_20261110_234704/status.json
+cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/fixed_points_three/run_20261110_234704/metrics_comparison.csv
+cat /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/fixed_points_three/run_20261110_234704/longwall_42_coverage.csv
+```
+
+run.py是执行入口，当前run已存在generation_all_frozen.json，禁止以运行它查询状态；它会拒绝再生成，避免参考揭示后覆盖候选。review.py仅后验制图，也不需用来刷新状态。旧D权重、旧GPU入口及冻结run均保持不动。若未来获复验授权，新建独立run，先剔隐藏点再拟合，全部三栋冻结后才评分；具体已执行命令和参数在实验README/报告。
+
+关键排错事实：04只产生20候选/保留6，0.3m只覆盖10/42（保留9/42）；最终6点RGB231/238/220与背景最大差24，被原>30前景阈值排除，漏补100%包含几何及颜色原因。不能只调疏密，也不改评分阈值或擅自染黑。07没有可用扫描间距而拒绝新增，0隐藏点的恢复指标为null。
+
+全部三栋81帧P重渲染与原damaged逐RGB相同；独立000/080一致不是复制尾帧。已通过2专项、298项目CPU测试及根规范shell/编译/diff检查。500步小模块未训练，用户看完再另行安排，不能据下一步建议自动启动。

@@ -269,3 +269,8 @@ run与upload报告内容一致，新增链接有效；11份既有MD完整历史�
 ## 2026-11-10：D组八栋视频与自动指标生成完成
 
 固定run `outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749` 已完成8条81帧/648原PNG、8原视频＋8对比视频及全部指标，2026-11-10 16:02:08（UTC+09）退出0，耗时47分20秒。[生成完成报告](../upload/20261110_点云D组_八栋81帧推理与自动指标_实验报告.md)已归档。16条视频及696张PNG重新完整解码通过；人工视觉复核待进行，自动指标存在高参考背景误填与首尾差异疑点。以status/exit判断完成，不把progress旧running字段当重跑依据；本次没有新GPU任务。
+
+
+## 2026-11-11：三栋固定三维补点新增入口与报告
+
+新增[实验README](../experiments/pointcloud_vace/fixed_points_three/README.md)与[便携报告](../upload/20261110_三栋固定三维补点_与D3000对照_实验报告.md)，同步根README/PROJECT_CONTEXT/EXPERIMENTS/TRAINING/SESSION_HANDOFF、experiments和upload索引；全部在旧正文后追加。本组CPU完成3×81固定点渲染/9视频，未启动新训练或GPU推理。04候选覆盖与浅色漏补失败、07拒绝新增的解释边界已明确，原D三栋仅本次新增静态复核。专用实现及测试在experiments，媒体仍在outputs/pointcloud_vace/fixed_points_three/run_20261110_234704。2专项及298项目CPU检查通过，旧19项无关工作区文件不纳入本次提交。
