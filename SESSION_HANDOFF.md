@@ -518,3 +518,12 @@ Hard CS12旧C/lin600/ring600缺口MAE为0.056055/0.023890/0.020890，主要错�
 后台每栋自动保存81张raw_frames、raw_vace.mp4、四栏input_mask_D_target.mp4、5张对比PNG/overview及原evaluate.py指标；GT只在原始预测保存后由CPU读取。全队列汇总metrics_summary.json/csv及真实exit.json，完成标记awaiting_visual_review。主run.log同步采样进度，原始预测不回贴或覆盖；不重跑成功轨迹，不训练其他组。wall_10416无隐藏实测点，其恢复指标null应按指标支持量解释。
 
 本轮首步采样确认后即结束，不等待8栋结果，不提前写效果结论。后续完成/失败及视觉复核时追加upload报告；训练阶段报告保留，不能把本启动记录当已生成视频。只读进度：`tail -n 30 -f /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749/run.log`。
+
+
+## 2026-11-10：D-3000八栋视频和自动指标全部完成
+
+本次状态核查确认run `outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749` 已完成8/8条81帧推理，8个GPU worker全部exit0，无重试；全队列2026-11-10T16:02:08+09:00退出0，2839.762秒。8原始视频＋8四栏对比、648原PNG＋48展示PNG、8份指标和JSON/CSV汇总齐全，本次CPU重新完整解码16视频/1296帧及696张PNG通过。峰值allocated/reserved为18.601651/31.675781GiB。
+
+[八栋推理与自动指标报告](upload/20261110_点云D组_八栋81帧推理与自动指标_实验报告.md)已归档。参考背景误填29.865%–87.838%，7个可计算白区首尾MAE为50.356–83.551/255；高点中心命中不能抵消背景误填。wall_10416无隐藏实测点，恢复类指标null；wall_2534首帧白区为空，白区首尾MAE无定义。当前仅完整性与自动指标复核，未人工看图/实时播放或三维跟踪，status为complete_awaiting_visual_review，不将生成完成写成视觉效果通过。
+
+progress.json的running是最后批次快照，completed_cases已有8/8；以status.json/exit.json及新completion_check为完成依据，不重启已成功推理。原始日志/配置/视频和启动历史保留，本次新增GPU任务0。下一阶段是现有视频视觉复核；新训练或其他组仍需用户授权。

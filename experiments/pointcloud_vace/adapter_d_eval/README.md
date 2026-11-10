@@ -63,3 +63,8 @@ tail -n 30 -f /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/adapte
 ```
 
 不要为刷新状态重跑启动命令。看到本run sampling_started.json中的completed_steps=1即结束本次会话，不等待8栋结束。后台将继续输出，后续用户通知收尾时再查看视频、解释指标并更新upload详细报告与长期MD。本轮已完成7项专项CPU检查（隐藏点排除、全81帧结构特征、CFG共享、冻结身份、GT读取顺序、防重复启动、后台等待条件），并按项目要求执行全局回归；实际结果见本run checks/。
+
+
+## 2026-11-10：D组八栋视频与自动指标生成完成
+
+固定run `outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749` 已完成8条81帧/648原PNG、8原视频＋8对比视频及全部指标，2026-11-10 16:02:08（UTC+09）退出0，耗时47分20秒。[生成完成报告](../../../upload/20261110_点云D组_八栋81帧推理与自动指标_实验报告.md)已归档。16条视频及696张PNG重新完整解码通过；人工视觉复核待进行，自动指标存在高参考背景误填与首尾差异疑点。以status/exit判断完成，不把progress旧running字段当重跑依据；本次没有新GPU任务。
