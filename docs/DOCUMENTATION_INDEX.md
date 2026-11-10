@@ -274,3 +274,8 @@ run与upload报告内容一致，新增链接有效；11份既有MD完整历史�
 ## 2026-11-11：三栋固定三维补点新增入口与报告
 
 新增[实验README](../experiments/pointcloud_vace/fixed_points_three/README.md)与[便携报告](../upload/20261110_三栋固定三维补点_与D3000对照_实验报告.md)，同步根README/PROJECT_CONTEXT/EXPERIMENTS/TRAINING/SESSION_HANDOFF、experiments和upload索引；全部在旧正文后追加。本组CPU完成3×81固定点渲染/9视频，未启动新训练或GPU推理。04候选覆盖与浅色漏补失败、07拒绝新增的解释边界已明确，原D三栋仅本次新增静态复核。专用实现及测试在experiments，媒体仍在outputs/pointcloud_vace/fixed_points_three/run_20261110_234704。2专项及298项目CPU检查通过，旧19项无关工作区文件不纳入本次提交。
+
+
+## 2026-11-11：点云中间产物已按用户明确要求实际删除
+
+本次范围仅为V2/V3、D训练、D八栋与三栋固定点实验，保留23视频、五组报告及D最终Adapter/LoRA，删除中间文件和三栋隐藏归档/旧链接。根长期MD追加清理事实，五份upload报告在开头注明失效历史路径，五个专项README增加当前入口提示；不因历史链接目标被用户要求删除而重建归档或重跑。报告与原视频保留，原数据/模型/源码及其他实验未删。

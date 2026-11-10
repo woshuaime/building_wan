@@ -577,3 +577,10 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 ## 2026-11-11：按用户要求精简交付
 
 三栋固定三维补点的当前交付入口是[四文件目录](outputs/pointcloud_vace/fixed_points_three/交付_20261110_234704)，仅三条四栏视频和实验报告.md；中间产物已收进fixed_points_three/.archive/run_20261110_234704，原run路径通过符号链接继续可读。成品与原视频/报告SHA256一致，无重编码、重算或新训练。效果结论不变，今后默认将过程证据与简洁交付分开。
+
+
+## 2026-11-11：按用户明确范围完成实际清理
+
+用户回答“都删，只删中间文件、保留视频和报告”，范围是0_v2_base、0_v3_base、adapter_d训练、adapter_d_eval八栋及fixed_points_three本轮。已删除PNG/NPZ/PLY/CSV、日志/配置/状态/PID、样本准备与缓存、过程权重和完整恢复状态；本轮.archive及旧run链接已实际删除，不再只是转移归档。23条视频和两份D最终增量的SHA256核对未变，五组各自保留实验报告.md，upload五份正式报告保留并注明清理。原始数据、预训练模型、源码与其他实验不在清理范围。
+
+当前三栋入口仍为[outputs/pointcloud_vace/fixed_points_three/交付_20261110_234704](outputs/pointcloud_vace/fixed_points_three/交付_20261110_234704)，恰好3 MP4＋1 MD。V2/V3各保留2视频，D八栋保留16视频；D训练只保留报告与checkpoints中的adapter_final.safetensors/lora_final.safetensors。训练已完成3000更新，但optimizer/RNG恢复点已删除，不再可做原完整状态恢复。最新状态以报告为准，不通过缺失旧status判断没跑完，也不自动补跑。
