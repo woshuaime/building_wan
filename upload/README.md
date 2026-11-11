@@ -166,3 +166,8 @@ V2、V3、D训练、D八栋及三栋固定三维实验的五份正式报告全�
 ## 2026-11-12：单张参考图V2已启动，正式报告待后续通知
 
 [实验入口](../experiments/pointcloud_vace/reference_guidance_eval/README.md)；run为outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414，wall_13697循环17帧，A/B/C各两seed、共六条。用户要求启动即交接；首条B参考条件推理已完成真实采样步，尚未进行本轮效果复核。本条是待报告登记，未创建完成报告或预写结论。后续用户通知时补同run report.md与upload正式报告，历史正文继续保留。
+
+
+## 2026-11-12：单张参考图V2生成阶段已完成
+
+`outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414`已于03:01:57（UTC+09）正常退出0，397.451秒完成六条17帧A/B/C配对推理，另有一条对比视频和五张关键帧；新训练0，状态complete_awaiting_visual_review。用户本次只要求查看进度，视觉复核和正式报告仍等待后续通知；原启动快照保留，不重跑成功任务。

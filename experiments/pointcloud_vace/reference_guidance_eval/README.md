@@ -49,3 +49,8 @@ Python固定为`/home/shi/miniconda3/envs/scj/bin/python`。准备与启动入�
 ## 本次启动证据
 
 2026-11-12T02:55:30.865386+09:00：B/20261018实际完成首步、两路CFG调用，额外参考latent与9360个结构token对齐，真实VACE前注入已确认。tmux `vace_ref_v2_20261112_025414`，父PID 1259517，首worker 1259530。2项专项CPU检查和298项项目CPU回归通过（50.875秒），无额外GPU smoke调用。本轮到启动即交接，报告与完整视觉复核等待用户后续通知。
+
+
+## 2026-11-12：单张参考图V2生成阶段已完成
+
+`outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414`已于03:01:57（UTC+09）正常退出0，397.451秒完成六条17帧A/B/C配对推理，另有一条对比视频和五张关键帧；新训练0，状态complete_awaiting_visual_review。用户本次只要求查看进度，视觉复核和正式报告仍等待后续通知；原启动快照保留，不重跑成功任务。

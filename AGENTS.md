@@ -281,3 +281,8 @@ C区以V3mask减V2mask定义，旧A/B用V2白区联合统计，不在无标签�
 
 用户授权并要求首条正式带参考推理启动即交接。[实验入口](experiments/pointcloud_vace/reference_guidance_eval/README.md)，run=`outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414`；wall_13697、78/79/000–014，中心006，A无参考/B残缺参考/C补全草稿参考，各seed20261018/20261019，共6条17帧，原D-3000权重，无训练。B首步于2026-11-12T02:55:30.865386+09:00完成，原生参考条件与Adapter/CFG布局已共同通过实际采样。后台自动保存视频与简单对照；完整视觉复核和upload报告待用户后续通知。旧结果保持原样，历史正文继续保留。
 本轮后续接手先读run的status/exit，不重复成功调用；启动授权不扩展为训练、多栋或81帧预算。
+
+
+## 2026-11-12：单张参考图V2生成阶段已完成
+
+`outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414`已于03:01:57（UTC+09）正常退出0，397.451秒完成六条17帧A/B/C配对推理，另有一条对比视频和五张关键帧；新训练0，状态complete_awaiting_visual_review。用户本次只要求查看进度，视觉复核和正式报告仍等待后续通知；原启动快照保留，不重跑成功任务。

@@ -581,3 +581,10 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 ```bash
 /home/shi/miniconda3/envs/scj/bin/python experiments/pointcloud_vace/reference_guidance_eval/scripts/run.py status outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414
 ```
+
+
+## 2026-11-12：单张参考图V2六条推理已完成，等待效果复核
+
+用户本次要求打开终端查看进展。只读核查确认固定run `outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414`已于2026-11-12T03:01:57.680784+09:00完成，队列退出0、397.451秒（6分37秒），六个正式GPU worker均退出0。A/B/C各seed20261018/20261019，共6条17帧/102个原始预测画面，另有一条双seed四栏对比视频和五张指定关键帧；所有七条视频的17帧/16FPS完整解码检查在保存时通过。各调用峰值allocated最大为16.012017GiB。无新训练、额外草稿或成功任务重跑。
+
+当前`complete_awaiting_visual_review`，原先首步启动快照继续保留。用户本次只查看进展；没有新增视频生成、人工视觉复核或正式报告。补墙质量、相邻视角稳定性及三维路线结论均等待后续通知，report.md与upload正式报告仍待补。对比视频为本run `comparisons/comparison.mp4`。原队列tmux随正常退出结束，查看进度不重新启动六条推理，也不启动新训练。
