@@ -562,3 +562,22 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 ## 2026-11-12：五栏视频点数与mesh使用说明
 
 三条五栏成片已在原交付目录同名替换为点数标注版（2496×1248、81帧/16 FPS），目录仍仅3 MP4＋实验报告.md。01固定739＝696＋43，04固定4603＝4597＋6，07固定823＝823＋0；Origin739/4639/823。各栏标总点数而非当前可见点数；D输入条件点数可报，输出三维点数不适用。灰色立方轮廓来自编辑粗框填灰，不是建筑mesh渲染；D训练使用mesh弱监督、推理只用残缺P/条件视频/mask；固定点生成不读mesh。源代码核对和报告解释已补齐，无新GPU、候选生成或指标重算。当前视频哈希以报告11月12日记录为准；旧版已替换且无中间归档。
+
+
+## 2026-11-12：VACE单张参考图V2六条循环17帧推理启动
+
+用户已授权本轮实现与六条推理，随后明确要求“启动任务即可结束，视频与报告后续再通知”。唯一run为`outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414`，[实验入口](experiments/pointcloud_vace/reference_guidance_eval/README.md)。本轮不训练。
+
+`wall_13697`循环起点78，实际`78,79,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14`，中心原006；原始3259点剔除24个hidden IDs后3235点作为条件，原相机、八个来源视角与空间锚点不变。草稿只读复用D八栋run中wall_13697的raw_vace.mp4第006帧；B用未填灰观测，C用白区草稿/黑区观测合成，A无参考。三个条件固定，seed20261018/20261019，每seed按B/C/A串行，共6次正式调用，额外草稿调用0。
+
+沿用Wan2.1-VACE-1.3B及D-3000最终Adapter/LoRA，rank=alpha8/scale1；17帧832×480/16FPS、30步/CFG5/shift5/VACE scale1，原prompt、negative为空，BF16骨干/FP32增量。原生参数`vace_reference_image`编码额外参考latent；参考位置同时补零结构特征和门控，真实视频按抽取后17帧重编码。A为5个视频latent/7800token，B/C为1参考+5视频latent/9360token；参考不作为第18帧。B/C沿用同seed同形状原生噪声；A与B/C的视频噪声未强行匹配。
+
+正式首步：2026-11-12T02:55:30.865386+09:00，B/20261018完成1/30步、2次实际CFG调用，VACE context `[1,96,6,60,104]`、采样latent `[1,16,6,60,104]`、结构 `[1,9360,64]`，真实首个VACE控制块前的Adapter注入已确认，梯度关闭；参考位置几何残差为零。独立tmux `vace_ref_v2_20261112_025414`，supervisor PID 1259517、首worker PID 1259530。证据为本run sampling_started.json与logs/B_20261018.loaded.json；加载记录为24个Adapter状态张量、240个LoRA参数张量。
+
+后台独立于Codex/SSH，项目GPU锁下fresh worker串行运行，自动保存六条原始17帧视频、一个双seed输入/A/B/C对照视频、五张关键帧及mask外保真指标；不批量保存原始逐帧PNG。完成后标记complete_awaiting_visual_review。17帧首尾不同相机，旧81帧同视角首尾MAE不适用；没有XYZ恢复或三维效果结论。本次按用户要求只交接启动，完整视觉复核、report.md和upload正式报告待后续通知；不预写效果。成功任务复用，不因旧实验中间文件已清理而补跑旧81帧。
+
+两项本轮CPU检查及298项项目CPU回归通过（50.875秒）；既有shell语法、Python编译和diff检查通过。19项既有无关工作区文件保持原样。只读查询：
+
+```bash
+/home/shi/miniconda3/envs/scj/bin/python experiments/pointcloud_vace/reference_guidance_eval/scripts/run.py status outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414
+```
