@@ -1,3 +1,5 @@
+> 2026-11-12 当前入口：[对比视频](../../../outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414/00_对比视频.mp4) · [生成阶段说明](../../../outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414/report.md)。本run已按用户要求实际清理中间文件，只剩7条正式视频与1份说明，无隐藏归档。下文旧JSON、参考图、关键帧、缓存、分组路径和状态命令属于清理前历史；当前直接看report.md，不据文件缺失重跑。视觉复核与效果结论仍待后续通知。
+
 # VACE 单张参考图引导 V2：一栋、循环17帧、A/B/C配对
 
 2026-11-12（UTC+09）。本轮用户授权实现并启动六条正式推理，确认首条带参考调用完成真实采样步后交接；完整视觉复核和报告留待后续通知。
@@ -54,3 +56,8 @@ Python固定为`/home/shi/miniconda3/envs/scj/bin/python`。准备与启动入�
 ## 2026-11-12：单张参考图V2生成阶段已完成
 
 `outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414`已于03:01:57（UTC+09）正常退出0，397.451秒完成六条17帧A/B/C配对推理，另有一条对比视频和五张关键帧；新训练0，状态complete_awaiting_visual_review。用户本次只要求查看进度，视觉复核和正式报告仍等待后续通知；原启动快照保留，不重跑成功任务。
+
+
+## 2026-11-12：单张参考图V2交付精简
+
+用户要求按既有MD规则精简，`outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414`已实际删除参考图、关键帧、缓存、配置、日志、指标与状态等中间文件，无隐藏归档。现只留`00_对比视频.mp4`、六条`A/B/C_seed_<seed>.mp4`和`report.md`；视频原样保留，无重编码或GPU重跑。当前完成状态和参数读report.md，旧status命令/分组路径属于清理前历史。说明已同步upload，标注视觉待复核，完整效果分析留待用户通知。
