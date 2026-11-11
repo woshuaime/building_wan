@@ -789,3 +789,8 @@ D训练仅保留checkpoints/adapter_final.safetensors和lora_final.safetensors�
 当前三栋仍直接打开outputs/pointcloud_vace/fixed_points_three/交付_20261110_234704，视频文件名已改为五栏对比；上排Origin/未填灰残缺点云，下排灰填输入/D-3000/固定三维补点。81帧/16 FPS，每栏832×480，成片2496×1136。
 
 专用媒体工具为experiments/pointcloud_vace/fixed_points_three/scripts/reformat_comparisons.py，只读取原case视频、已有D预测与旧四栏第三栏，没有模型加载或候选生成。它在三条新成片全部完整解码后才替换旧视频，并删除临时编码文件。此次已完成替换，旧四栏已删，不能再次运行它刷新状态；不要调用run.py重建已清理的点集。H.264展示视频不代替原无损帧的评估证据。根规范的shell语法/编译/diff检查及298项CPU回归通过。
+
+
+## 2026-11-12：五栏视频点数与mesh使用说明
+
+本次只用CPU更新现有三条五栏视频的点数标题，分辨率2496×1248，每栏画面832×480不变，81帧/16 FPS。媒体工具reformat_comparisons.py新增--annotate-counts模式，仅针对原1136像素高五栏成片，在三条新视频全验证后替换同名视频；本次已完成，不再次执行刷新状态。固定数量读取保留报告，原始/残缺数量核对原点云；不会加载模型或重建点集。D三维输出点数不适用，不进行图像斑点计数。根规范的shell语法、编译、diff及298项CPU回归通过。

@@ -5,21 +5,23 @@ from fractions import Fraction
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from common import ROOT, CASES, D_RUN
+from geometry import read_cloud
 
-ROOT = Path(__file__).resolve().parents[4]
-CASES = ROOT / "data/pointcloud_vace/微调任务/cases"
-D_RUN = ROOT / "outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749"
 SAMPLES = (("01", "檐口", "eave_3230"), ("04", "长墙", "strip_5016"),
            ("07", "墙面", "wall_10416"))
 W, H, FRAMES, FPS = 832, 480, 81, 16
-TITLE, HEADER, GAP = 64, 48, 16
-SIZE = (3 * W, TITLE + 2 * (H + HEADER) + GAP)
+TITLE, HEADER, GAP, FOOTER = 64, 80, 16, 48
+SIZE = (3 * W, TITLE + 2 * (H + HEADER) + GAP + FOOTER)
+PREVIOUS_SIZE = (3 * W, 1136)
+PREVIOUS_FIXED_Y = 656
 FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
 
@@ -65,10 +67,17 @@ def compose(frames, labels, display, name, frame):
               counter, font=font, fill=(25, 36, 52))
     positions = [(W // 2, TITLE), (3 * W // 2, TITLE)]
     positions += [(col * W, TITLE + HEADER + H + GAP) for col in range(3)]
-    for (x, y), label, source in zip(positions, labels, frames):
+    count_font = ImageFont.truetype(FONT, 24)
+    for (x, y), (label, counts), source in zip(positions, labels, frames):
         draw.rectangle((x, y, x + W - 1, y + HEADER - 1), fill="white")
         draw.text((x + 16, y + 4), label, font=font, fill=(25, 36, 52))
+        if draw.textlength(counts, font=count_font) > W - 32:
+            raise ValueError(f"Point-count annotation exceeds its panel: {counts}")
+        draw.text((x + 16, y + 43), counts, font=count_font, fill=(56, 70, 89))
         canvas.paste(Image.fromarray(source[frame]), (x, y + HEADER))
+    draw.text((18, SIZE[1] - FOOTER + 6),
+              "三维点数为整栋点集总量（含遮挡点）；D-3000仅输出视频，不能按点状纹理计数。",
+              font=count_font, fill=(25, 36, 52))
     return np.asarray(canvas)
 
 
@@ -93,10 +102,31 @@ def encode(path, sources, labels, display, name):
             process.stdin.close()
 
 
-def reformat(delivery):
+def reported_counts(report, display, name, record, cloud):
+    """Use retained experiment records, never count blobs in a compressed video."""
+    pattern = (rf"\|\s*{display}/{re.escape(name)}\s*\|\s*(\d+)\s*\|\s*(\d+)"
+               rf"\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|")
+    rows = re.findall(pattern, report)
+    if len(rows) != 1:
+        raise ValueError(f"Need one original point-count row in the report: {name}")
+    original, hidden_count, observed, merged = map(int, rows[0])
+    points, _ = read_cloud(cloud)
+    hidden = np.asarray(record["hidden_original_point_ids"], dtype=int)
+    if (len(np.unique(hidden)) != len(hidden)
+            or (len(hidden) and (hidden.min() < 0 or hidden.max() >= len(points)))
+            or original != len(points) or original != record["cloud_size"]
+            or hidden_count != len(hidden) or observed != original - hidden_count
+            or merged < observed):
+        raise ValueError(f"Source cloud/case/report point counts disagree: {name}")
+    return dict(original=original, withheld=hidden_count, observed=observed,
+                added=merged - observed, merged=merged, predicted_3d_points=None)
+
+
+def reformat(delivery, annotate_counts=False):
     # Validate all sources before making any output. The measured reference is
     # the original cloud, NOT a mesh render. The extra distinct view is P-only.
     records = []
+    report = (delivery / "实验报告.md").read_text()
     for display, title, name in SAMPLES:
         case = CASES / name
         record = json.loads((case / "case.json").read_text())
@@ -108,28 +138,39 @@ def reformat(delivery):
                          "inputs/vace_video.mp4", "reference/camera_poses.json"):
             if digest(case / relative) != record["file_hashes"][relative]:
                 raise ValueError(f"Original case identity mismatch: {name}/{relative}")
-        old = delivery / f"{display}_{title}_四栏对比.mp4"
         final = delivery / f"{display}_{title}_五栏对比.mp4"
-        if not old.is_file() or final.exists():
-            raise FileExistsError(f"Need old comparison and an unused new name: {old}, {final}")
+        old = final if annotate_counts else delivery / f"{display}_{title}_四栏对比.mp4"
+        if not old.is_file() or (final.exists() and not annotate_counts):
+            raise FileExistsError(f"Need the intended prior comparison: {old}")
+        if annotate_counts:
+            probe(old, PREVIOUS_SIZE)
+            if digest(old) not in report:
+                raise ValueError(f"Prior five-panel video differs from its recorded SHA256: {old}")
+            crop = f"crop={W}:{H}:{2 * W}:{PREVIOUS_FIXED_Y}"
+        else:
+            probe(old, (4 * W, H + 32))
+            crop = f"crop={W}:{H}:{2 * W}:32"
+        counts = reported_counts(report, display, name, record, clouds[0])
         sources = [case / "reference/observed_target.mp4", case / "reference/damaged.mp4",
                    case / "inputs/vace_video.mp4", D_RUN / "cases" / name / "raw_vace.mp4"]
-        probe(old, (4 * W, H + 32))
         for source in sources:
             probe(source, (W, H))
         records.append(dict(display=display, title=title, name=name, old=old,
-                            final=final, sources=sources, record=record))
+                            final=final, sources=sources, counts=counts, crop=crop))
     summaries = []
     with tempfile.TemporaryDirectory(prefix=".five_panel_", dir=delivery) as temp:
         for item in records:
-            record = item["record"]
+            counts = item["counts"]
             frames = [decode(path) for path in item["sources"]]
-            # Fixed 3D frames survive in the old comparison's third column.
-            # Cropping them preserves the existing prediction; no point refit.
-            frames.append(decode(item["old"], crop=f"crop={W}:{H}:{2 * W}:32"))
-            labels = [f"Origin 原始点云 · {record['cloud_size']} 点",
-                      f"残缺点云（未填灰）· {record['cloud_size'] - len(record['hidden_original_point_ids'])} 点",
-                      "VACE 输入（缺区填灰）", "D-3000 输出", "固定三维补点"]
+            # Preserve the existing fixed-point prediction, without refitting.
+            frames.append(decode(item["old"], crop=item["crop"]))
+            labels = [
+                ("Origin · 原始实测点云", f"三维总点数：{counts['original']}"),
+                ("残缺点云 · 未填灰", f"三维总点数：{counts['observed']}（人为遮去 {counts['withheld']} 点）"),
+                ("VACE 输入 · 缺区填灰", f"来源点云 {counts['observed']} 点 · 灰块仅为编辑占位"),
+                ("D-3000 · 视频预测", f"条件点数 {counts['observed']} · 输出三维点数：不适用"),
+                ("固定三维补点 · 点云渲染", f"总 {counts['merged']} = 原观测 {counts['observed']} + 新增 {counts['added']} 点"),
+            ]
             staged = Path(temp) / item["final"].name
             encode(staged, frames, labels, item["display"], item["name"])
             probe(staged, SIZE)
@@ -137,20 +178,25 @@ def reformat(delivery):
                             "-i", str(staged), "-map", "0:v:0", "-f", "null", "-"], check=True)
             summaries.append(dict(case=item["name"], output=str(item["final"]),
                                   dimensions=list(SIZE), frames=FRAMES, fps=FPS,
+                                  point_counts=counts,
                                   sha256=digest(staged), old_comparison_sha256=digest(item["old"]),
                                   source_paths=[str(p) for p in item["sources"]],
-                                  fixed_source_crop=f"{item['old']} [x={2 * W}, y=32, {W}x{H}]"))
+                                  fixed_source_crop=f"{item['old']} [{item['crop']}]"))
             del frames
             print(f"VALIDATED {item['name']}: {SIZE[0]}x{SIZE[1]}, 81 frames, 16 FPS", flush=True)
         # Remove old delivery videos only after all three new files pass full decode.
         for item in records:
             (Path(temp) / item["final"].name).replace(item["final"])
         for item in records:
-            item["old"].unlink()
+            if item["old"] != item["final"]:
+                item["old"].unlink()
     print(json.dumps(summaries, ensure_ascii=False, indent=2), flush=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--delivery", type=Path, required=True)
-    reformat(parser.parse_args().delivery.resolve())
+    parser.add_argument("--annotate-counts", action="store_true",
+                        help="Replace the existing 1136px five-panel videos with point-count labels")
+    arguments = parser.parse_args()
+    reformat(arguments.delivery.resolve(), arguments.annotate_counts)
