@@ -291,3 +291,8 @@ C区以V3mask减V2mask定义，旧A/B用V2白区联合统计，不在无标签�
 ## 2026-11-12：单张参考图V2交付精简
 
 用户要求按既有MD规则精简，`outputs/pointcloud_vace/reference_guidance_eval/run_20261112_025414`已实际删除参考图、关键帧、缓存、配置、日志、指标与状态等中间文件，无隐藏归档。现只留`00_对比视频.mp4`、六条`A/B/C_seed_<seed>.mp4`和`report.md`；视频原样保留，无重编码或GPU重跑。当前完成状态和参数读report.md，旧status命令/分组路径属于清理前历史。说明已同步upload，标注视觉待复核，完整效果分析留待用户通知。
+
+
+## 2026-11-13：全部OBJ完整几何GT离线采样已启动
+
+用户授权仅制作完整几何GT，输入data/pointcloud_vace/sample-data-organized/mesh全部15,890个OBJ，输出data/pointcloud_vace/mesh_gt_pointcloud同名二进制PLY；50,000面积均匀候选→官方PyTorch3D CUDA FPS16,384，XYZ double/法向float，局部float32仅用于GPU选索引。作者仓库已下载且未实例化有删除行为的CustomDataset。合成网格完整调用已通过，独立tmux mesh_gt_20261113_022544、PID1768992运行；启动快照成功77/15,890、失败0，不等待结束，不自动验证/训练。代码见experiments/pointcloud_vace/mesh_gt_sampling，日志/依赖/编译临时物在数据盘mesh_gt_runtime；本轮日志和缓存是用户明确要求的运行材料，不能套用旧视频组清理范围删除运行中作业或GT。

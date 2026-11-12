@@ -631,3 +631,16 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 已实际删除52个中间文件（7729998字节）：参考图、关键帧、RGB/mask和几何缓存、配置、日志、指标JSON、PID/锁与状态记录；本轮临时预览和CPU测试输出也已清理。删除前将参数、完整prompt、实际帧号、参考来源、六次耗时与观测区MAE、资源和正常退出事实写入同目录说明，并保存到[upload生成阶段报告](upload/20261112_VACE单张参考图引导V2_实验报告.md)。该说明标注视觉待复核，不替代后续效果分析。
 
 原有启动和完成快照在长期MD原处保留，其旧JSON/缓存/分组目录和状态命令属于清理前历史。当前进度直接读report.md，不因旧marker缺失判断未完成或重启任务。本次只清理本轮中间文件，原始data、基座与D-3000权重、源码和其他实验未改。后续交付继续只留成品视频与一份报告，中间材料用完实际清理，不另藏一份。
+
+
+## 2026-11-13：全部mesh生成16,384点完整几何GT，后台已启动
+
+用户授权按“下载APC2Mesh作者代码→程序内临时网格调通→后台全量生成”的顺序执行，启动确认即交接。[专用源码与说明](experiments/pointcloud_vace/mesh_gt_sampling/README.md)。本轮只制作几何GT，不启动VACE训练或验证。
+
+数据项目为`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace`，输入`sample-data-organized/mesh/`的全部15,890个OBJ，不按实测pointcloud配对筛选。输出`mesh_gt_pointcloud/<原编号>.ply`，每栋16,384点、binary_little_endian，XYZ double、nx/ny/nz float。原OBJ只读；精确重复三角形与零面积面被忽略，按剩余面实际面积均匀采50,000候选点，再GPU FPS取16,384点及同索引三角面法向。顶点与候选点float64，以double包围盒中心平移后仅局部float32坐标进入GPU，最终从原double世界坐标候选数组取回结果。数字建筑ID为固定PCG64种子，其他ID为稳定BLAKE2b种子，FPS固定从候选索引0开始。
+
+作者代码已按任务要求克隆到数据项目`third_party/APC2Mesh`，commit6cb68e6dbf15e2aa69463440d1153f9abd1d7b8b；已阅读dataset_pcc.py的__getitem__和point_ops，没有实例化初始化会删不配对mesh的CustomDataset。作者旧构建架构sm_37在本机CUDA12.4兼容性调用报错，按本轮授权改用PyTorch3D0.7.9官方CUDA `pytorch3d.ops.sample_farthest_points`；源码commit8698dfb41d95aae8bba89445bb34cedc7c2538f6，仅构建所需FPS算子和Python接口，未改FPS算法。复用scj的PyTorch2.11.0+cu128和A6000，Ninja/Trimesh及FPS安装到数据盘mesh_gt_runtime/deps，依赖缓存、编译、CUDA缓存、临时文件和日志均在mesh_gt_runtime中，原Conda环境不变。
+
+程序调试仅用临时构造的百万量级坐标立方体，附加重复面/零面积面，完整执行50,000→16,384、GPU选索引、二进制PLY写出及类型读回；2026-11-13T02:23:32+09通过，0.881秒，14面清为12面。没有从正式数据选四栋、没有质量验收、预览或视频渲染。项目规定298项CPU回归已实跑73.307秒，其中2项在数据盘临时目录清理时报DirectoryNotEmpty，遗留临时目录已清理；不声称整套全通过。GT专用完整调用已通过，shell语法、Python编译和diff检查通过。
+
+全量tmux=`mesh_gt_20261113_022544`，PID1768992，2026-11-13T02:25:45+09实际进入生成。一次启动核查快照为2026-11-13T02:26:30.556644+09：成功77、跳过0、失败0、总15,890，进程正常运行。关闭Codex/SSH不影响运行，后续不持续监控或等待完成，不自动启动验证/训练。日志绝对路径`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_runtime/logs/generate_20261113_022544.log`；同名前缀summary.json自动记录成功/跳过/失败与最终complete或complete_with_failures。输出绝对路径`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_pointcloud`。单栋先临时写再原子更名，恢复跳过完整正式PLY，单栋失败记ID/错误并继续。项目GPU锁保护单写者，启动入口不作状态查询，成功输出不重复采样；完整完成/失败报告留后续接手据实补写。
