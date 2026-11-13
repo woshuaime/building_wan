@@ -296,3 +296,10 @@ C区以V3mask减V2mask定义，旧A/B用V2白区联合统计，不在无标签�
 ## 2026-11-13：全部OBJ完整几何GT离线采样已启动
 
 用户授权仅制作完整几何GT，输入data/pointcloud_vace/sample-data-organized/mesh全部15,890个OBJ，输出data/pointcloud_vace/mesh_gt_pointcloud同名二进制PLY；50,000面积均匀候选→官方PyTorch3D CUDA FPS16,384，XYZ double/法向float，局部float32仅用于GPU选索引。作者仓库已下载且未实例化有删除行为的CustomDataset。合成网格完整调用已通过，独立tmux mesh_gt_20261113_022544、PID1768992运行；启动快照成功77/15,890、失败0，不等待结束，不自动验证/训练。代码见experiments/pointcloud_vace/mesh_gt_sampling，日志/依赖/编译临时物在数据盘mesh_gt_runtime；本轮日志和缓存是用户明确要求的运行材料，不能套用旧视频组清理范围删除运行中作业或GT。
+
+
+## 2026-11-13：全部几何GT生成完成，按用户要求删除过程材料
+
+全量生成已于2026-11-13T05:00:16.607566+09:00结束，实际耗时9,271.255秒；清理前summary为complete，日志BATCH_FINISHED记录成功15,890、跳过0、失败0，原PID1768992已结束。最终目录`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_pointcloud/`实有15,890个同编号PLY，每栋16,384点，XYZ double/法向float，约8.73GiB；目录没有其他产物。只核对完成状态与数量，未做逐栋质量验收或新训练/推理。
+
+用户本次明确要求删除中间结果，已实际删除整个mesh_gt_runtime及4,498个文件（74,406,620字节），包括日志/状态/启动记录、依赖安装副本、编译产物和缓存；仅用于查看日志的tmux已关闭，没有隐藏备份。项目及第三方源码、原始数据、最终PLY和其他实验保留。旧runtime路径和启动快照继续作为历史，不能因日志缺失重跑；未来如明确重用采样器须先重建运行依赖。[完成与清理报告](upload/20261113_全部OBJ完整几何GT点云_生成与清理报告.md)保留参数和真实计数，点云目录只留GT。

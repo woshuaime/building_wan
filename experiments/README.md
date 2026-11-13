@@ -153,3 +153,8 @@ ring600同预算MAE 13/16更低，但全图首尾15/16更差；CS12主要折面�
 ## 2026-11-13：全部OBJ完整几何GT离线采样已启动
 
 用户授权仅制作完整几何GT，输入data/pointcloud_vace/sample-data-organized/mesh全部15,890个OBJ，输出data/pointcloud_vace/mesh_gt_pointcloud同名二进制PLY；50,000面积均匀候选→官方PyTorch3D CUDA FPS16,384，XYZ double/法向float，局部float32仅用于GPU选索引。作者仓库已下载且未实例化有删除行为的CustomDataset。合成网格完整调用已通过，独立tmux mesh_gt_20261113_022544、PID1768992运行；启动快照成功77/15,890、失败0，不等待结束，不自动验证/训练。代码见experiments/pointcloud_vace/mesh_gt_sampling，日志/依赖/编译临时物在数据盘mesh_gt_runtime；本轮日志和缓存是用户明确要求的运行材料，不能套用旧视频组清理范围删除运行中作业或GT。
+
+
+## 2026-11-13：全部OBJ几何GT已完成并精简
+
+[采样入口](pointcloud_vace/mesh_gt_sampling/README.md)已完成全部15,890栋，每栋16,384点，失败0；最终只在`data/pointcloud_vace/mesh_gt_pointcloud/`保留同编号PLY。运行日志、状态、编译产物、依赖副本及缓存已按用户要求实际删除，无隐藏备份，不因历史路径失效而重跑。[完成报告](../upload/20261113_全部OBJ完整几何GT点云_生成与清理报告.md)。

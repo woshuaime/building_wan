@@ -46,3 +46,12 @@ tmux `mesh_gt_20261113_022544`，PID1768992，启动时间2026-11-13T02:25:45+09
 - 输出：`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_pointcloud`
 
 既有298项CPU回归实跑73.307秒，其中2项在临时目录清理时报DirectoryNotEmpty；错误原文在数据盘cpu_checks.log，遗留目录已清理。GT合成网格完整GPU调用、shell语法、Python编译和diff检查通过；没有把全局CPU回归写成全通过，没有GPU训练、正式数据抽样验收或视频渲染。后续以本批summary和日志读取状态，不重启已成功的输出。
+
+
+## 2026-11-13：本批已完成，运行材料已删除
+
+05:00:16.607566（UTC+09）结束，耗时9,271.255秒；清理前summary/日志记录complete、成功15,890、跳过0、失败0，原worker已结束。最终`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_pointcloud/`只含15,890个PLY，每栋16,384点，共约8.73GiB，无其他文件或子目录。
+
+按用户本次要求，mesh_gt_runtime整个目录已实际删除（含日志、状态、缓存、编译产物及运行依赖副本），没有隐藏归档；tmux日志查看窗口已关闭。源码与原始数据保留。上文日志/状态命令仅代表清理前历史，不再可用；不要因此重新启动完成任务。以后若明确需要重新运行，先按build_fps.py重建运行依赖，再使用入口，不能直接套用旧启动命令。[完成与清理报告](../../../upload/20261113_全部OBJ完整几何GT点云_生成与清理报告.md)。本次没有新增GPU任务或质量验收。
+
+本次文档收尾检查：diff、shell语法和Python编译通过；CUDA_VISIBLE_DEVICES为空时实跑298项CPU回归，66.111秒，仍有两项在TemporaryDirectory清理时报DirectoryNotEmpty（test_stage_lora_targets_only_vace_with_multiplier_one、test_actual_flow_loss_backpropagates_through_frozen_dit_and_saves_deltas），与启动阶段同类错误。未改无关测试或采样代码，检查临时目录和输出已实际删除，不保留日志副本。

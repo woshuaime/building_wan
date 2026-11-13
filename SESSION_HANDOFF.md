@@ -610,3 +610,12 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 程序调试仅用临时构造的百万量级坐标立方体，附加重复面/零面积面，完整执行50,000→16,384、GPU选索引、二进制PLY写出及类型读回；2026-11-13T02:23:32+09通过，0.881秒，14面清为12面。没有从正式数据选四栋、没有质量验收、预览或视频渲染。项目规定298项CPU回归已实跑73.307秒，其中2项在数据盘临时目录清理时报DirectoryNotEmpty，遗留临时目录已清理；不声称整套全通过。GT专用完整调用已通过，shell语法、Python编译和diff检查通过。
 
 全量tmux=`mesh_gt_20261113_022544`，PID1768992，2026-11-13T02:25:45+09实际进入生成。一次启动核查快照为2026-11-13T02:26:30.556644+09：成功77、跳过0、失败0、总15,890，进程正常运行。关闭Codex/SSH不影响运行，后续不持续监控或等待完成，不自动启动验证/训练。日志绝对路径`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_runtime/logs/generate_20261113_022544.log`；同名前缀summary.json自动记录成功/跳过/失败与最终complete或complete_with_failures。输出绝对路径`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_pointcloud`。单栋先临时写再原子更名，恢复跳过完整正式PLY，单栋失败记ID/错误并继续。项目GPU锁保护单写者，启动入口不作状态查询，成功输出不重复采样；完整完成/失败报告留后续接手据实补写。
+
+
+## 2026-11-13：全部几何GT生成完成，按用户要求删除过程材料
+
+全量生成已于2026-11-13T05:00:16.607566+09:00结束，实际耗时9,271.255秒；清理前summary为complete，日志BATCH_FINISHED记录成功15,890、跳过0、失败0，原PID1768992已结束。最终目录`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_pointcloud/`实有15,890个同编号PLY，每栋16,384点，XYZ double/法向float，约8.73GiB；目录没有其他产物。只核对完成状态与数量，未做逐栋质量验收或新训练/推理。
+
+用户本次明确要求删除中间结果，已实际删除整个mesh_gt_runtime及4,498个文件（74,406,620字节），包括日志/状态/启动记录、依赖安装副本、编译产物和缓存；仅用于查看日志的tmux已关闭，没有隐藏备份。项目及第三方源码、原始数据、最终PLY和其他实验保留。旧runtime路径和启动快照继续作为历史，不能因日志缺失重跑；未来如明确重用采样器须先重建运行依赖。[完成与清理报告](upload/20261113_全部OBJ完整几何GT点云_生成与清理报告.md)保留参数和真实计数，点云目录只留GT。
+
+本次文档收尾检查：diff、shell语法和Python编译通过；CUDA_VISIBLE_DEVICES为空时实跑298项CPU回归，66.111秒，仍有两项在TemporaryDirectory清理时报DirectoryNotEmpty（test_stage_lora_targets_only_vace_with_multiplier_one、test_actual_flow_loss_backpropagates_through_frozen_dit_and_saves_deltas），与启动阶段同类错误。未改无关测试或采样代码，检查临时目录和输出已实际删除，不保留日志副本。
