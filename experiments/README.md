@@ -158,3 +158,8 @@ ring600同预算MAE 13/16更低，但全图首尾15/16更差；CS12主要折面�
 ## 2026-11-13：全部OBJ几何GT已完成并精简
 
 [采样入口](pointcloud_vace/mesh_gt_sampling/README.md)已完成全部15,890栋，每栋16,384点，失败0；最终只在`data/pointcloud_vace/mesh_gt_pointcloud/`保留同编号PLY。运行日志、状态、编译产物、依赖副本及缓存已按用户要求实际删除，无隐藏备份，不因历史路径失效而重跑。[完成报告](../upload/20261113_全部OBJ完整几何GT点云_生成与清理报告.md)。
+
+
+## 2026-11-14：上传stable版GT的配对和坐标审查
+
+服务器GT现为data/pointcloud_vace/mesh_gt_pointcloud_stable，15,890份均完整可读；现有15,881份残缺按编号均有唯一GT，另9份GT无原始残缺。stable GT为局部坐标，需用coordinate_offsets.csv统一到残缺/OBJ的世界坐标或给残缺减去同一偏移；不能直接混用。[原报告的审查补充](../upload/20261113_全部OBJ完整几何GT点云_生成与清理报告.md)列出全量检查、9个编号和3栋几何抽查。没有改数据或启动GPU。

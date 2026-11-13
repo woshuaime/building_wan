@@ -303,3 +303,10 @@ C区以V3mask减V2mask定义，旧A/B用V2白区联合统计，不在无标签�
 全量生成已于2026-11-13T05:00:16.607566+09:00结束，实际耗时9,271.255秒；清理前summary为complete，日志BATCH_FINISHED记录成功15,890、跳过0、失败0，原PID1768992已结束。最终目录`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_pointcloud/`实有15,890个同编号PLY，每栋16,384点，XYZ double/法向float，约8.73GiB；目录没有其他产物。只核对完成状态与数量，未做逐栋质量验收或新训练/推理。
 
 用户本次明确要求删除中间结果，已实际删除整个mesh_gt_runtime及4,498个文件（74,406,620字节），包括日志/状态/启动记录、依赖安装副本、编译产物和缓存；仅用于查看日志的tmux已关闭，没有隐藏备份。项目及第三方源码、原始数据、最终PLY和其他实验保留。旧runtime路径和启动快照继续作为历史，不能因日志缺失重跑；未来如明确重用采样器须先重建运行依赖。[完成与清理报告](upload/20261113_全部OBJ完整几何GT点云_生成与清理报告.md)保留参数和真实计数，点云目录只留GT。
+
+
+## 2026-11-14：上传stable版GT配对审查与坐标说明
+
+当前GT实际位于`/mnt/windowsE/chuanjun/building_wan/data/pointcloud_vace/mesh_gt_pointcloud_stable/`：15,890个PLY及coordinate_offsets.csv；旧mesh_gt_pointcloud目录/下载ZIP当前不存在。全部GT已完整读取，每栋16,384点，格式、长度、有限值、法向和偏移表检查问题0；GT与15,890个OBJ编号完全相同。15,881份残缺实测点云（13,841 PLY/2,040 XYZ）按编号全部有唯一GT，另外9个GT无残缺文件：15896/15901/15902/15903/15908/15914/15915/15987/16109，与原始数量相符。
+
+该上传版GT已平移到局部坐标，原始残缺点云/OBJ仍是世界坐标。使用时GT_world=GT_local+offset，或Damaged_local=Damaged_world-offset，同栋用coordinate_offsets.csv同一偏移；该CSV是必要元数据，不能当中间文件删除。全部GT加回偏移后处于同编号OBJ边界；0/10416/13697三栋全部GT点贴合各自mesh，残缺到GT中位距离约0.0873/0.0505/0.0817米。建筑级配对成立，点数/点序不同，未逐栋检查所有表面质量；不能直接混用局部GT与世界坐标残缺。仅只读审查，无数据修改或新GPU任务；[原报告已追加本次审查](upload/20261113_全部OBJ完整几何GT点云_生成与清理报告.md)。
