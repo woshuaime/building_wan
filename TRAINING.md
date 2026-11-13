@@ -860,3 +860,5 @@ D训练仅保留checkpoints/adapter_final.safetensors和lora_final.safetensors�
 该上传版GT已平移到局部坐标，原始残缺点云/OBJ仍是世界坐标。使用时GT_world=GT_local+offset，或Damaged_local=Damaged_world-offset，同栋用coordinate_offsets.csv同一偏移；该CSV是必要元数据，不能当中间文件删除。全部GT加回偏移后处于同编号OBJ边界；0/10416/13697三栋全部GT点贴合各自mesh，残缺到GT中位距离约0.0873/0.0505/0.0817米。建筑级配对成立，点数/点序不同，未逐栋检查所有表面质量；不能直接混用局部GT与世界坐标残缺。仅只读审查，无数据修改或新GPU任务；[原报告已追加本次审查](upload/20261113_全部OBJ完整几何GT点云_生成与清理报告.md)。
 
 2026-11-14文档收尾：diff、shell语法与Python编译检查通过。CUDA关闭后实跑298项项目CPU回归，63.766秒，仍有既有两项TemporaryDirectory清理DirectoryNotEmpty错误；不写为全通过，不与本次GT全量数据检查问题0混淆。检查临时目录与日志均已删除，未修改无关测试或数据。
+
+2026-11-14 Git同步交接：本次审查已本地提交；GitHub SSH的22端口和443备用连接均超时，尚未推送，也未执行依赖推送成功的pull。报告与数据审查结论已保存，不受网络故障影响；网络恢复后同步现有main提交即可，不需要重复GT审查或启动GPU。
