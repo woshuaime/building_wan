@@ -799,3 +799,5 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 本次核对代码、目录和D权重，不把已删PNG/状态/点集当现存证据。旧微调任务目录与evaluate.py现不可用，完整旧指标定义和数据身份的复现需要先恢复或明确新版本；原报告的实际完成事实不因此失效。
 
 2026-11-15本次检查：规定shell语法、Python编译与git diff --check通过；CUDA_VISIBLE_DEVICES为空时298项CPU回归全部通过，53.461秒。11份已有Markdown历史正文逐字节保留，综合报告15个本地链接有效；接手的19项无关代码内容哈希不变。当前检查通过不代表历史原生故障或临时目录错误根因已解决。GitHub插件账号和SSH身份均确认为woshuaime，本次SSH认证已恢复；后续提交同步按main流程执行。
+
+2026-11-15 Git同步结果：综合报告主提交fa2a4b2已推送origin/main，服务器git pull --ff-only origin main成功并显示已是最新，分支差异0/0。11月14日因网络超时待同步的df9ca4a、f6b7a7e也已随此次推送正常同步；保留旧失败记录，不重跑数据审查或GPU任务。

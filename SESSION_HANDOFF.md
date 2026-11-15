@@ -639,3 +639,5 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 接手重点：完整GT已有15,890份，实测输入15,881份，全量配对历史成立；当前旧微调任务/划分/case/evaluate.py路径不可用，新GT未接入训练。最终目标需先明确XYZ补全与RGB视频的分工，不能仅凭视频和loss判断三维成功。原19项无关代码修改保持，不进入本轮文档提交；历史正文保留，不重跑成功任务。
 
 2026-11-15本次检查：规定shell语法、Python编译与git diff --check通过；CUDA_VISIBLE_DEVICES为空时298项CPU回归全部通过，53.461秒。11份已有Markdown历史正文逐字节保留，综合报告15个本地链接有效；接手的19项无关代码内容哈希不变。当前检查通过不代表历史原生故障或临时目录错误根因已解决。GitHub插件账号和SSH身份均确认为woshuaime，本次SSH认证已恢复；后续提交同步按main流程执行。
+
+2026-11-15 Git同步结果：综合报告主提交fa2a4b2已推送origin/main，服务器git pull --ff-only origin main成功并显示已是最新，分支差异0/0。11月14日因网络超时待同步的df9ca4a、f6b7a7e也已随此次推送正常同步；保留旧失败记录，不重跑数据审查或GPU任务。
