@@ -91,3 +91,8 @@ tail -n 30 /mnt/windowsE/chuanjun/building_wan/outputs/pointcloud_vace/adapter_d
 ## 2026-11-10：D组八栋视频与自动指标生成完成
 
 固定run `outputs/pointcloud_vace/adapter_d_eval/run_20261110_150749` 已完成8条81帧/648原PNG、8原视频＋8对比视频及全部指标，2026-11-10 16:02:08（UTC+09）退出0，耗时47分20秒。[生成完成报告](../../../upload/20261110_点云D组_八栋81帧推理与自动指标_实验报告.md)已归档。16条视频及696张PNG重新完整解码通过；人工视觉复核待进行，自动指标存在高参考背景误填与首尾差异疑点。以status/exit判断完成，不把progress旧running字段当重跑依据；本次没有新GPU任务。
+
+
+## 2026-11-15 综合报告与当前可复用范围
+
+[项目全景报告](../../../upload/20261115_建筑与点云补全_项目全景代码结构与当前困难报告.md)详述本D组结构、损失和162/3000有效弱区限制。当前两份final增量SHA与原记录一致；完整状态已清理，不能按旧命令恢复原optimizer。prepare依赖的微调任务划分、V3 config和prompt路径当前缺失；read_cloud要求ASCII/RGB，未接入新stable binary GT或offset。仅文档核对，没有修改源码或重跑训练。

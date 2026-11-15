@@ -862,3 +862,14 @@ D训练仅保留checkpoints/adapter_final.safetensors和lora_final.safetensors�
 2026-11-14文档收尾：diff、shell语法与Python编译检查通过。CUDA关闭后实跑298项项目CPU回归，63.766秒，仍有既有两项TemporaryDirectory清理DirectoryNotEmpty错误；不写为全通过，不与本次GT全量数据检查问题0混淆。检查临时目录与日志均已删除，未修改无关测试或数据。
 
 2026-11-14 Git同步交接：本次审查已本地提交；GitHub SSH的22端口和443备用连接均超时，尚未推送，也未执行依赖推送成功的pull。报告与数据审查结论已保存，不受网络故障影响；网络恢复后同步现有main提交即可，不需要重复GT审查或启动GPU。
+
+
+## 2026-11-15 当前代码接入与复现限制
+
+[项目全景报告](upload/20261115_建筑与点云补全_项目全景代码结构与当前困难报告.md)第8至11节列出实际函数、依赖、数据缺口和候选下一步。本次只做报告，不调用任何训练/推理启动入口。Python实测3.10.13、PyTorch2.11.0+cu128；当前未能直接调用nvidia-smi，不据此推断实时GPU状态。
+
+D prepare仍引用微调任务/候选空间划分.csv、旧V3 config和0_v3/prompt.txt，这些预期路径当前缺失；D eval仍依赖case.json、原相机、隐藏点ID和外部evaluate.py。新stable GT读取/offset变换未接入，旧read_cloud也不能读取无RGB二进制GT。D最终增量可用，但optimizer/RNG、初值及旧样本表已删，不能完整恢复原run。
+
+GT采样器仍默认写旧mesh_gt_pointcloud，构建依赖目录已清理，不能把它当作当前stable坐标转换或状态查询。旧D --hold等待的空格错误仍在，本报告仅指出，未修改冻结实验源码。缺少旧marker不是重跑理由；后续若需要新任务，先明确数据契约和独立run。
+
+2026-11-15本次检查：规定shell语法、Python编译与git diff --check通过；CUDA_VISIBLE_DEVICES为空时298项CPU回归全部通过，53.461秒。11份已有Markdown历史正文逐字节保留，综合报告15个本地链接有效；接手的19项无关代码内容哈希不变。当前检查通过不代表历史原生故障或临时目录错误根因已解决。GitHub插件账号和SSH身份均确认为woshuaime，本次SSH认证已恢复；后续提交同步按main流程执行。
