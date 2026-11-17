@@ -641,3 +641,12 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 2026-11-15本次检查：规定shell语法、Python编译与git diff --check通过；CUDA_VISIBLE_DEVICES为空时298项CPU回归全部通过，53.461秒。11份已有Markdown历史正文逐字节保留，综合报告15个本地链接有效；接手的19项无关代码内容哈希不变。当前检查通过不代表历史原生故障或临时目录错误根因已解决。GitHub插件账号和SSH身份均确认为woshuaime，本次SSH认证已恢复；后续提交同步按main流程执行。
 
 2026-11-15 Git同步结果：综合报告主提交fa2a4b2已推送origin/main，服务器git pull --ff-only origin main成功并显示已是最新，分支差异0/0。11月14日因网络超时待同步的df9ca4a、f6b7a7e也已随此次推送正常同步；保留旧失败记录，不重跑数据审查或GPU任务。
+
+
+## 2026-11-18　全量 GT 视频 V2 从分块缓存切换为整帧缓存
+
+固定 run 为 `outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803`。东京 04:14 的整帧 supervisor 为 PID 330533，会话 `adapter_gt_v2_20261117_225803`，窗口 `fullframe`。它已获取 `logs/.wan_a6000_gpu.lock`；此前的分块程序按请求退出 130。切换时正式 optimizer 更新为 0，旧格式已有 2,893 个窗口，新版从零重建 32,241 个窗口。
+
+先读 `progress.json` 和 `cache_fullframe/`。新旧缓存有各自的配置身份，训练读取窗口时核验身份、形状、精度和有限值。完整路径、基座、窗口规则和 tmux 操作见[本组说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)。缓存后程序会自行进入正式训练；效果验证等用户另行发起。
+
+东京 04:16 补记。25 个真实整帧缓存文件读回通过，20 次稳定耗时 2.116 秒/窗口，全量约 19.0 小时。正式更新以 loss.jsonl 与完整检查点的样本游标为准。

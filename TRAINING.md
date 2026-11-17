@@ -875,3 +875,10 @@ GT采样器仍默认写旧mesh_gt_pointcloud，构建依赖目录已清理，不
 2026-11-15本次检查：规定shell语法、Python编译与git diff --check通过；CUDA_VISIBLE_DEVICES为空时298项CPU回归全部通过，53.461秒。11份已有Markdown历史正文逐字节保留，综合报告15个本地链接有效；接手的19项无关代码内容哈希不变。当前检查通过不代表历史原生故障或临时目录错误根因已解决。GitHub插件账号和SSH身份均确认为woshuaime，本次SSH认证已恢复；后续提交同步按main流程执行。
 
 2026-11-15 Git同步结果：综合报告主提交fa2a4b2已推送origin/main，服务器git pull --ff-only origin main成功并显示已是最新，分支差异0/0。11月14日因网络超时待同步的df9ca4a、f6b7a7e也已随此次推送正常同步；保留旧失败记录，不重跑数据审查或GPU任务。
+
+
+## 2026-11-18　GT 视频 V2 整帧运行与恢复
+
+本轮目录 `outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803`。运行中查看 `tmux attach -t adapter_gt_v2_20261117_225803`，当前窗口为 `fullframe`。也可以只读查看该 run 的 `progress.json`。原 `config.json` 和根级首次 autotune 保留历史分块配置，当前配置、官方对照、端到端测速、训练候选结果分别在 `cache_fullframe/config.json`、`official_encoding.json`、`qualified.json`、`selected_config.json`（后面三个同在 `cache_fullframe/`）。
+
+需要停止或续跑时在 run 目录内分别执行 `bash stop.sh`、`bash resume.sh`。继续时只复用当前整帧配置下原子落盘的窗口。正式训练从原始干净初始化或同一整帧配置的完整 optimizer/RNG 检查点继续。旧分块缓存和测速文件留在原目录。
