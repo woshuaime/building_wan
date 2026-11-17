@@ -650,3 +650,8 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 先读 `progress.json` 和 `cache_fullframe/`。新旧缓存有各自的配置身份，训练读取窗口时核验身份、形状、精度和有限值。完整路径、基座、窗口规则和 tmux 操作见[本组说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)。缓存后程序会自行进入正式训练；效果验证等用户另行发起。
 
 东京 04:16 补记。25 个真实整帧缓存文件读回通过，20 次稳定耗时 2.116 秒/窗口，全量约 19.0 小时。正式更新以 loss.jsonl 与完整检查点的样本游标为准。
+
+
+## 2026-11-18　GT 视频 V2 已清理旧分块窗口
+
+东京 04:26:14 核查。旧分块的 2,893 个窗口已实际删除，约 6.06 GiB。整帧 supervisor PID 330533、worker PID 335014 继续写新目录，当时已落盘 231/32,241。保留旧目录的 `shared.pt` 供重新校验取文本条件。进度在 tmux 的 `fullframe` 窗口顶部，整帧恢复入口在 run 的 `resume.sh`。

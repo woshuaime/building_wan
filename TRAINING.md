@@ -882,3 +882,8 @@ GT采样器仍默认写旧mesh_gt_pointcloud，构建依赖目录已清理，不
 本轮目录 `outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803`。运行中查看 `tmux attach -t adapter_gt_v2_20261117_225803`，当前窗口为 `fullframe`。也可以只读查看该 run 的 `progress.json`。原 `config.json` 和根级首次 autotune 保留历史分块配置，当前配置、官方对照、端到端测速、训练候选结果分别在 `cache_fullframe/config.json`、`official_encoding.json`、`qualified.json`、`selected_config.json`（后面三个同在 `cache_fullframe/`）。
 
 需要停止或续跑时在 run 目录内分别执行 `bash stop.sh`、`bash resume.sh`。继续时只复用当前整帧配置下原子落盘的窗口。正式训练从原始干净初始化或同一整帧配置的完整 optimizer/RNG 检查点继续。旧分块缓存和测速文件留在原目录。
+
+
+## 2026-11-18　GT 视频 V2 清理后的续跑入口
+
+旧分块配置目录的 `latents/` 已删除。整帧的实时进度在现有 tmux 会话 `adapter_gt_v2_20261117_225803` 的 `fullframe` 窗口顶部。整帧任务的停止和恢复仍使用 run 内的 `stop.sh` 和 `resume.sh`，以整帧目录中已落盘的文件继续。旧配置目录保留的小型 `shared.pt` 供整帧重新校验读取文本条件。
