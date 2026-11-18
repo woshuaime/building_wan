@@ -887,3 +887,12 @@ GT采样器仍默认写旧mesh_gt_pointcloud，构建依赖目录已清理，不
 ## 2026-11-18　GT 视频 V2 清理后的续跑入口
 
 旧分块配置目录的 `latents/` 已删除。整帧的实时进度在现有 tmux 会话 `adapter_gt_v2_20261117_225803` 的 `fullframe` 窗口顶部。整帧任务的停止和恢复仍使用 run 内的 `stop.sh` 和 `resume.sh`，以整帧目录中已落盘的文件继续。旧配置目录保留的小型 `shared.pt` 供整帧重新校验读取文本条件。
+
+
+## 2026-11-19　GT 视频 V2 正式训练速度复核
+
+本轮仍在既有 tmux 会话 adapter_gt_v2_20261117_225803 的窗口 2 查看。run 根目录的 progress.json 与 loss.jsonl 记录正式样本，training_speed/ 内的数值只用于对照。停止与继续仍使用该 run 的 stop.sh 与 resume.sh。新入口会校验实测选择的配置与源码身份，从本组最近一次完整 AdamW/RNG 检查点继续。缓存身份和三个 epoch 的 schedule 沿用整帧 run。
+
+当前 training_speed/selection.json 记录生效 profile 为 telemetry，原模型更新函数继续使用。两个实时文件每步原子替换，训练恢复应读取同一 run 的 checkpoints/resume_latest.pt。预计完成时间按正式 loss.jsonl 连续更新时刻计算，训练长停顿和定期保存会拉长墙钟时间。
+
+run 的 resume.sh 同时恢复已选的 CPU 预取辅助进程。预取由独占锁限制为一份，停止训练期间暂停读取，训练完成后退出。查看实时进度仍使用原 tmux 的窗口 2。
