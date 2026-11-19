@@ -52,6 +52,11 @@ def validation_geometry(row):
     if str(record['id']) != row['id'] or record['split_use'] != 'validation':
         raise ValueError('Wrong partial selection or split')
     points = data.selected_partial(row, camera, record)
+    return observed_geometry(points, camera, range(FRAMES))
+
+
+def observed_geometry(points, camera, frame_ids):
+    """Project one observed building into the frozen reference and requested views."""
     centers, rotations, K = data.camera_arrays(camera)
     scale = max(float(np.linalg.norm(points - (points.min(0) + points.max(0)) / 2, axis=1).max()), 1.)
     anchors = points[data.fps(points)]
@@ -64,10 +69,11 @@ def validation_geometry(row):
                 anchor_density=np.log1p(density).astype(np.float32),
                 ref_C=(centers[refs] / scale).astype(np.float32), ref_R=rotations[refs].astype(np.float32),
                 depth_tolerance=np.asarray(.45 / scale, np.float32), K=K.astype(np.float32))
-    geometry = data._window_geometry(base, list(range(FRAMES)))
-    geometry['reference_views'] = geometry['target_depths'][refs].copy()
+    geometry = data._window_geometry(base, list(frame_ids))
+    geometry['reference_views'] = np.stack([data.depth_view(points, centers[i], rotations[i], K, scale)
+                                            for i in refs])
     if not all(np.isfinite(v).all() for v in geometry.values()):
-        raise ValueError(f'Nonfinite validation geometry for {row["id"]}')
+        raise ValueError(f'Nonfinite validation geometry for {camera["id"]}')
     return geometry
 
 
@@ -136,7 +142,7 @@ def load_validation_model(run):
     return pipe, core, cfg
 
 
-def predict_video(model, row, partial=None, speed=None):
+def predict_video(model, row, partial=None, speed=None, *, geometry=None, make_projection=None, on_step=None):
     """Return original model RGB frames. The only video read here is partial."""
     import torch
     from integration import model_fn_wan_video
@@ -146,9 +152,13 @@ def predict_video(model, row, partial=None, speed=None):
         raise ValueError('Only validation inputs are accepted')
     if partial is None:
         partial = source_frames(row['partial_video'])
-    geometry = {k: torch.from_numpy(v)[None].to(pipe.device) for k, v in validation_geometry(row).items()}
+    if geometry is None:
+        geometry = validation_geometry(row)
+    geometry = {k: torch.from_numpy(v)[None].to(pipe.device) for k, v in geometry.items()}
     with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
         tokens = pipe.structure_adapter(geometry)
+        projection = (pipe.structure_adapter.structure_proj if make_projection is None
+                      else make_projection(tokens))
     if tuple(tokens.shape) != (1, 32760, 64) or not torch.isfinite(tokens).all().item():
         raise ValueError('Unexpected full-orbit geometry tokens')
     del geometry
@@ -158,7 +168,7 @@ def predict_video(model, row, partial=None, speed=None):
     def forward(**kwargs):
         with torch.autocast('cuda', dtype=torch.bfloat16):
             result = model_fn_wan_video(**kwargs, structure_tokens=tokens, structure_mask=mask,
-                                        structure_projection=pipe.structure_adapter.structure_proj)
+                                        structure_projection=projection)
         if not core.structure_last_call['injected_before_first_vace_block']:
             raise RuntimeError('The denoising model did not receive observed geometry')
         return result
@@ -175,6 +185,8 @@ def predict_video(model, row, partial=None, speed=None):
             if calls != 2 * n:
                 raise RuntimeError('Expected identical geometry on both CFG denoising branches')
             print(f'building {row["id"]} sampling {n}/{STEPS}  [{"█" * n}{"░" * (STEPS - n)}]', flush=True)
+            if on_step is not None:
+                on_step(n)
 
     old_model_fn = pipe.model_fn
     pipe.model_fn = conditioned
@@ -201,6 +213,20 @@ def save_comparison(output, building_id, partial, prediction, gt, comment):
         draw.text((index * WIDTH + 10, 4), f'{label}   |   Building {building_id}', fill='white', font=font)
     if not all(len(seq) == FRAMES for seq in (partial, prediction, gt)):
         raise ValueError('Panel frame counts differ from 81')
+
+    def composite():
+        for panels in zip(partial, prediction, gt):
+            for index, frame in enumerate(panels):
+                if frame.size != (WIDTH, HEIGHT) or frame.mode != 'RGB':
+                    raise ValueError('Panel must be native-resolution RGB')
+                canvas.paste(frame, (index * WIDTH, HEADER))
+            yield canvas
+
+    encode_rgb_video(output, composite(), canvas.size, comment)
+
+
+def encode_rgb_video(output, frames, size, comment):
+    """Use the same compatible MP4 format for previews and standalone prediction."""
     # faststart reopens its output by filename when moving the MP4 index to the front.
     with output.open('xb'):
         pass
@@ -208,23 +234,25 @@ def save_comparison(output, building_id, partial, prediction, gt, comment):
         with av.open(str(output), mode='w', format='mp4', options={'movflags': '+faststart'}) as container:
             container.metadata['comment'] = comment
             stream = container.add_stream('libx264', rate=FPS)
-            stream.width, stream.height = canvas.size
+            stream.width, stream.height = size
             stream.pix_fmt = 'yuv420p'
             stream.options = {'profile': 'high', 'crf': '10', 'preset': 'fast', 'threads': '3'}
             codec = stream.codec_context
             codec.colorspace, codec.color_range = Colorspace.ITU709, ColorRange.MPEG
             codec.color_primaries, codec.color_trc = ColorPrimaries.BT709, ColorTrc.BT709
             converter = VideoReformatter()
-            for panels in zip(partial, prediction, gt):
-                for index, frame in enumerate(panels):
-                    if frame.size != (WIDTH, HEIGHT) or frame.mode != 'RGB':
-                        raise ValueError('Panel must be native-resolution RGB')
-                    canvas.paste(frame, (index * WIDTH, HEADER))
+            count = 0
+            for frame in frames:
+                if frame.size != size or frame.mode != 'RGB':
+                    raise ValueError('Unexpected output frame size or color mode')
                 encoded_frame = converter.reformat(
-                    av.VideoFrame.from_image(canvas), format='yuv420p', dst_colorspace=Colorspace.ITU709,
+                    av.VideoFrame.from_image(frame), format='yuv420p', dst_colorspace=Colorspace.ITU709,
                     src_color_range=ColorRange.JPEG, dst_color_range=ColorRange.MPEG)
                 for packet in stream.encode(encoded_frame):
                     container.mux(packet)
+                count += 1
+            if count != FRAMES:
+                raise ValueError(f'Expected {FRAMES} output frames, received {count}')
             for packet in stream.encode():
                 container.mux(packet)
     except BaseException:

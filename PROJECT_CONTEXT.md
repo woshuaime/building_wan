@@ -744,3 +744,8 @@ A6000 的默认长序列注意力已使用 Flash。新的 Triton 归一化保留
 ## 2026-11-20　GT 视频 V2 独立预测视频
 
 本组在三栏成片之外交付 8 条独立 Prediction MP4，每条 832×480、81 帧、16 fps。 [独立 Prediction 视频](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/Prediction_八栋/)
+
+
+## 2026-11-20　GT V2 屋顶增量与 LoRA 短对照启动
+
+北京时间 01:46 启动单卡 A6000 屋顶增量实验。已有 V2 Adapter 与 LoRA 权重核验通过，首窗实际缓存完成并通过 GPU 反传检查。短对照与最终效果等待进程运行。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2_roof/README.md)

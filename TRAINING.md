@@ -936,3 +936,8 @@ GT V2 验证的 `validation_speed.py` 已将专用长序列 RMSNorm 加入既有
 ## 2026-11-20　GT 视频 V2 独立预测视频
 
 独立预测成片由已交付的三栏视频裁出中央 832×480 区域，使用 H.264 High 和有限范围 BT.709 编码。对应验证的推理设置详见[实验说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)。
+
+
+## 2026-11-20　GT V2 屋顶增量与 LoRA 短对照启动
+
+原会话 adapter_gt_v2_20261117_225803 第 9 个窗口「屋顶增量」。上方同时显示缓存、实际训练更新和验证成片，采样另显示当前建筑、步数和预计剩余时间。进度源为 /tmp/scj-v2-roof-20261120_014636-63vLrp/progress.json。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2_roof/README.md)

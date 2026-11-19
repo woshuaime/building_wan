@@ -704,3 +704,8 @@ GT 视频 V2 的 32,241 个整帧窗口已完成，正式训练开始。用户�
 ## 2026-11-20　GT 视频 V2 独立预测视频
 
 本组最终交付包括 8 条单独预测视频、8 条三栏视频、两份最终权重和一份报告。独立视频沿用三栏文件的建筑编号。 [独立 Prediction 视频](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/Prediction_八栋/)
+
+
+## 2026-11-20　GT V2 屋顶增量与 LoRA 短对照启动
+
+屋顶增量队列 PID 2743066 在原 tmux 的「屋顶增量」窗口已进入真实缓存。首窗 GPU 反传通过。用户要求启动后交接，完成状态以后以正式报告、输出及进度文件为准。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2_roof/README.md)

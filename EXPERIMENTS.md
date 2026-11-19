@@ -864,3 +864,8 @@ GT 视频 V2 三轮权重的八栋验证已启动。将 905 栋按实测显示�
 ## 2026-11-20　GT 视频 V2 独立预测视频
 
 从上次交付的三栏视频取中央画面并在 CPU 上重新编码。核验 8 条、648 帧，均通过浏览器播放。 [独立 Prediction 视频](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/Prediction_八栋/)
+
+
+## 2026-11-20　GT V2 屋顶增量与 LoRA 短对照启动
+
+固定 run 为 outputs/pointcloud_vace/adapter_gt_v2_roof/run_20261120_014636。1,024 栋各一个 17 帧窗口，512 步共同训练，屋顶与联合 LoRA 各 128 步同起点对照，选中分支再训 384 步。共 1,152 次实际计划更新，正式验证 8 栋。启动时正生成 NVMe 缓存。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2_roof/README.md)
