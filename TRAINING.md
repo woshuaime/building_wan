@@ -931,3 +931,8 @@ GT V2 验证的 `validation_speed.py` 已将专用长序列 RMSNorm 加入既有
 ## 2026-11-20　GT 视频 V2 播放偏色修复与交付清理
 
 本组今后使用实验目录的 `scripts/validation_queue.py`，`--run` 仍指向 `outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803`。该入口读取 `交付_训练完成/` 的两份最终增量，检查留出集原始输入的身份，再按原参数推理。八栋现有视频可直接播放。历史训练恢复点及缓存已删除，不能再从本组恢复 AdamW、RNG 或继续原排程。当前成片为 H.264 High、8 位 yuv420p、有限范围 BT.709、16 fps，队列检查帧数、时间戳、格式和两侧灰度参考的色度。 [交付报告](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/实验报告.md)
+
+
+## 2026-11-20　GT 视频 V2 独立预测视频
+
+独立预测成片由已交付的三栏视频裁出中央 832×480 区域，使用 H.264 High 和有限范围 BT.709 编码。对应验证的推理设置详见[实验说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)。

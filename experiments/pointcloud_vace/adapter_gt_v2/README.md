@@ -242,3 +242,8 @@ PyTorch 自动选择的 Flash 后端保持生效。新增 `scripts/validation_rm
 ## 2026-11-20　GT 视频 V2 播放偏色修复与交付清理
 
 训练及验证已收尾。历史章节中的缓存、checkpoints、日志和恢复命令属于清理前状态。本组已有验证入口支持仅凭最终成品目录的权重、原始配对数据和仓库中的身份核对记录开展后续验证。每栋在预测结束后再读取 GT。已经完成的八栋保持同名，所用展示规格为 H.264 High、8 位 yuv420p、BT.709 有限范围。全部 648 帧已做 CPU 核对，8 条均在 Firefox 中播放通过。 [当前报告](../../../outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/实验报告.md)
+
+
+## 2026-11-20　GT 视频 V2 独立预测视频
+
+八栋独立预测视频取已交付三栏视频中的中央画面。每条 832×480、81 帧、16 fps。 [独立 Prediction 视频](../../../outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/Prediction_八栋/)

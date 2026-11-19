@@ -336,3 +336,8 @@ GT 视频 V2 的 A6000 验证新增归一化优化。同一建筑完整 81 帧�
 ## 2026-11-20　GT 视频 V2 播放偏色修复与交付清理
 
 八栋成片已修复常见播放器中的粉绿色偏；本组只留八条视频、两份训练权重和一份报告。 [2825 对照视频](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/验证视频_八栋_20261119/02_ID2825.mp4) · [交付报告](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/实验报告.md)
+
+
+## 2026-11-20　GT 视频 V2 独立预测视频
+
+八栋验证各补充一条只显示模型预测的 MP4。 [独立 Prediction 视频](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/Prediction_八栋/)
