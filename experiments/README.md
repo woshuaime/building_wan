@@ -188,3 +188,7 @@ GT 视频 V2 三轮权重的八栋留出验证已结束，8 条 81 帧三栏视�
 ## 2026-11-20　GT V2 屋顶增量与 LoRA 短对照启动
 
 已启动 [GT V2 屋顶增量实验](pointcloud_vace/adapter_gt_v2_roof/README.md)。固定 XYZ 投影引导新增分支，比较继续单训屋顶和联合现有 VACE LoRA 两条路径。
+
+## 2026-11-20　GT V2 三维框架与点分布联合训练准备
+
+[手动启动与验证入口](pointcloud_vace/adapter_gt_v2_structure/README.md)。在一次 VACE 微调中学习静态屋脊框架、面内固定点分布以及原生 RGB 的色度、密度和跨视角位置。默认全训练集三轮，可手动续到第五轮。

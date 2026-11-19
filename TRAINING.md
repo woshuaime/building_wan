@@ -941,3 +941,7 @@ GT V2 验证的 `validation_speed.py` 已将专用长序列 RMSNorm 加入既有
 ## 2026-11-20　GT V2 屋顶增量与 LoRA 短对照启动
 
 原会话 adapter_gt_v2_20261117_225803 第 9 个窗口「屋顶增量」。上方同时显示缓存、实际训练更新和验证成片，采样另显示当前建筑、步数和预计剩余时间。进度源为 /tmp/scj-v2-roof-20261120_014636-63vLrp/progress.json。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2_roof/README.md)
+
+## 2026-11-20　GT V2 三维框架联合微调手动入口
+
+项目脚本位于 `experiments/pointcloud_vace/adapter_gt_v2_structure/scripts/run.py`，运行目录为 `outputs/pointcloud_vace/adapter_gt_v2_structure/run_20261120_044354`。命令使用当前 A6000 的 scj Python。CPU 准备与正式 `start` 独立。卡忙时立即退出。通过 `status` 查看真实更新，`pause` 保存完整状态，`resume` 继续默认三轮，`resume --epochs 5` 从同一状态续第 4–5 轮。手动 `validate` 发布原八栋成片及自动报告。 [完整可复制命令](experiments/pointcloud_vace/adapter_gt_v2_structure/README.md)

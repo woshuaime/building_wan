@@ -341,3 +341,7 @@ GT 视频 V2 的 A6000 验证新增归一化优化。同一建筑完整 81 帧�
 ## 2026-11-20　GT 视频 V2 独立预测视频
 
 八栋验证各补充一条只显示模型预测的 MP4。 [独立 Prediction 视频](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/Prediction_八栋/)
+
+## 2026-11-20　GT V2 三维框架与点分布
+
+联合训练入口已准备，采用每栋共享的三维框架、面内固定点分布和 VACE 原生 RGB 监督。按手动占卡流程执行全训练集三轮，保留第五轮续训入口。 [操作说明](experiments/pointcloud_vace/adapter_gt_v2_structure/README.md)

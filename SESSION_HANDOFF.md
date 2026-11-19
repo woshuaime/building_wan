@@ -709,3 +709,9 @@ GT 视频 V2 的 32,241 个整帧窗口已完成，正式训练开始。用户�
 ## 2026-11-20　GT V2 屋顶增量与 LoRA 短对照启动
 
 屋顶增量队列 PID 2743066 在原 tmux 的「屋顶增量」窗口已进入真实缓存。首窗 GPU 反传通过。用户要求启动后交接，完成状态以后以正式报告、输出及进度文件为准。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2_roof/README.md)
+
+## 2026-11-20　GT V2 屋顶结果及三维框架交接
+
+旧屋顶增量的原采样队列已于东京 04:52:49 正常退出 0，交付八栋最终成片和报告，自动效果门槛未通过。新方案使用独立 run `outputs/pointcloud_vace/adapter_gt_v2_structure/run_20261120_044354`。用户要先交付脚本和可复制命令，由用户自行占卡。默认三轮，保留手动续到五轮能力。训练状态读新 run 的 progress 和检查点，不继承旧屋顶增量的 1,152 次更新。 [实验入口](experiments/pointcloud_vace/adapter_gt_v2_structure/README.md)
+
+CPU 就绪证据是新 run 的 `prepared.json`，东京 05:01:56 发布，数据库通过 SQLite quick_check。项目 298 项、原 V2 36 项及新方案 13 项 CPU 测试通过。真实冻结 VAE 权重的 17 帧小窗解码反向亦通过。用户手动启动后，从 `first_update.json` 确认首次更新的参数变化与实际显存。GPU 步速、长跑稳定性及最终效果等待实测。
