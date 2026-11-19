@@ -911,3 +911,8 @@ run 的 resume.sh 同时恢复已选的 CPU 预取辅助进程。预取由独占
 ## 2026-11-19　GT 视频 V2 八栋留出验证启动
 
 八栋验证由本实验的 `scripts/validation_queue.py` 串行调度 `scripts/validate_video.py`。输入为完成三轮训练的 run 和属于原 validation 划分的编号。使用同一原始相机、灰度残缺视频、显式全 1 掩膜与实测点云八视角；预测结束后才解码 GT 拼入右栏。启动后进度可在原 tmux 的“验证8栋”窗口查看。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)。
+
+
+## 2026-11-20　验证任务的实时进度
+
+八栋验证队列的 tmux 第 5 个窗口上方现有实时进度条，显示已核验成片、当前建筑及其 30 步采样进度、最近每步耗时与预计结束时间。队列 `validation_queue.py` 之后在交互式 tmux 中启动时，会为同一窗口添加面板。独立查看可使用实验目录内 `validation_progress.py --pane <队列pane_id> --output <成片目录> --ids <有序建筑编号>`。原验证输出目录仍只存三栏 MP4。

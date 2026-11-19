@@ -5,8 +5,10 @@ import argparse
 import csv
 import os
 from pathlib import Path
+import shlex
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -14,6 +16,7 @@ import av
 
 from common import PYTHON, ROOT, runtime_env, sha
 from pipeline import acquire_gpu, read_json, verify_completion
+from validation_progress import queue_id
 
 
 def video_identity(run, building_id, completion):
@@ -60,10 +63,43 @@ def check_inputs(run, ids):
     return completion
 
 
-def generate(run, output, ids):
+def video_names(ids):
+    return [f"{index:02d}_ID{building_id}.mp4" for index, building_id in enumerate(ids, 1)]
+
+
+def run_cases(run, output, ids, staging):
+    # This one child has the original GPU environment before importing the model.
+    # Every building keeps its own inputs, geometry, sampled trajectory, and output.
+    from validate_video import load_validation_model, render_building
+    completion = verify_completion(run)
+    model, speed_state = None, {}
+    count = len(ids)
+    for index, (building_id, name) in enumerate(zip(ids, video_names(ids)), 1):
+        target = output / name
+        identity = video_identity(run, building_id, completion)
+        if target.exists():
+            verify_video(target, identity)
+            print(f"[{index}/{count}] 已核验完成的视频 · {name}", flush=True)
+            continue
+        started = time.monotonic()
+        print(f"[{index}/{count}] 建筑 {building_id} 开始采样，已完成 {index - 1} 条", flush=True)
+        if model is None:
+            model = load_validation_model(run)
+        candidate = staging / name
+        render_building(run, building_id, candidate, model=model, speed_state=speed_state)
+        verify_video(candidate, identity)
+        os.link(candidate, target)  # Atomic publication without replacing any existing file.
+        candidate.unlink()
+        filled = 16 * index // count
+        bar = "█" * filled + "░" * (16 - filled)
+        print(f"[{index}/{count}] 已完成并核验 {name} · {time.monotonic() - started:.1f} 秒"
+              f"  总进度 [{bar}] {index}/{count}", flush=True)
+
+
+def generate(run, output, ids, gpu_worker=False):
     completion = check_inputs(run, ids)
     output.mkdir(parents=True, exist_ok=True)
-    names = [f"{index:02d}_ID{building_id}.mp4" for index, building_id in enumerate(ids, 1)]
+    names = video_names(ids)
     if extra := {p.name for p in output.iterdir()} - set(names):
         raise ValueError(f"Output directory contains other files: {sorted(extra)}")
     if all((output / name).is_file() for name in names):
@@ -72,28 +108,62 @@ def generate(run, output, ids):
         print(f"已完成并核验 {len(ids)}/{len(ids)} 条视频 · {output}", flush=True)
         return
 
-    worker = Path(__file__).with_name("validate_video.py")
-    env = runtime_env(run)
-    with tempfile.TemporaryDirectory(prefix=".gt-v2-validation-", dir=output.parent) as directory:
-        staging = Path(directory)
-        with acquire_gpu(staging):
-            for index, (building_id, name) in enumerate(zip(ids, names), 1):
-                target = output / name
-                identity = video_identity(run, building_id, completion)
-                if target.exists():
-                    verify_video(target, identity)
-                    print(f"[{index}/{len(ids)}] 已核验完成的视频 · {name}", flush=True)
-                    continue
-                started = time.monotonic()
-                print(f"[{index}/{len(ids)}] 建筑 {building_id} 开始采样，已完成 {index - 1} 条", flush=True)
-                candidate = staging / name
-                command = [PYTHON, "-u", "-B", str(worker), str(run), building_id, str(candidate)]
-                subprocess.run(command, check=True, env=env, cwd=ROOT, stdin=subprocess.DEVNULL)
-                verify_video(candidate, identity)
-                os.link(candidate, target)  # Atomic publication without replacing any existing file.
-                candidate.unlink()
-                print(f"[{index}/{len(ids)}] 已完成并核验 {name} · {time.monotonic() - started:.1f} 秒", flush=True)
+    if gpu_worker:
+        os.environ.update(runtime_env(run))
+        with tempfile.TemporaryDirectory(prefix=".gt-v2-validation-", dir=output.parent) as directory:
+            staging = Path(directory)
+            with acquire_gpu(staging):
+                run_cases(run, output, ids, staging)
+        return
+
+    command = [PYTHON, "-u", "-B", str(Path(__file__).resolve()), "--run", str(run),
+               "--output", str(output), "--ids", *ids, "--gpu-worker"]
+    with subprocess.Popen(command, env=runtime_env(run), cwd=ROOT, stdin=subprocess.DEVNULL) as process:
+        try:
+            code = process.wait()
+        except BaseException:
+            # Let the lock owner clean up its unpublished video on an operator stop.
+            process.terminate()
+            process.wait()
+            raise
+        if code != 0:
+            raise subprocess.CalledProcessError(code, command)
     print(f"全部 {len(ids)} 条验证视频生成完毕 · {output}", flush=True)
+
+
+def show_dashboard(output, ids):
+    source = os.environ.get("TMUX_PANE")
+    if not source or not os.environ.get("TMUX") or not sys.stdout.isatty():
+        return
+    dashboard = Path(__file__).with_name("validation_progress.py")
+    args = ["--pane", source, "--output", str(output), "--ids", *ids]
+    command = "exec " + shlex.join([sys.executable, "-u", "-B", str(dashboard), *args])
+    try:
+        panes = subprocess.check_output(
+            ["tmux", "list-panes", "-t", source, "-F", "#{pane_id}|#{pane_dead}|#{pane_start_command}"],
+            text=True, stderr=subprocess.DEVNULL)
+        for line in panes.splitlines():
+            pane_id, dead, original = line.split("|", 2)
+            words = shlex.split(original)
+            if len(words) == 1:  # tmux quotes a command received as a single shell string
+                words = shlex.split(words[0])
+            if str(dashboard) not in words:
+                continue
+            options = words[words.index(str(dashboard)) + 1:]
+            if options[:2] != ["--pane", source]:
+                continue
+            if dead == "0" and options == args:
+                return
+            subprocess.run(["tmux", "respawn-pane", "-k", "-t", pane_id, command], check=True)
+            break
+        else:
+            pane_id = subprocess.check_output(
+                ["tmux", "split-window", "-d", "-b", "-v", "-l", "7", "-P", "-F", "#{pane_id}",
+                 "-t", source, command], text=True).strip()
+        for pane in (source, pane_id):
+            subprocess.run(["tmux", "set-option", "-p", "-t", pane, "remain-on-exit", "on"], check=True)
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        print(f"进度面板未打开，采样进度将在本终端显示。{error}", flush=True)
 
 
 def main():
@@ -101,6 +171,7 @@ def main():
     parser.add_argument("--run", type=Path, required=True, help="completed training run")
     parser.add_argument("--output", type=Path, required=True, help="directory for final MP4s")
     parser.add_argument("--ids", nargs="+", required=True, help="ordered validation building IDs")
+    parser.add_argument("--gpu-worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     def interrupted(signum, _frame):
@@ -108,7 +179,19 @@ def main():
 
     for signum in (signal.SIGHUP, signal.SIGTERM):
         signal.signal(signum, interrupted)
-    generate(args.run.resolve(), args.output.resolve(), args.ids)
+    run, output = args.run.resolve(), args.output.resolve()
+    if args.gpu_worker:
+        generate(run, output, args.ids, gpu_worker=True)
+        return
+    key = queue_id(output, args.ids)
+    print(f"GT_V2_QUEUE_BEGIN {key}", flush=True)
+    show_dashboard(output, args.ids)
+    try:
+        generate(run, output, args.ids)
+    except BaseException:
+        print(f"GT_V2_QUEUE_FAILED {key}", flush=True)
+        raise
+    print(f"GT_V2_QUEUE_DONE {key}", flush=True)
 
 
 if __name__ == "__main__":

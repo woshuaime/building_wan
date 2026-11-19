@@ -719,3 +719,8 @@ progress.json的running是最后批次快照，completed_cases已有8/8；以sta
 ## 2026-11-19　GT 视频 V2 八栋留出验证启动
 
 东京 23:40，用户授权使用三轮最终权重生成 8 栋验证建筑的完整环绕视频。首栋 358 已开始 30 步推理。此次按输入视频的实测显示点数分层取样，8 栋均来自原 validation 划分。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)。
+
+
+## 2026-11-20　GT 视频 V2 验证进度与采样提速
+
+东京 00:09，8 个验证视频已完成 5 个，第 6 栋 2016 正在生成。当前 tmux 第 5 个窗口顶部显示整队出片与单栋采样进度。第 6 栋的两个相同时间步各核对正负两支，均逐值相同；预热后的完整采样双分支从 10.261 秒降至 9.749 秒。第 4 个采样步起已使用该实现。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)。

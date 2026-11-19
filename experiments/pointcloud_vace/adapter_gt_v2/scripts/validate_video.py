@@ -130,7 +130,7 @@ def load_validation_model(run):
     return pipe, core, cfg
 
 
-def predict_video(model, row, partial=None):
+def predict_video(model, row, partial=None, speed=None):
     """Return original model RGB frames. The only video read here is partial."""
     import torch
     from integration import model_fn_wan_video
@@ -149,13 +149,17 @@ def predict_video(model, row, partial=None):
     mask = tokens.new_ones((*tokens.shape[:2], 1))
     calls = 0
 
-    def conditioned(**kwargs):
-        nonlocal calls
+    def forward(**kwargs):
         with torch.autocast('cuda', dtype=torch.bfloat16):
             result = model_fn_wan_video(**kwargs, structure_tokens=tokens, structure_mask=mask,
                                         structure_projection=pipe.structure_adapter.structure_proj)
         if not core.structure_last_call['injected_before_first_vace_block']:
             raise RuntimeError('The denoising model did not receive observed geometry')
+        return result
+
+    def conditioned(**kwargs):
+        nonlocal calls
+        result = forward(**kwargs) if speed is None else speed.forward(forward, kwargs)
         calls += 1
         return result
 
@@ -164,7 +168,7 @@ def predict_video(model, row, partial=None):
             yield timestep
             if calls != 2 * n:
                 raise RuntimeError('Expected identical geometry on both CFG denoising branches')
-            print(f'building {row["id"]} sampling {n}/{STEPS}', flush=True)
+            print(f'building {row["id"]} sampling {n}/{STEPS}  [{"█" * n}{"░" * (STEPS - n)}]', flush=True)
 
     old_model_fn = pipe.model_fn
     pipe.model_fn = conditioned
@@ -213,26 +217,46 @@ def save_comparison(output, building_id, partial, prediction, gt, comment):
             raise
 
 
+def render_building(run, building_id, output, model=None, speed_state=None):
+    from validation_speed import ValidationSpeed
+    from common import write_json
+    if output.exists():
+        raise FileExistsError(output)
+    row = validation_row(run, building_id)
+    partial = source_frames(row['partial_video'])
+    if model is None:
+        model = load_validation_model(run)
+    # Earlier, already-running queues start a new worker per building. Share
+    # their measured policy only inside that queue's temporary staging folder.
+    scratch = output.parent / 'sampling-speed.json'
+    queued_worker = speed_state is None and output.parent.name.startswith('.gt-v2-validation-')
+    if speed_state is None:
+        speed_state = data.read_json(scratch) if queued_worker and scratch.exists() else {}
+
+    def save(policy):
+        if queued_worker:
+            write_json(scratch, policy)
+
+    with ValidationSpeed(model[0], model[1], speed_state, save) as speed:
+        if speed_state:
+            print(f'采样配置 {speed_state["selected"]} · {speed_state["reason"]}', flush=True)
+        predicted = predict_video(model, row, partial, speed)
+    # GT is loaded only after the complete denoising trajectory has returned.
+    gt = source_frames(row['GT_video'])
+    done = data.read_json(run / 'training_complete.json')
+    comment = '|'.join(('GT-V2', run.name, row['id'], done['adapter_sha256'], done['lora_sha256'],
+                        '81f-30s-cfg5-seed20261018-triptych-v1'))
+    save_comparison(output, row['id'], partial, predicted, gt, comment)
+    print(f'Complete: building {row["id"]} ({FRAMES} frames)', flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('run', type=Path)
     parser.add_argument('building_id')
     parser.add_argument('output', type=Path)
     args = parser.parse_args()
-    run = args.run.resolve()
-    if args.output.exists():
-        raise FileExistsError(args.output)
-    row = validation_row(run, args.building_id)
-    partial = source_frames(row['partial_video'])
-    model = load_validation_model(run)
-    predicted = predict_video(model, row, partial)
-    # GT is loaded only after the complete denoising trajectory has returned.
-    gt = source_frames(row['GT_video'])
-    done = data.read_json(run / 'training_complete.json')
-    comment = '|'.join(('GT-V2', run.name, row['id'], done['adapter_sha256'], done['lora_sha256'],
-                        '81f-30s-cfg5-seed20261018-triptych-v1'))
-    save_comparison(args.output, row['id'], partial, predicted, gt, comment)
-    print(f'Complete: building {row["id"]} ({FRAMES} frames)', flush=True)
+    render_building(args.run.resolve(), args.building_id, args.output)
 
 
 if __name__ == '__main__':
