@@ -906,3 +906,8 @@ run 的 resume.sh 同时恢复已选的 CPU 预取辅助进程。预取由独占
 ## 2026-11-19　GT 视频 V2 三轮训练完成
 
 本轮已完成。检查终态时读取 run 根目录的 training_complete.json、exit.json 和正式 loss.jsonl。三个轮末更新为 10,747、21,494、32,241。checkpoints 内保有初始、各轮末和最终增量，以及各轮末、latest 和 previous 的完整恢复状态。下次使用时将最终 Adapter 和 LoRA 配套加载到本轮八视角实现及同版官方 VACE-1.3B 基座。 [交付目录](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/交付_训练完成/) · [训练完成报告](upload/20261119_GT视频V2_三轮全量微调_训练完成报告.md)
+
+
+## 2026-11-19　GT 视频 V2 八栋留出验证启动
+
+八栋验证由本实验的 `scripts/validation_queue.py` 串行调度 `scripts/validate_video.py`。输入为完成三轮训练的 run 和属于原 validation 划分的编号。使用同一原始相机、灰度残缺视频、显式全 1 掩膜与实测点云八视角；预测结束后才解码 GT 拼入右栏。启动后进度可在原 tmux 的“验证8栋”窗口查看。 [实验说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)。
