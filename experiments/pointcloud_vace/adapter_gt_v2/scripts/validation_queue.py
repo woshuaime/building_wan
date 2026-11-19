@@ -13,10 +13,13 @@ import tempfile
 import time
 
 import av
+import numpy as np
+from av.video.reformatter import ColorPrimaries, ColorRange, ColorTrc, Colorspace
 
 from common import PYTHON, ROOT, runtime_env, sha
 from pipeline import acquire_gpu, read_json, verify_completion
 from validation_progress import queue_id
+import validation_delivery
 
 
 def video_identity(run, building_id, completion):
@@ -32,20 +35,32 @@ def verify_video(path, identity):
         if len(container.streams) != 1 or len(container.streams.video) != 1:
             raise ValueError(f"Expected one video stream: {path}")
         stream = container.streams.video[0]
-        if stream.codec_context.name != "h264" or stream.average_rate != 16:
-            raise ValueError(f"Expected a 16 fps H.264 video: {path}")
+        codec = stream.codec_context
+        if (codec.name != "h264" or stream.average_rate != 16 or codec.profile != "High"
+                or codec.format.name != "yuv420p" or codec.color_range != ColorRange.MPEG
+                or codec.colorspace != Colorspace.ITU709 or codec.color_primaries != ColorPrimaries.BT709
+                or codec.color_trc != ColorTrc.BT709):
+            raise ValueError(f"Expected 16 fps H.264 High, yuv420p, limited-range BT.709: {path}")
         count = 0
         for frame in container.decode(stream):
-            if (frame.width, frame.height) != (2496, 512) or frame.is_corrupt:
+            if (frame.width, frame.height) != (2496, 512) or frame.format.name != "yuv420p" or frame.is_corrupt:
                 raise ValueError(f"Invalid frame {count} in {path}")
             if frame.pts is None or frame.pts * frame.time_base * 16 != count:
                 raise ValueError(f"Unexpected time at frame {count} in {path}")
+            # Input and GT are grayscale. Sample both chroma planes inside each
+            # reference panel, away from the colored prediction and panel edges.
+            for plane in frame.planes[1:]:
+                chroma = np.frombuffer(plane, np.uint8).reshape(plane.height, plane.line_size)
+                for left in (0, frame.width // 3):
+                    samples = chroma[20::24, left + 8:left + frame.width // 6 - 8:24]
+                    if np.abs(samples.astype(np.int16) - 128).mean() > 2:
+                        raise ValueError(f"Unexpected color cast in a grayscale reference, frame {count}: {path}")
             count += 1
         if count != 81:
             raise ValueError(f"Expected 81 decoded frames but got {count}: {path}")
 
 
-def check_inputs(run, ids):
+def training_run_inputs(run):
     completion = verify_completion(run)
     if read_json(run / "exit.json", {}).get("exit_code") != 0 or completion["status"] != "completed":
         raise ValueError(f"Training has not exited successfully: {run}")
@@ -58,6 +73,15 @@ def check_inputs(run, ids):
         raise ValueError("Validation manifest differs from the training run")
     with manifest.open(encoding="utf-8-sig", newline="") as handle:
         validation_ids = {row["id"] for row in csv.DictReader(handle) if row["split_use"] == "validation"}
+    return completion, validation_ids
+
+
+def check_inputs(run, ids):
+    if run.name == validation_delivery.RUN_NAME:
+        completion = validation_delivery.final_weights(run)
+        validation_ids = validation_delivery.validation_rows().keys()
+    else:
+        completion, validation_ids = training_run_inputs(run)
     if len(ids) != len(set(ids)) or not set(ids) <= validation_ids:
         raise ValueError(f"All building IDs must be distinct validation buildings: {ids}")
     return completion
@@ -67,11 +91,10 @@ def video_names(ids):
     return [f"{index:02d}_ID{building_id}.mp4" for index, building_id in enumerate(ids, 1)]
 
 
-def run_cases(run, output, ids, staging):
+def run_cases(run, output, ids, staging, completion):
     # This one child has the original GPU environment before importing the model.
     # Every building keeps its own inputs, geometry, sampled trajectory, and output.
     from validate_video import load_validation_model, render_building
-    completion = verify_completion(run)
     model, speed_state = None, {}
     count = len(ids)
     for index, (building_id, name) in enumerate(zip(ids, video_names(ids)), 1):
@@ -113,7 +136,7 @@ def generate(run, output, ids, gpu_worker=False):
         with tempfile.TemporaryDirectory(prefix=".gt-v2-validation-", dir=output.parent) as directory:
             staging = Path(directory)
             with acquire_gpu(staging):
-                run_cases(run, output, ids, staging)
+                run_cases(run, output, ids, staging, completion)
         return
 
     command = [PYTHON, "-u", "-B", str(Path(__file__).resolve()), "--run", str(run),

@@ -7,10 +7,12 @@ from pathlib import Path
 
 import av
 import numpy as np
+from av.video.reformatter import ColorPrimaries, ColorRange, ColorTrc, Colorspace, VideoReformatter
 from PIL import Image, ImageDraw, ImageFont
 from scipy.spatial import cKDTree
 
 import data
+import validation_delivery
 from common import ROOT, sha
 
 WIDTH, HEIGHT, FRAMES, FPS = data.WIDTH, data.HEIGHT, data.FRAMES, data.FPS
@@ -19,6 +21,8 @@ STEPS, SEED, HEADER = 30, 20261018, 32
 
 def validation_row(run, building_id):
     """Use the original uploaded split and the sources resolved at import."""
+    if run.name == validation_delivery.RUN_NAME:
+        return validation_delivery.source_row(building_id)
     building_id = str(building_id)
     cfg = data.read_json(run / 'config.json')
     dataset = Path(cfg['paths']['data']).resolve()
@@ -87,6 +91,8 @@ def source_frames(path):
 
 
 def completed_config(run):
+    if run.name == validation_delivery.RUN_NAME:
+        return validation_delivery.model_config(), validation_delivery.final_weights(run)
     cfg = data.read_json(run / 'cache_fullframe/config.json')
     done = data.read_json(run / 'training_complete.json')
     exit_info = data.read_json(run / 'exit.json')
@@ -187,7 +193,7 @@ def predict_video(model, row, partial=None, speed=None):
 
 
 def save_comparison(output, building_id, partial, prediction, gt, comment):
-    """Write aligned lossless H.264 RGB panels without resampling any pixel."""
+    """Write a native-size comparison in 8-bit BT.709 H.264 for normal MP4 players."""
     canvas = Image.new('RGB', (WIDTH * 3, HEIGHT + HEADER), (24, 24, 24))
     draw = ImageDraw.Draw(canvas)
     font = ImageFont.truetype('DejaVuSans.ttf', 18)
@@ -195,26 +201,35 @@ def save_comparison(output, building_id, partial, prediction, gt, comment):
         draw.text((index * WIDTH + 10, 4), f'{label}   |   Building {building_id}', fill='white', font=font)
     if not all(len(seq) == FRAMES for seq in (partial, prediction, gt)):
         raise ValueError('Panel frame counts differ from 81')
-    with output.open('xb') as target:
-        try:
-            with av.open(target, mode='w', format='mp4') as container:
-                container.metadata['comment'] = comment
-                stream = container.add_stream('libx264rgb', rate=FPS)
-                stream.width, stream.height = canvas.size
-                stream.pix_fmt = 'rgb24'
-                stream.options = {'crf': '0', 'preset': 'fast', 'threads': '3'}
-                for panels in zip(partial, prediction, gt):
-                    for index, frame in enumerate(panels):
-                        if frame.size != (WIDTH, HEIGHT) or frame.mode != 'RGB':
-                            raise ValueError('Panel must be native-resolution RGB')
-                        canvas.paste(frame, (index * WIDTH, HEADER))
-                    for packet in stream.encode(av.VideoFrame.from_image(canvas)):
-                        container.mux(packet)
-                for packet in stream.encode():
+    # faststart reopens its output by filename when moving the MP4 index to the front.
+    with output.open('xb'):
+        pass
+    try:
+        with av.open(str(output), mode='w', format='mp4', options={'movflags': '+faststart'}) as container:
+            container.metadata['comment'] = comment
+            stream = container.add_stream('libx264', rate=FPS)
+            stream.width, stream.height = canvas.size
+            stream.pix_fmt = 'yuv420p'
+            stream.options = {'profile': 'high', 'crf': '10', 'preset': 'fast', 'threads': '3'}
+            codec = stream.codec_context
+            codec.colorspace, codec.color_range = Colorspace.ITU709, ColorRange.MPEG
+            codec.color_primaries, codec.color_trc = ColorPrimaries.BT709, ColorTrc.BT709
+            converter = VideoReformatter()
+            for panels in zip(partial, prediction, gt):
+                for index, frame in enumerate(panels):
+                    if frame.size != (WIDTH, HEIGHT) or frame.mode != 'RGB':
+                        raise ValueError('Panel must be native-resolution RGB')
+                    canvas.paste(frame, (index * WIDTH, HEADER))
+                encoded_frame = converter.reformat(
+                    av.VideoFrame.from_image(canvas), format='yuv420p', dst_colorspace=Colorspace.ITU709,
+                    src_color_range=ColorRange.JPEG, dst_color_range=ColorRange.MPEG)
+                for packet in stream.encode(encoded_frame):
                     container.mux(packet)
-        except BaseException:
-            output.unlink(missing_ok=True)
-            raise
+            for packet in stream.encode():
+                container.mux(packet)
+    except BaseException:
+        output.unlink(missing_ok=True)
+        raise
 
 
 def render_building(run, building_id, output, model=None, speed_state=None):
@@ -242,8 +257,11 @@ def render_building(run, building_id, output, model=None, speed_state=None):
             print(f'采样配置 {speed_state["selected"]} · {speed_state["reason"]}', flush=True)
         predicted = predict_video(model, row, partial, speed)
     # GT is loaded only after the complete denoising trajectory has returned.
+    if 'gt_video_sha256' in row and sha(row['GT_video']) != row['gt_video_sha256']:
+        raise ValueError(f'Frozen GT video changed for {building_id}')
     gt = source_frames(row['GT_video'])
-    done = data.read_json(run / 'training_complete.json')
+    done = (validation_delivery.final_weights(run) if run.name == validation_delivery.RUN_NAME
+            else data.read_json(run / 'training_complete.json'))
     comment = '|'.join(('GT-V2', run.name, row['id'], done['adapter_sha256'], done['lora_sha256'],
                         '81f-30s-cfg5-seed20261018-triptych-v1'))
     save_comparison(output, row['id'], partial, predicted, gt, comment)
