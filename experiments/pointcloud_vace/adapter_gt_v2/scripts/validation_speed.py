@@ -5,6 +5,7 @@ from time import perf_counter
 import torch
 from validation_acceleration import accelerated
 from validation_cfg_pair import FirstAttentionPair
+from validation_rmsnorm import exact_rmsnorm
 
 
 class ValidationSpeed:
@@ -31,6 +32,7 @@ class ValidationSpeed:
         self.active.enter_context(accelerated(self.pipe))
         self.pair = self.active.enter_context(FirstAttentionPair(
             self.pipe.dit.blocks[0].self_attn, self.core.vace_blocks[0].self_attn))
+        self.active.enter_context(exact_rmsnorm(self.pipe))
 
     def disable(self):
         self.active.close()

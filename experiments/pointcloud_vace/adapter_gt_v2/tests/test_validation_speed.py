@@ -21,7 +21,8 @@ class ToyAttention(torch.nn.Module):
 class PairProbe(TestCase):
     def sample(self, *, cost=0.5, mismatch=False, policy=None):
         dit_attn, vace_attn = ToyAttention(), ToyAttention()
-        pipe = SimpleNamespace(dit=SimpleNamespace(blocks=[SimpleNamespace(self_attn=dit_attn)]))
+        pipe = SimpleNamespace(dit=SimpleNamespace(blocks=[SimpleNamespace(self_attn=dit_attn)]),
+                               device=torch.device("cpu"), training=False)
         core = SimpleNamespace(vace_blocks=[SimpleNamespace(self_attn=vace_attn)])
         selected = {} if policy is None else policy
         clock = 0.
