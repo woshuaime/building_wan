@@ -901,3 +901,8 @@ run 的 resume.sh 同时恢复已选的 CPU 预取辅助进程。预取由独占
 ## 2026-11-19　GT 视频 V2 训练计算候选通过配对核对
 
 本组 run 的 resume.sh 现从 run_compute_speed.py 启动。它从 compute_speed/selection.json 核验候选源码、整帧编码和此前选型身份，继续原有 telemetry、CPU 预取、完整状态恢复和显存回退流程。第 3,073 步开始使用 direct_hints_and_batched_checks；只读查看仍用 progress.json 或 tmux 窗口 2。 [阶段报告](upload/20261119_GT视频V2_A6000训练计算提速对照_阶段报告.md)。
+
+
+## 2026-11-19　GT 视频 V2 三轮训练完成
+
+本轮已完成。检查终态时读取 run 根目录的 training_complete.json、exit.json 和正式 loss.jsonl。三个轮末更新为 10,747、21,494、32,241。checkpoints 内保有初始、各轮末和最终增量，以及各轮末、latest 和 previous 的完整恢复状态。下次使用时将最终 Adapter 和 LoRA 配套加载到本轮八视角实现及同版官方 VACE-1.3B 基座。 [交付目录](outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/交付_训练完成/) · [训练完成报告](upload/20261119_GT视频V2_三轮全量微调_训练完成报告.md)
