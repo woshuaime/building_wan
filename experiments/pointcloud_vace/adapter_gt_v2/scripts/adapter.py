@@ -13,14 +13,14 @@ def sample_map(maps, pixels):
     return sampled.squeeze(-1).transpose(1, 2).reshape(b, v, -1, c)
 
 
-def projections(anchors, centers, rotations, K):
+def projections(anchors, centers, rotations, K, image_size=(480, 832)):
     relative = anchors[:, None] - centers[:, :, None]
     q = torch.einsum("bvij,bvaj->bvai", rotations.float(), relative.float())
     uv = q[..., :2] / q[..., 2:].clamp_min(1.e-8)
     uv = uv * torch.stack([K[:, 0, 0], K[:, 1, 1]], -1)[:, None, None]
     uv = uv + K[:, :2, 2][:, None, None]
-    valid = (q[..., 2] > 0) & (uv[..., 0] >= 0) & (uv[..., 0] < 832)
-    valid &= (uv[..., 1] >= 0) & (uv[..., 1] < 480)
+    valid = (q[..., 2] > 0) & (uv[..., 0] >= 0) & (uv[..., 0] < image_size[1])
+    valid &= (uv[..., 1] >= 0) & (uv[..., 1] < image_size[0])
     return uv, q[..., 2], valid
 
 
@@ -42,8 +42,9 @@ class MultiViewStructureAdapter(nn.Module):
     def source(self, g):
         views = g["reference_views"]
         b, v = views.shape[:2]
-        features = self.cnn(views.flatten(0, 1)).reshape(b, v, 64, 30, 52)
-        uv, depth, visible = projections(g["anchors"], g["ref_C"], g["ref_R"], g["K"])
+        features = self.cnn(views.flatten(0, 1)).unflatten(0, (b, v))
+        image_size = (2 * views.shape[-2], 2 * views.shape[-1])
+        uv, depth, visible = projections(g["anchors"], g["ref_C"], g["ref_R"], g["K"], image_size)
         observed = sample_map(views, (uv + .5) / 2 - .5)
         tolerance = g["depth_tolerance"].reshape(b, 1, 1)
         visible &= (observed[..., 1] > .5) & ((observed[..., 0] - depth).abs() <= tolerance)
@@ -63,12 +64,14 @@ class MultiViewStructureAdapter(nn.Module):
         b, t = g["target_C"].shape[:2]
         if (t - 1) % 4:
             raise ValueError("Target frames must have 4n+1 layout")
-        uv, depth, visible = projections(g["anchors"], g["target_C"], g["target_R"], g["K"])
+        depth_maps = g["target_depths"]
+        height, width = 2 * depth_maps.shape[-2], 2 * depth_maps.shape[-1]
+        uv, depth, visible = projections(g["anchors"], g["target_C"], g["target_R"], g["K"], (height, width))
         observed = sample_map(g["target_depths"], (uv + .5) / 2 - .5)
         occluded = (observed[..., 1] > .5) & (depth > observed[..., 0] + g["depth_tolerance"].reshape(b, 1, 1))
         visible &= ~occluded
-        yy, xx = torch.meshgrid(torch.arange(30, device=source.device),
-                                torch.arange(52, device=source.device), indexing="ij")
+        yy, xx = torch.meshgrid(torch.arange(height // 16, device=source.device),
+                                torch.arange(width // 16, device=source.device), indexing="ij")
         blocks = torch.stack([xx, yy], -1).reshape(-1, 2).float()
         pixels = (blocks + .5) * 16 - .5
         K = g["K"]

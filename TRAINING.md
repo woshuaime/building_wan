@@ -945,3 +945,7 @@ GT V2 验证的 `validation_speed.py` 已将专用长序列 RMSNorm 加入既有
 ## 2026-11-20　GT V2 三维框架联合微调手动入口
 
 项目脚本位于 `experiments/pointcloud_vace/adapter_gt_v2_structure/scripts/run.py`，运行目录为 `outputs/pointcloud_vace/adapter_gt_v2_structure/run_20261120_044354`。命令使用当前 A6000 的 scj Python。CPU 准备与正式 `start` 独立。卡忙时立即退出。通过 `status` 查看真实更新，`pause` 保存完整状态，`resume` 继续默认三轮，`resume --epochs 5` 从同一状态续第 4–5 轮。手动 `validate` 发布原八栋成片及自动报告。 [完整可复制命令](experiments/pointcloud_vace/adapter_gt_v2_structure/README.md)
+
+## 2026-11-20　V2 RGB 正式续训与后台控制
+
+独立 tmux 为 `v2_rgb_20261120_041625`。在项目根目录设置 `RUN=outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625`。用 `tmux attach -t v2_rgb_20261120_041625` 查看窗口编码、真实更新和验证成片；另一个终端执行 `bash "$RUN/stop.sh"`，当前完整更新保存后暂停。`bash "$RUN/status.sh"` 显示 paused 后执行 `bash "$RUN/resume.sh"`，恢复同一运行目录下的模型、AdamW、调度器与 RNG。日志为 `train.log`，50 步统计为 `loss.jsonl`，完整恢复点为 `checkpoints/latest.pt`。三轮完成后后台自动执行原八栋验证。 [首步实测及完整命令](experiments/pointcloud_vace/adapter_gt_v2/README.md)

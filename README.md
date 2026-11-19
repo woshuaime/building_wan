@@ -345,3 +345,7 @@ GT 视频 V2 的 A6000 验证新增归一化优化。同一建筑完整 81 帧�
 ## 2026-11-20　GT V2 三维框架与点分布
 
 联合训练入口已准备，采用每栋共享的三维框架、面内固定点分布和 VACE 原生 RGB 监督。按手动占卡流程执行全训练集三轮，保留第五轮续训入口。 [操作说明](experiments/pointcloud_vace/adapter_gt_v2_structure/README.md)
+
+## 2026-11-20　V2 屋脊与点纹正式续训
+
+新 run 已在 A6000 完成首个正式更新。原三轮 V2 Adapter 与 LoRA 继续训练三轮，使用 GT mesh 结构区域和原稀疏点 GT 视频监督。后台完成训练后自动生成原八栋的 81 帧预测、三栏对比和逐栋报告。 [训练入口及操作说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)

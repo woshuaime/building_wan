@@ -92,15 +92,17 @@ def geometry_scores(prediction, targets, scale):
                 surface_coverage_distance_world=float(surface_coverage.mean()))
 
 
-def edge_image_support(clips, targets, observed):
+def edge_image_support(clips, targets, observed, frames=VIEW_IDS):
     """Measure detectable projected line support. RGB does not provide true XYZ."""
     ridges = targets["vertices"][targets["edges"][targets["kinds"] == RIDGE]]
-    output = {role: dict(eligible=0, detected=0, views=[], offsets=[], curvature=[])
+    output = {role: dict(eligible=0, detected=0, views=[], offsets=[], curvature=[],
+                         visible_px=0., matched_px=0., interior_gaps_px=0., transitions=0,
+                         changes=0, previous={})
               for role in clips}
-    for frame in VIEW_IDS:
+    for frame in frames:
         responses = {role: ndimage.gaussian_filter((240. - y[frame]).clip(0) / 160, 2.)
                      for role, y in clips.items()}
-        for endpoints in ridges:
+        for ridge_id, endpoints in enumerate(ridges):
             uv, depth = data.project(endpoints, observed["centers"][frame], observed["rotations"][frame],
                                      observed["intrinsics"])
             axis = uv[1] - uv[0]
@@ -136,6 +138,19 @@ def edge_image_support(clips, targets, observed):
                 gradient = sign * np.gradient(profile, axis=1)
                 peak = gradient.argmax(1)
                 usable = visible & (gradient.max(1) >= .008) & (np.abs(peak - 10) <= 8)
+                # Integrate the linearly sampled, GT-readable central span. Interior
+                # gaps sit between two supported samples and exclude both endpoints.
+                unit_length = span * (along[-1] - along[0]) / len(along)
+                score["visible_px"] += unit_length * visible.sum()
+                score["matched_px"] += unit_length * usable.sum()
+                gaps = visible & ~usable & np.maximum.accumulate(usable) & np.maximum.accumulate(usable[::-1])[::-1]
+                score["interior_gaps_px"] += unit_length * gaps.sum()
+                detected = usable.sum() >= 5
+                last = score["previous"].get(ridge_id)
+                if last is not None and last[0] == frame - 1:
+                    score["transitions"] += 1
+                    score["changes"] += int(last[1] != detected)
+                score["previous"][ridge_id] = (frame, detected)
                 if int(usable.sum()) < 5:
                     continue
                 score["detected"] += 1
@@ -148,6 +163,9 @@ def edge_image_support(clips, targets, observed):
                 residual = offsets[peak[usable]] - np.polyval(solution, along[usable] * span)
                 score["curvature"].append(float(np.quantile(np.abs(residual), .95)))
     return {role: dict(eligible=score["eligible"], detected=score["detected"], views=sorted(set(score["views"])),
+                       readable_length_px_ratio=score["matched_px"] / score["visible_px"] if score["visible_px"] else None,
+                       interior_gap_ratio=score["interior_gaps_px"] / score["visible_px"] if score["visible_px"] else None,
+                       visibility_flips=score["changes"], adjacent_eligible=score["transitions"],
                        position_px=float(np.mean(score["offsets"])) if score["offsets"] else None,
                        straightness_p95_px=float(np.mean(score["curvature"])) if score["curvature"] else None)
             for role, score in output.items()}

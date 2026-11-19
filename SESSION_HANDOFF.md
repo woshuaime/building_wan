@@ -715,3 +715,7 @@ GT 视频 V2 的 32,241 个整帧窗口已完成，正式训练开始。用户�
 旧屋顶增量的原采样队列已于东京 04:52:49 正常退出 0，交付八栋最终成片和报告，自动效果门槛未通过。新方案使用独立 run `outputs/pointcloud_vace/adapter_gt_v2_structure/run_20261120_044354`。用户要先交付脚本和可复制命令，由用户自行占卡。默认三轮，保留手动续到五轮能力。训练状态读新 run 的 progress 和检查点，不继承旧屋顶增量的 1,152 次更新。 [实验入口](experiments/pointcloud_vace/adapter_gt_v2_structure/README.md)
 
 CPU 就绪证据是新 run 的 `prepared.json`，东京 05:01:56 发布，数据库通过 SQLite quick_check。项目 298 项、原 V2 36 项及新方案 13 项 CPU 测试通过。真实冻结 VAE 权重的 17 帧小窗解码反向亦通过。用户手动启动后，从 `first_update.json` 确认首次更新的参数变化与实际显存。GPU 步速、长跑稳定性及最终效果等待实测。
+
+## 2026-11-20　V2 RGB 正式续训交接
+
+用户授权启动并在首个正式更新后交接。新 run 为 `outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625`，启动时 supervisor PID 2866682、训练 PID 2866703。原 V2 三轮增量在 `outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/交付_训练完成`。首步 1163 的 B019–035；实际 sigma 0.44041、总损失 0.059381、五帧 RGB 辅助到 LoRA 的梯度范数 5.41e-5、峰值分配 34.30 GiB。北京时间 04:17:59 已到 4/32,241、验证 0/8。进度优先读 run 中 `train_progress.json`、`validation_progress.json` 和 `progress.json`，日常查看不启动任务。八栋验证结束时按实际视频复核和历史要求维护文档。 [运行说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)

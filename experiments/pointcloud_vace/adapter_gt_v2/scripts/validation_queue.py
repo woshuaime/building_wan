@@ -27,7 +27,7 @@ def video_identity(run, building_id, completion):
             f"{completion['lora_sha256']}|81f-30s-cfg5-seed20261018-triptych-v1")
 
 
-def verify_video(path, identity):
+def verify_video(path, identity, *, comparison=True):
     """Decode all 81 frames and check the source, geometry, and presentation timestamps."""
     with av.open(str(path)) as container:
         if container.metadata.get("comment") != identity:
@@ -43,13 +43,14 @@ def verify_video(path, identity):
             raise ValueError(f"Expected 16 fps H.264 High, yuv420p, limited-range BT.709: {path}")
         count = 0
         for frame in container.decode(stream):
-            if (frame.width, frame.height) != (2496, 512) or frame.format.name != "yuv420p" or frame.is_corrupt:
+            expected_size = (2496, 512) if comparison else (832, 480)
+            if (frame.width, frame.height) != expected_size or frame.format.name != "yuv420p" or frame.is_corrupt:
                 raise ValueError(f"Invalid frame {count} in {path}")
             if frame.pts is None or frame.pts * frame.time_base * 16 != count:
                 raise ValueError(f"Unexpected time at frame {count} in {path}")
             # Input and GT are grayscale. Sample both chroma planes inside each
             # reference panel, away from the colored prediction and panel edges.
-            for plane in frame.planes[1:]:
+            for plane in frame.planes[1:] if comparison else ():
                 chroma = np.frombuffer(plane, np.uint8).reshape(plane.height, plane.line_size)
                 for left in (0, frame.width // 3):
                     samples = chroma[20::24, left + 8:left + frame.width // 6 - 8:24]

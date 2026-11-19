@@ -521,19 +521,20 @@ def project(points, center, rotation, K):
     return q[:, :2] / np.maximum(q[:, 2:], 1.e-12) * np.diag(K)[:2] + K[:2, 2], q[:, 2]
 
 
-def depth_view(points, center, rotation, K, scale):
+def depth_view(points, center, rotation, K, scale, image_size=(HEIGHT, WIDTH)):
     """D-style radius-one half-size depth support, exact uploaded projection."""
+    height, width = image_size
     uv, z = project(points, center, rotation, K)
     # Preserve center convention when both resolution and intrinsics halve.
     pixels = np.rint((uv + .5) / 2 - .5).astype(np.int64)
-    valid = (z > 0) & (pixels[:, 0] >= -1) & (pixels[:, 0] <= WIDTH // 2)
-    valid &= (pixels[:, 1] >= -1) & (pixels[:, 1] <= HEIGHT // 2)
+    valid = (z > 0) & (pixels[:, 0] >= -1) & (pixels[:, 0] <= width // 2)
+    valid &= (pixels[:, 1] >= -1) & (pixels[:, 1] <= height // 2)
     pixels, z = pixels[valid], z[valid]
-    depth = np.full((HEIGHT // 2, WIDTH // 2), np.inf, dtype=np.float64)
+    depth = np.full((height // 2, width // 2), np.inf, dtype=np.float64)
     # PIL's radius-one ellipse used by D corresponds to this five-pixel cross.
     for dx, dy in ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)):
         x, y = pixels[:, 0] + dx, pixels[:, 1] + dy
-        inside = (x >= 0) & (x < WIDTH // 2) & (y >= 0) & (y < HEIGHT // 2)
+        inside = (x >= 0) & (x < width // 2) & (y >= 0) & (y < height // 2)
         np.minimum.at(depth, (y[inside], x[inside]), z[inside])
     valid = np.isfinite(depth)
     return np.stack([np.where(valid, depth / scale, 0), valid]).astype(np.float32)
@@ -636,13 +637,14 @@ def _window_geometry(base, frame_ids):
     return result
 
 
-def occupancy_for(target):
+def occupancy_for(target, image_size=(HEIGHT, WIDTH)):
     """Two fractional areas on VAE [5,60,104], never token [5,30,52]."""
-    if target.shape != (17, 480, 832) or target.dtype != np.uint8:
+    height, width = image_size
+    if target.shape != (17, height, width) or target.dtype != np.uint8:
         raise ValueError(f"Unexpected target video shape/dtype: {target.shape}/{target.dtype}")
     foreground = np.stack([binary_dilation(frame < 239, structure=np.ones((7, 7), dtype=bool))
                            for frame in target])
-    spatial = foreground.reshape(17, 60, 8, 104, 8).mean(axis=(2, 4), dtype=np.float32)
+    spatial = foreground.reshape(17, height // 8, 8, width // 8, 8).mean(axis=(2, 4), dtype=np.float32)
     temporal = np.stack([spatial[0]] + [spatial[i:i + 4].mean(axis=0)
                                      for i in range(1, 17, 4)])
     return np.stack([temporal, 1 - temporal]).astype(np.float32)

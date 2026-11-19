@@ -877,3 +877,7 @@ GT 视频 V2 三轮权重的八栋验证已启动。将 905 栋按实测显示�
 ## 2026-11-20　GT V2 三维框架和点纹联合训练
 
 在原 V2 三轮权重上，将三维端点、屋脊连接、面内固定点分布与 VACE RGB 一同监督。CPU 预处理移除共面三角对角线，保留原稀疏点渲染中的前后层信息。输出验收涉及屋脊位置及直度、稳定性、密度、点芯和颜色，VAE 参照留待正式验证。只执行一套训练，默认 32,241 次更新，续到五轮为 53,735 次。 [实验入口](experiments/pointcloud_vace/adapter_gt_v2_structure/README.md)
+
+## 2026-11-20　V2 屋脊与点纹 RGB 正式续训启动
+
+固定 run 为 `outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625`。接续 V2 三轮完成权重，只训练原八视角 Adapter 和 rank8/alpha8 LoRA，10,747 栋 × 3 轮，每窗 17 帧、512²，共 32,241 个更新。按实际噪声触发原生五帧 RGB 辅助，结构监督采用 mesh 真边投影，外观监督采用原稀疏 GT。首步已实际更新，损失 0.059381，辅助梯度范数 5.41e-5，Adapter 与 LoRA 均观测到参数变化。三轮后自动对原八栋生成并量化全轨视频。 [训练配方与控制命令](experiments/pointcloud_vace/adapter_gt_v2/README.md)

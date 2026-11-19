@@ -192,3 +192,7 @@ GT 视频 V2 三轮权重的八栋留出验证已结束，8 条 81 帧三栏视�
 ## 2026-11-20　GT V2 三维框架与点分布联合训练准备
 
 [手动启动与验证入口](pointcloud_vace/adapter_gt_v2_structure/README.md)。在一次 VACE 微调中学习静态屋脊框架、面内固定点分布以及原生 RGB 的色度、密度和跨视角位置。默认全训练集三轮，可手动续到第五轮。
+
+## 2026-11-20　原 V2 权重续训屋脊与点纹
+
+[三轮正式续训与八栋自动验证](pointcloud_vace/adapter_gt_v2/README.md)。在原 Adapter 与 LoRA 上用 GT 结构区域、点纹统计和五帧变化监督 VACE 原生输出，运行目录为 `outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625`。

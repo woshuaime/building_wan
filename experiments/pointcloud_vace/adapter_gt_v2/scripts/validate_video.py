@@ -121,14 +121,14 @@ def completed_config(run):
     return cfg, done
 
 
-def load_validation_model(run):
+def load_validation_model(run, *, release=None):
     import torch
     from safetensors.torch import load_file
     from integration import attach, attention_identity, increments, load_increments_state
     sys.path.append(str(ROOT / 'scripts'))
     from vace_p01 import load_local_vace
 
-    cfg, done = completed_config(run)
+    cfg, done = completed_config(run) if release is None else release
     torch.set_num_threads(4)
     pipe = load_local_vace(cfg['models']['paths'], memory_mode='full')
     core = attach(pipe, cfg['seed'], checkpointing='none')

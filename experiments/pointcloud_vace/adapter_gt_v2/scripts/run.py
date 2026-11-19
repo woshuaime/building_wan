@@ -96,12 +96,23 @@ def launch(run, resume=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("launch", "resume", "stop", "status"))
+    parser.add_argument("mode", choices=("prepare-rgb", "launch", "resume", "stop", "status"))
     parser.add_argument("run", type=Path)
     arguments = parser.parse_args()
     run = arguments.run.resolve()
+    if arguments.mode == "prepare-rgb":
+        from rgb_recipe import prepare
+        prepare(run)
+        print(f"已准备三轮正式训练及八栋验证 · {run}")
+        return
     if not run.is_dir():
         parser.error(f"Run directory does not exist: {run}")
+    if run.parent == ROOT / "outputs/pointcloud_vace/adapter_gt_v2_rgb":
+        from rgb_queue import dispatch
+        if not (run / "config.json").is_file():
+            parser.error("请先完成 prepare-rgb")
+        dispatch(arguments.mode, run)
+        return
     if arguments.mode in ("launch", "resume"):
         launch(run, resume=arguments.mode == "resume")
     elif arguments.mode == "stop":
