@@ -896,3 +896,8 @@ GT采样器仍默认写旧mesh_gt_pointcloud，构建依赖目录已清理，不
 当前 training_speed/selection.json 记录生效 profile 为 telemetry，原模型更新函数继续使用。两个实时文件每步原子替换，训练恢复应读取同一 run 的 checkpoints/resume_latest.pt。预计完成时间按正式 loss.jsonl 连续更新时刻计算，训练长停顿和定期保存会拉长墙钟时间。
 
 run 的 resume.sh 同时恢复已选的 CPU 预取辅助进程。预取由独占锁限制为一份，停止训练期间暂停读取，训练完成后退出。查看实时进度仍使用原 tmux 的窗口 2。
+
+
+## 2026-11-19　GT 视频 V2 训练计算候选通过配对核对
+
+本组 run 的 resume.sh 现从 run_compute_speed.py 启动。它从 compute_speed/selection.json 核验候选源码、整帧编码和此前选型身份，继续原有 telemetry、CPU 预取、完整状态恢复和显存回退流程。第 3,073 步开始使用 direct_hints_and_batched_checks；只读查看仍用 progress.json 或 tmux 窗口 2。 [阶段报告](upload/20261119_GT视频V2_A6000训练计算提速对照_阶段报告.md)。
