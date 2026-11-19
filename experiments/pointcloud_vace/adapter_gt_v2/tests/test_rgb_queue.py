@@ -1,14 +1,67 @@
 import contextlib
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
+import unicodedata
 import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import rgb_queue as queue
 from rgb_recipe import orbit_schedule
+
+
+class PanelTests(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.run = Path(folder.name)
+        (self.run / "progress.json").write_text(json.dumps({"stage": "training"}))
+        (self.run / "train_progress.json").write_text(json.dumps(dict(
+            updates=99, cached=100, building="12386", epoch=1, aux_updates=18,
+            durable_updates=1, stage="training", seconds_per_update=2.41)))
+        (self.run / "validation_progress.json").write_text(json.dumps({"completed": 1}))
+
+    @staticmethod
+    def cells(line):
+        return sum(2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in line)
+
+    def test_terminal_width_including_chinese_and_early_progress(self):
+        for columns in (48, 80, 138, 210):
+            with self.subTest(columns=columns):
+                text = queue.panel(self.run, columns=columns, color=False)
+                lines = text.splitlines()
+                self.assertNotIn("\x1b", text)
+                self.assertLessEqual(max(map(self.cells, lines)), columns)
+                if columns >= 80:
+                    for count in ("100/32241", "99/32241", "1/8"):
+                        row, = [line for line in lines if count in re.sub(r"[\s,]", "", line)]
+                        self.assertGreaterEqual(self.cells(row.rstrip()), columns * .9)
+                        percent, = re.findall(r"(\d+(?:\.\d+)?)\s*%", row)
+                        numerator, denominator = map(int, count.split("/"))
+                        self.assertAlmostEqual(float(percent), numerator * 100 / denominator, delta=.051)
+
+    def test_ansi_palette_preserves_numbers_and_alignment(self):
+        colorful = queue.panel(self.run, columns=138, color=True)
+        plain = queue.panel(self.run, columns=138, color=False)
+        styles = re.compile(r"\x1b\[[\d;]*m")
+        self.assertGreaterEqual(len(set(styles.findall(colorful)) - {"\x1b[0m"}), 3)
+        self.assertEqual(styles.sub("", colorful), plain)
+
+    def test_validation_shows_frame_steps_separately_from_completed_videos(self):
+        (self.run / "progress.json").write_text('{"stage":"validation"}')
+        (self.run / "validation_progress.json").write_text(json.dumps(dict(
+            completed=2, building="5954", stage="sampling", step=9, steps=30,
+            seconds_per_step=9.31, eta_seconds=1396)))
+        for columns in (48, 138):
+            with self.subTest(columns=columns):
+                lines = queue.panel(self.run, columns=columns, color=False).splitlines()
+                self.assertTrue(all(self.cells(line) <= columns for line in lines))
+                counts = re.sub(r"[\s,]", "", "\n".join(lines))
+                self.assertIn("2/8", counts)
+                self.assertIn("9/30", counts)
 
 
 class RGBQueueTests(unittest.TestCase):

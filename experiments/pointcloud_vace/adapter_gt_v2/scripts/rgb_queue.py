@@ -1,12 +1,10 @@
 """One detached tmux session for the V2 RGB continuation and its final validation."""
 import contextlib
-import datetime
 import fcntl
 import json
 import os
 from pathlib import Path
 import shlex
-import shutil
 import signal
 import subprocess
 import sys
@@ -16,7 +14,7 @@ import traceback
 
 from common import PYTHON, ROOT, now, runtime_env, write_json
 from pipeline import acquire_gpu, read_json
-from rgb_recipe import TOTAL
+from rgb_dashboard import dashboard, panel
 from run import running
 
 HERE = Path(__file__).resolve().parent
@@ -32,58 +30,6 @@ def status(run):
     validation = read_json(run / "validation_progress.json", {})
     return dict(**{"run": str(run), "session": session_name(run), "active": running(run)},
                 queue=value, train=train, validation=validation)
-
-
-def bar(value, total, size):
-    count = max(0, min(size, int(value * size / max(1, total))))
-    return "[" + "█" * count + "░" * (size-count) + f"] {value}/{total}"
-
-
-def panel(run):
-    stage = read_json(run / "progress.json", {}).get("stage", "prepared")
-    train = read_json(run / "train_progress.json", {})
-    val = read_json(run / "validation_progress.json", {})
-    updates = int(train.get("updates", 0))
-    cached = int(train.get("cached", train.get("cache", 0)))
-    width = max(9, min(30, shutil.get_terminal_size((80, 24)).columns - 43))
-    labels = {"prepared":"配置就绪", "waiting_for_gpu":"等待 GPU 空闲", "training":"正式训练",
-              "validation":"八栋验证", "reporting":"逐栋报告", "paused":"已暂停", "failed":"运行异常",
-              "complete":"完成"}
-    lines = ["V2 结构与点纹训练   " + labels.get(stage, stage),
-             "窗口编码  " + bar(cached, TOTAL, width),
-             "正式更新  " + bar(updates, TOTAL, width),
-             "验证成片  " + bar(val.get("completed", 0), 8, width)]
-    if stage == "training":
-        lines.append(f"当前 {train.get('stage','加载模型')}  ·  建筑 {train.get('building','…')}  ·  "
-                     f"RGB 辅助更新 {train.get('aux_updates',0)}")
-        rate = train.get("seconds_per_update")
-        if rate and updates:
-            eta = str(datetime.timedelta(seconds=int(rate * (TOTAL - updates))))
-            lines.append(f"近期 {rate:.2f} 秒/更新  ·  训练预计剩余 {eta}")
-        lines.append(f"已保存到第 {train.get('durable_updates',0)} 步")
-    if stage in ("validation", "reporting"):
-        lines.append(f"建筑 {val.get('building','…')}  {val.get('stage','准备')}  " +
-                     bar(val.get("step",0),val.get("steps",30),width))
-        if val.get("scored") is not None:
-            lines.append("逐栋检查  " + bar(val["scored"],8,width))
-        if val.get("seconds_per_step"):
-            lines.append(f"采样 {val['seconds_per_step']:.2f} 秒/步  ·  "
-                         f"预计剩余 {val.get('eta_seconds','…')} 秒")
-    if stage == "failed":
-        lines.append(str(read_json(run / "progress.json").get("reason","")))
-    return "\n".join(lines)
-
-
-def dashboard(run, finished):
-    prior = None
-    while True:
-        frame = panel(run)
-        if frame != prior:
-            print("\033[H\033[2J" + frame, flush=True)
-            prior = frame
-        if finished.wait(.8):
-            print("\033[H\033[2J" + panel(run), flush=True)
-            return
 
 
 def mark(run, stage, **fields):
@@ -172,11 +118,19 @@ def launch(run, resume):
             args = ["new-window", "-t", session, "-n", "续跑"]
         else:
             args = ["new-session", "-d", "-s", session, "-n", "训练"]
-        pane = subprocess.check_output(["tmux", *args, "-P", "-F", "#{pane_id}",
-                                        "-c", str(ROOT), command], text=True).strip()
+        pane, owner_pid = subprocess.check_output(
+            ["tmux", *args, "-P", "-F", "#{pane_id} #{pane_pid}", "-c", str(ROOT), command],
+            text=True).split()
         with contextlib.suppress(subprocess.CalledProcessError):
             subprocess.run(["tmux","set-option","-wt",pane,"remain-on-exit","on"],check=True,
                            stderr=subprocess.DEVNULL)
+        log_path = run / "train.log"
+        log_path.touch(exist_ok=True)
+        follow = "exec " + shlex.join(["tail", "--pid=" + owner_pid, "-n", "80", "-F", "--", str(log_path)])
+        result = subprocess.run(["tmux", "split-window", "-v", "-d", "-t", pane, "-p", "57",
+                                 "-c", str(ROOT), follow], capture_output=True, text=True)
+        if result.returncode:
+            print(f"训练窗口已打开。日志分栏未能打开：{result.stderr.strip()}，日志在 {log_path}", file=sys.stderr)
         write_json(run / "launch.json", dict(time=now(), session=session, pane=pane, resume=resume))
         # Serialize simultaneous clients until the tmux worker has claimed its lease.
         for _ in range(30):
