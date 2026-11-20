@@ -1,5 +1,6 @@
 """Responsive terminal display for a V2 RGB run. Reads the live JSON snapshots."""
 import datetime
+import json
 from pathlib import Path
 import re
 import shutil
@@ -41,15 +42,38 @@ def fit(text, width):
     return "".join(chars) + ("…" if width else "")
 
 
-def panel(run, columns=None, color=None):
+def read_progress(run, previous=None):
+    """Carry forward the last readable snapshot per file while its writer publishes."""
+    previous = previous or {}
+    current = {}
+    unavailable = set()
+    for name, filename in (("queue", "progress.json"), ("train", "train_progress.json"),
+                           ("validation", "validation_progress.json")):
+        try:
+            value = read_json(run / filename)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            value = None
+        if value is None:
+            unavailable.add(name)
+            value = previous.get(name, {})
+        current[name] = value
+    stage = current["queue"].get("stage")
+    current["waiting"] = (
+        "queue" in unavailable or (stage == "training" and "train" in unavailable)
+        or (stage in ("validation", "reporting") and "validation" in unavailable)
+    )
+    return current
+
+
+def panel(run, columns=None, color=None, *, snapshot=None):
     width = max(1, columns if columns is not None else shutil.get_terminal_size((80, 24)).columns)
     colored = sys.stdout.isatty() if color is None else color
     margin = "  " if width >= 60 else ""
     usable = max(1, width - 2 * len(margin) - 1)  # Leave one cell for the terminal's wrap flag.
     wide = usable >= 65
-    queue = read_json(run / "progress.json", {})
-    train = read_json(run / "train_progress.json", {})
-    val = read_json(run / "validation_progress.json", {})
+    if snapshot is None:
+        snapshot = read_progress(run)
+    queue, train, val = snapshot["queue"], snapshot["train"], snapshot["validation"]
     stage = queue.get("stage", "prepared")
     label = LABELS.get(stage, stage)
     status_color = {"failed": 203, "paused": GOLD, "waiting_for_gpu": GOLD,
@@ -86,6 +110,8 @@ def panel(run, columns=None, color=None):
 
     epoch = train.get("epoch", 1)
     phase = f"第 {epoch} / 3 轮   ● {label}" if stage == "training" and wide else f"● {label}"
+    if snapshot["waiting"]:
+        phase = "等待进度刷新 · " + phase
     lines = [pair("V2  建筑点云训练", phase, WHITE, status_color),
              ink("─" * usable, TRACK),
              meter("窗口编码", train.get("cached", train.get("cache", 0)), TOTAL, CYAN),
@@ -98,6 +124,12 @@ def panel(run, columns=None, color=None):
         current = f"建筑 {building} · {action}" if building else action
         detail = f"RGB 辅助 {train.get('aux_updates',0):,} 次 · 已保存 {train.get('durable_updates',0):,} 步"
         lines.append(pair(current, detail, SECONDARY, GOLD))
+        if train.get("last_fm") is not None:
+            metrics = f"第 {train['updates']:,} 步 · FM 损失 {train['last_fm']:.5f}"
+            if train.get("last_sigma") is not None:
+                metrics += f" · σ {train['last_sigma']:.3f}"
+            peak = train.get("peak_vram_bytes", 0) / (1024 ** 3)
+            lines.append(pair(metrics, f"峰值显存 {peak:.2f} GiB"))
         rate = train.get("seconds_per_update")
         if rate:
             eta = str(datetime.timedelta(seconds=int(rate * max(0, TOTAL - train.get("updates",0)))))
@@ -123,11 +155,13 @@ def dashboard(run, finished=None):
     finished = finished or threading.Event()
     tty = sys.stdout.isatty()
     last = None
+    snapshot = {}
     if tty:
         print("\033[?25l", end="", flush=True)
     try:
         while True:
-            frame = panel(run)
+            snapshot = read_progress(run, snapshot)
+            frame = panel(run, snapshot=snapshot)
             if frame != last:
                 if tty:
                     # Update in place. A trailing newline would scroll a short pane.
@@ -137,7 +171,7 @@ def dashboard(run, finished=None):
                 last = frame
             if finished.is_set():
                 return
-            if standalone and read_json(run / "progress.json", {}).get("stage") in ("complete","paused","failed"):
+            if standalone and snapshot["queue"].get("stage") in ("complete","paused","failed"):
                 return
             finished.wait(.8)
     finally:

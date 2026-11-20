@@ -13,8 +13,8 @@ import time
 import traceback
 
 from common import PYTHON, ROOT, now, runtime_env, write_json
-from pipeline import acquire_gpu, read_json
-from rgb_dashboard import dashboard, panel
+from pipeline import acquire_gpu
+from rgb_dashboard import dashboard, panel, read_progress
 from run import running
 
 HERE = Path(__file__).resolve().parent
@@ -25,11 +25,10 @@ def session_name(run):
 
 
 def status(run):
-    value = read_json(run / "progress.json", {"stage": "prepared"})
-    train = read_json(run / "train_progress.json", {})
-    validation = read_json(run / "validation_progress.json", {})
-    return dict(**{"run": str(run), "session": session_name(run), "active": running(run)},
-                queue=value, train=train, validation=validation)
+    snapshot = read_progress(run)
+    return dict(run=str(run), session=session_name(run), active=running(run),
+                queue=snapshot["queue"] or {"stage": "prepared"}, train=snapshot["train"],
+                validation=snapshot["validation"])
 
 
 def mark(run, stage, **fields):

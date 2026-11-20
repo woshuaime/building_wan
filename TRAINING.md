@@ -951,3 +951,5 @@ GT V2 验证的 `validation_speed.py` 已将专用长序列 RMSNorm 加入既有
 独立 tmux 为 `v2_rgb_20261120_041625`。在项目根目录设置 `RUN=outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625`。用 `tmux attach -t v2_rgb_20261120_041625` 查看窗口编码、真实更新和验证成片；另一个终端执行 `bash "$RUN/stop.sh"`，当前完整更新保存后暂停。`bash "$RUN/status.sh"` 显示 paused 后执行 `bash "$RUN/resume.sh"`，恢复同一运行目录下的模型、AdamW、调度器与 RNG。日志为 `train.log`，50 步统计为 `loss.jsonl`，完整恢复点为 `checkpoints/latest.pt`。三轮完成后后台自动执行原八栋验证。 [首步实测及完整命令](experiments/pointcloud_vace/adapter_gt_v2/README.md)
 
 本次 RGB 训练的 tmux 已分成上下两栏。上栏自适应当前终端宽度，青色、绿色、紫色分别显示编码、训练和验证进度，下栏显示程序原始输出，每 50 个正式更新打印一条训练汇总。续跑窗口沿用这一布局。
+
+11 月 20 日东京时间 14:46 恢复该 run 的进度显示。面板读取进度文件时遇到短暂缺失或内容不完整，会显示「等待进度刷新」、保留最近一次读到的数据，并在下次成功读取时更新。上栏的 FM 损失和噪声强度对应最近完成的一步，下栏继续显示 `train.log` 的原始输出。

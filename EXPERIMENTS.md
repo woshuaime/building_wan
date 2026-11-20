@@ -881,3 +881,5 @@ GT 视频 V2 三轮权重的八栋验证已启动。将 905 栋按实测显示�
 ## 2026-11-20　V2 屋脊与点纹 RGB 正式续训启动
 
 固定 run 为 `outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625`。接续 V2 三轮完成权重，只训练原八视角 Adapter 和 rank8/alpha8 LoRA，10,747 栋 × 3 轮，每窗 17 帧、512²，共 32,241 个更新。按实际噪声触发原生五帧 RGB 辅助，结构监督采用 mesh 真边投影，外观监督采用原稀疏 GT。首步已实际更新，损失 0.059381，辅助梯度范数 5.41e-5，Adapter 与 LoRA 均观测到参数变化。三轮后自动对原八栋生成并量化全轨视频。 [训练配方与控制命令](experiments/pointcloud_vace/adapter_gt_v2/README.md)
+
+东京时间 14:47:46 记录到 14,121 次正式更新。前 282 份每 50 步汇总从 50 到 14,100 连续。训练进程持续运行，原八栋验证等待第三轮结束。 [分段实测](outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625/loss.jsonl)

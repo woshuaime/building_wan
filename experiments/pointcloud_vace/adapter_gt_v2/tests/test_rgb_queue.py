@@ -1,5 +1,7 @@
 import contextlib
+import io
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -10,6 +12,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import rgb_queue as queue
+import rgb_dashboard as display
 from rgb_recipe import orbit_schedule
 
 
@@ -62,6 +65,58 @@ class PanelTests(unittest.TestCase):
                 counts = re.sub(r"[\s,]", "", "\n".join(lines))
                 self.assertIn("2/8", counts)
                 self.assertIn("9/30", counts)
+
+    def test_live_display_keeps_last_step_across_missing_or_incomplete_snapshot(self):
+        train = self.run / "train_progress.json"
+        original_read = Path.read_text
+        tick = 0
+
+        def read(path, **kwargs):
+            if path == train:
+                if tick == 1:
+                    # A previous exists() would have returned True on this file.
+                    raise FileNotFoundError(str(path))
+                if tick == 2:
+                    return '{"updates":'
+            return original_read(path, **kwargs)
+
+        def advance(_seconds):
+            nonlocal tick
+            tick += 1
+            if tick == 3:
+                train.write_text(json.dumps(dict(updates=100, cached=101, last_fm=.023,
+                                                  last_sigma=.44, peak_vram_bytes=34 * 1024**3)))
+            if tick == 4:
+                (self.run / "progress.json").write_text('{"stage":"paused"}')
+            self.assertLessEqual(tick, 4, "Standalone dashboard should exit on the paused snapshot")
+
+        output = io.StringIO()
+        with patch.dict(os.environ, COLUMNS="138"), patch.object(Path, "read_text", read), \
+             patch.object(display.threading.Event, "wait", side_effect=advance), contextlib.redirect_stdout(output):
+            display.dashboard(self.run)
+        frames = output.getvalue().split("V2  建筑点云训练")[1:]
+        self.assertEqual(len(frames), 4)  # The two misses share one identical frame.
+        self.assertIn("等待进度刷新", frames[1])
+        self.assertIn("99/32,241", frames[1])
+        self.assertNotIn("等待进度刷新", frames[2])
+        self.assertIn("100/32,241", frames[2])
+        self.assertIn("FM 损失 0.02300", frames[2])
+        self.assertIn("峰值显存 34.00 GiB", frames[2])
+        self.assertIn("已暂停", frames[3])
+
+    def test_validation_read_gap_preserves_sampling_step_until_next_snapshot(self):
+        (self.run / "progress.json").write_text('{"stage":"validation"}')
+        validation = self.run / "validation_progress.json"
+        validation.write_text('{"completed":2, "step":12}')
+        previous = display.read_progress(self.run)
+        validation.unlink()
+        snapshot = display.read_progress(self.run, previous)
+        self.assertTrue(snapshot["waiting"])
+        self.assertEqual(snapshot["validation"], {"completed": 2, "step": 12})
+        validation.write_text('{"completed":2, "step":13}')
+        snapshot = display.read_progress(self.run, snapshot)
+        self.assertFalse(snapshot["waiting"])
+        self.assertEqual(snapshot["validation"]["step"], 13)
 
 
 class RGBQueueTests(unittest.TestCase):

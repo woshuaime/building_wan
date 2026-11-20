@@ -26,8 +26,11 @@ CHECKPOINT_ORDER = {"none": 0, "partial": 1, "full": 2}
 
 
 def read_json(path, default=None):
-    path = Path(path)
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return default
+    return json.loads(text)
 
 
 def environment(run):
