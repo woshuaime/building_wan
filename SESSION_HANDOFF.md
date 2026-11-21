@@ -721,3 +721,7 @@ CPU 就绪证据是新 run 的 `prepared.json`，东京 05:01:56 发布，数据
 用户授权启动并在首个正式更新后交接。新 run 为 `outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625`，启动时 supervisor PID 2866682、训练 PID 2866703。原 V2 三轮增量在 `outputs/pointcloud_vace/adapter_gt_v2/run_20261117_225803/交付_训练完成`。首步 1163 的 B019–035；实际 sigma 0.44041、总损失 0.059381、五帧 RGB 辅助到 LoRA 的梯度范数 5.41e-5、峰值分配 34.30 GiB。北京时间 04:17:59 已到 4/32,241、验证 0/8。进度优先读 run 中 `train_progress.json`、`validation_progress.json` 和 `progress.json`，日常查看不启动任务。八栋验证结束时按实际视频复核和历史要求维护文档。 [运行说明](experiments/pointcloud_vace/adapter_gt_v2/README.md)
 
 11 月 20 日东京时间 14:47:46 核对，同一 supervisor 和训练 PID 仍在，第 2 轮已更新 14,121 次。tmux「训练」原上栏在第 5,805 步附近读取 `train_progress.json` 时遇到 FileNotFoundError 后退出，本次在该分栏恢复显示，下栏继续跟随原始日志。第 14,094 步完整恢复点已读回，含 24 个 Adapter 张量、240 个 LoRA 张量、264 组 AdamW 状态及各 RNG。训练无需人工续跑。 [当前进度](outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625/train_progress.json)
+
+## 2026-11-21　V2 RGB 复核结束
+
+完成状态以本轮报告为准。训练 32,241/32,241、验证 8/8、视频 16 条，训练及验证输出已通过字节校验，原生预测及三栏分开按统一的建筑编号存放。旧案例子目录、运行脚本、日志、缓存与完整恢复点已依用户确认清理。若接续研究，主要问题是点芯对比和复杂屋脊丢失，优先考虑原像素尺度的等预算比较。本次未发起后续 GPU 作业。 [交付目录](outputs/pointcloud_vace/adapter_gt_v2_rgb/run_20261120_041625/) · [归档报告](upload/20261120_GT视频V2_RGB辅助_041625_实验报告.md)
