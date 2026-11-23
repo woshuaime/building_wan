@@ -973,3 +973,7 @@ GT V2 验证的 `validation_speed.py` 已将专用长序列 RMSNorm 加入既有
 ## 2026-11-24　V2 视差训练等待前序作业
 
 队列在 `v2_parallax_20261122_035139` 的「续跑」窗口。支持 `run.py resume <run目录> --after-pid <作业根PID>`，同一进程切换到评估程序时继续等待。日常在 run 目录用 `./status.sh` 查看，`./stop.sh` 可取消排队。原 run 的 `./resume.sh` 会继续等待已登记且仍在运行的前序作业。[运行状态](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/progress.json)
+
+## 2026-11-24　V2 原尺寸视差组步时复核
+
+东京约 01:52–01:53，被动读取训练进度的第 583–596 步。普通 FM 步 12 次，平均 3.57 秒，其中读取及两路整帧编码约 1.55 秒，更新约 2.02 秒。同期两次 RGB 步平均 5.84 秒，更新约 4.28 秒。最近 50 步日志在 3.89–4.22 秒之间，随 RGB 比例变动。普通步已沿用快速前向与四窗预读。与前次 RGB 的 512×512 和全程 2.42 秒/步相比，本轮 832×480 每窗 token 从 5,120 增至 7,800，RGB 步还增加 DiT、VACE 分块梯度重算和原尺寸点纹监督。历史 832×480 V2 约 2.03 秒/步的对照已提前编码并缓存。 [实时日志](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/loss.jsonl)

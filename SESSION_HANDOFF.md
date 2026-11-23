@@ -741,3 +741,7 @@ CPU 就绪证据是新 run 的 `prepared.json`，东京 05:01:56 发布，数据
 ## 2026-11-24　V2 原尺寸视差组排队交接
 
 用户授权当前作业全部结束后自动续跑。同一 run 于东京时间 00:12:19 入队，队列进程 2186156、等待作业根 PID 1998730。当时 GPU 仍由该作业的推理子进程占用，视差训练 worker 尚未启动。等待条件和进程启动时刻保存在 `launch.json`。排队与开始训练以 `status.sh` 的实际状态为准。[运行状态](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/progress.json)
+
+## 2026-11-24　V2 原尺寸视差组运行中
+
+GPU 队列于东京时间 01:12:11 开始训练，训练进程 PID 2239889。01:53:24 快照为第 596 步、127 次 RGB 辅助、0/8 验证，已读回第 520 步完整 AdamW 与 RNG。控制台 3.7–4.0 秒近期均速包含原尺寸整帧编码和 RGB 步重算。此次只按现有进度做被动计时，训练按原配置继续。 [运行说明](experiments/pointcloud_vace/adapter_gt_v2_parallax/README.md)
