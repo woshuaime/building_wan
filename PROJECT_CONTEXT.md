@@ -783,3 +783,7 @@ A6000 的默认长序列注意力已使用 Flash。新的 Triton 归一化保留
 ## 2026-11-23　V2 原尺寸视差组已暂停
 
 用户于东京时间 19:31 手动启动 `run_20261122_035139`，随后请求暂停。19:33:57 队列标记 paused，训练进程按暂停退出码 75 退出，GPU 已释放。训练停在首个更新前，进度 0/32,241。旧 V2 初始化权重与排程校验通过，已用 CPU 读回 `checkpoints/shared.pt`。续跑使用原 run 的 `resume.sh`，从第 1 步开始。[运行状态](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/progress.json)
+
+## 2026-11-24　V2 原尺寸视差组已排队
+
+东京时间 00:12:19，`run_20261122_035139` 已进入后台 GPU 队列，当前 0/32,241 步。队列追踪前序作业根进程的 PID 和启动时刻，等推理和后续 GPU 评估全部退出后，再通过驱动核对 GPU 和项目锁并启动训练。[运行状态](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/progress.json)

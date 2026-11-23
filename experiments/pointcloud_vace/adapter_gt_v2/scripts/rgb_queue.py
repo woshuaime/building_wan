@@ -13,7 +13,7 @@ import time
 import traceback
 
 from common import PYTHON, ROOT, now, runtime_env, write_json
-from pipeline import acquire_gpu
+from pipeline import acquire_gpu, read_json
 from rgb_dashboard import dashboard, panel, read_progress
 from run import running
 
@@ -42,6 +42,27 @@ def require_active(run):
         raise InterruptedError("已收到暂停请求")
 
 
+def process_start(pid):
+    """Use the Linux start time, which survives exec and distinguishes PID reuse."""
+    try:
+        fields = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+    return None if fields[0] in ("Z", "X") else fields[19]
+
+
+def wait_for_job(run, pid, started):
+    if started is None or process_start(pid) != started:
+        return
+    reason = f"等待当前作业全部退出 · PID {pid}"
+    mark(run, "waiting_for_gpu", reason=reason)
+    with (run / "train.log").open("a") as log:
+        print(now(), reason, file=log)
+    while process_start(pid) == started:
+        require_active(run)
+        time.sleep(2)
+
+
 def invoke(run, owner, name, *options):
     require_active(run)
     command = [PYTHON, "-Bu", str(HERE / name), "--run", str(run), *options]
@@ -59,7 +80,7 @@ def invoke(run, owner, name, *options):
         raise RuntimeError(f"{name} 退出码 {code}，见 train.log")
 
 
-def supervise(run):
+def supervise(run, after_pid=None, after_start=None):
     with (run / "run.lock").open("a") as owner:
         try:
             fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -74,6 +95,7 @@ def supervise(run):
         ui.start()
         try:
             if not (run / "validation_rendered.json").is_file():
+                wait_for_job(run, after_pid, after_start)
                 mark(run, "waiting_for_gpu")
                 # Owned lock spans the transition. The finished training child releases
                 # all CUDA memory before the separate validation child loads the model.
@@ -107,7 +129,7 @@ def supervise(run):
             ui.join()
 
 
-def launch(run, resume):
+def launch(run, resume, after_pid=None):
     with (run / ".launch.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if running(run) or (run / "validation_complete.json").is_file():
@@ -115,9 +137,15 @@ def launch(run, resume):
             return
         if not resume and (run / "launch.json").is_file():
             raise ValueError("使用此 run 下的 resume.sh 继续")
+        after_job = read_json(run / "launch.json", {}).get("after_job")
+        if after_pid is not None:
+            after_job = dict(pid=after_pid, started=process_start(after_pid))
         (run / "stop.request").unlink(missing_ok=True)
         session = session_name(run)
-        command = "exec " + shlex.join([PYTHON, "-Bu", str(Path(__file__).resolve()), str(run)])
+        argv = [PYTHON, "-Bu", str(Path(__file__).resolve()), str(run)]
+        if after_job and after_job["started"] is not None:
+            argv.extend([str(after_job["pid"]), after_job["started"]])
+        command = "exec " + shlex.join(argv)
         if subprocess.run(["tmux", "has-session", "-t", "="+session], capture_output=True).returncode == 0:
             args = ["new-window", "-t", session, "-n", "续跑"]
         else:
@@ -135,7 +163,8 @@ def launch(run, resume):
                                  "-c", str(ROOT), follow], capture_output=True, text=True)
         if result.returncode:
             print(f"训练窗口已打开。日志分栏未能打开：{result.stderr.strip()}，日志在 {log_path}", file=sys.stderr)
-        write_json(run / "launch.json", dict(time=now(), session=session, pane=pane, resume=resume))
+        write_json(run / "launch.json", dict(time=now(), session=session, pane=pane,
+                                             resume=resume, after_job=after_job))
         # Serialize simultaneous clients until the tmux worker has claimed its lease.
         for _ in range(30):
             if running(run):
@@ -144,9 +173,9 @@ def launch(run, resume):
         print(json.dumps(status(run), ensure_ascii=False))
 
 
-def dispatch(mode, run):
+def dispatch(mode, run, after_pid=None):
     if mode in ("launch", "resume"):
-        launch(run, resume=mode=="resume")
+        launch(run, resume=mode=="resume", after_pid=after_pid)
     elif mode == "stop":
         (run / "stop.request").touch()
         print("已请求暂停。训练在一次完整更新后保存，验证保留已完成的建筑。")
@@ -155,4 +184,4 @@ def dispatch(mode, run):
 
 
 if __name__ == "__main__":
-    supervise(Path(sys.argv[1]).resolve())
+    supervise(Path(sys.argv[1]).resolve(), *sys.argv[2:])

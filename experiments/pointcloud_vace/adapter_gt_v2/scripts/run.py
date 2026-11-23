@@ -98,8 +98,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("prepare-rgb", "prepare-parallax", "launch", "resume", "stop", "status"))
     parser.add_argument("run", type=Path)
+    parser.add_argument("--after-pid", type=int, help="Wait for this running job to exit before taking the GPU")
     arguments = parser.parse_args()
     run = arguments.run.resolve()
+    if arguments.after_pid is not None and (arguments.after_pid <= 0 or arguments.mode not in ("launch", "resume")):
+        parser.error("--after-pid requires a positive PID and launch or resume")
     if arguments.mode in ("prepare-rgb", "prepare-parallax"):
         from rgb_recipe import prepare
         prepare(run, native=arguments.mode == "prepare-parallax")
@@ -112,8 +115,10 @@ def main():
         from rgb_queue import dispatch
         if not (run / "config.json").is_file():
             parser.error("请先完成 prepare-rgb")
-        dispatch(arguments.mode, run)
+        dispatch(arguments.mode, run, after_pid=arguments.after_pid)
         return
+    if arguments.after_pid is not None:
+        parser.error("--after-pid is supported for the V2 RGB and parallax queues")
     if arguments.mode in ("launch", "resume"):
         launch(run, resume=arguments.mode == "resume")
     elif arguments.mode == "stop":

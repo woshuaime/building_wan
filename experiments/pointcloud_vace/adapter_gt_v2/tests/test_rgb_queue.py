@@ -120,6 +120,28 @@ class PanelTests(unittest.TestCase):
 
 
 class RGBQueueTests(unittest.TestCase):
+    def test_dependency_clears_when_original_process_exits_or_pid_is_reused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory)
+            with patch.object(queue, "process_start", side_effect=["100", "100", "200"]), \
+                 patch.object(queue.time, "sleep") as sleep:
+                queue.wait_for_job(run, 4321, "100")
+            sleep.assert_called_once_with(2)
+            status = json.loads((run / "progress.json").read_text())
+            self.assertEqual(status["stage"], "waiting_for_gpu")
+            self.assertIn("4321", status["reason"])
+
+    def test_stop_during_dependency_wait_does_not_acquire_gpu(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory)
+            (run / "stop.request").touch()
+            with patch.object(queue, "process_start", return_value="100"), \
+                 patch.object(queue, "acquire_gpu") as lock, \
+                 patch.object(queue, "dashboard"), patch.object(queue.signal, "signal"):
+                queue.supervise(run, 4321, "100")
+            lock.assert_not_called()
+            self.assertEqual(json.loads((run / "progress.json").read_text())["stage"], "paused")
+
     def test_ring_covers_seam_and_epoch_windows_are_distinct(self):
         ids = [str(i) for i in range(120)]
         schedule = orbit_schedule(ids)

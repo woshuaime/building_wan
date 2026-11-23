@@ -737,3 +737,7 @@ CPU 就绪证据是新 run 的 `prepared.json`，东京 05:01:56 发布，数据
 ## 2026-11-23　V2 原尺寸视差组暂停交接
 
 用户手动启动后请求暂停。东京时间 19:33:57 核实队列 paused，supervisor 和训练进程已退出，正式更新、缓存窗口和验证均为 0。保留 `stop.request`、原配置、排程及已读回的 `checkpoints/shared.pt`。首步前暂停时恢复入口读取旧 V2 初始化和共享缓存，第一次更新以后才生成 `latest.pt`。当前等待用户续跑。[运行目录](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/)
+
+## 2026-11-24　V2 原尺寸视差组排队交接
+
+用户授权当前作业全部结束后自动续跑。同一 run 于东京时间 00:12:19 入队，队列进程 2186156、等待作业根 PID 1998730。当时 GPU 仍由该作业的推理子进程占用，视差训练 worker 尚未启动。等待条件和进程启动时刻保存在 `launch.json`。排队与开始训练以 `status.sh` 的实际状态为准。[运行状态](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/progress.json)

@@ -145,6 +145,8 @@ def panel(run, columns=None, color=None, *, snapshot=None):
         timing = " · ".join(filter(None, [f"{rate:.2f} 秒/步" if rate else "",
                             f"预计剩余 {datetime.timedelta(seconds=int(eta))}" if eta is not None else ""]))
         lines.append(pair(f"建筑 {val.get('building') or '…'} · {description}", timing))
+    elif stage == "waiting_for_gpu" and queue.get("reason"):
+        lines.append(ink(fit(queue["reason"], usable), GOLD))
     elif stage == "failed":
         lines.append(ink(fit(str(queue.get("reason","")), usable), 203))
     return "\n".join(margin + row for row in lines)

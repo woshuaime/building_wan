@@ -969,3 +969,7 @@ GT V2 验证的 `validation_speed.py` 已将专用长序列 RMSNorm 加入既有
 ## 2026-11-23　V2 原尺寸视差组暂停后的入口
 
 同一 run 已于东京时间 19:33:57 到 paused，`status.sh` 显示 active=false、0/32,241。直接在原 run 目录执行 `./resume.sh` 就会复用可读的 `checkpoints/shared.pt` 和原排程，从第 1 步开始。启动后用 `tmux attach -t v2_parallax_20261122_035139` 查看上栏进度和下栏日志。[启动与恢复说明](experiments/pointcloud_vace/adapter_gt_v2_parallax/README.md)
+
+## 2026-11-24　V2 视差训练等待前序作业
+
+队列在 `v2_parallax_20261122_035139` 的「续跑」窗口。支持 `run.py resume <run目录> --after-pid <作业根PID>`，同一进程切换到评估程序时继续等待。日常在 run 目录用 `./status.sh` 查看，`./stop.sh` 可取消排队。原 run 的 `./resume.sh` 会继续等待已登记且仍在运行的前序作业。[运行状态](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/progress.json)
