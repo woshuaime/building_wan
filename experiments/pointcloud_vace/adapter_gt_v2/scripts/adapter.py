@@ -38,16 +38,38 @@ class MultiViewStructureAdapter(nn.Module):
         self.structure_proj = nn.Linear(64, 1536)
         nn.init.zeros_(self.structure_proj.weight)
         nn.init.zeros_(self.structure_proj.bias)
+        self.parallax_proj = None
+
+    def enable_parallax(self):
+        """Extend the already loaded V2 adapter with four ordered 4×4 subcell maps."""
+        if self.parallax_proj is None:
+            weight = self.structure_proj.weight
+            self.parallax_proj = nn.Linear(4 * 16 * 4, 64, bias=False,
+                                           device=weight.device, dtype=weight.dtype)
+            nn.init.zeros_(self.parallax_proj.weight)
+
+    def anchor_projections(self, points, centers, rotations, K, size):
+        if self.parallax_proj is None:
+            return projections(points, centers, rotations, K, size)
+        with torch.autocast(device_type=points.device.type, enabled=False):
+            return projections(points, centers, rotations, K, size)
+
+    def sample_depth(self, maps, uv):
+        samples = sample_map(maps, (uv + .5) / 2 - .5)
+        depth, support = samples.unbind(-1)
+        if self.parallax_proj is not None:
+            depth = depth / support.clamp_min(1.e-8)
+        return depth, support
 
     def source(self, g):
         views = g["reference_views"]
         b, v = views.shape[:2]
         features = self.cnn(views.flatten(0, 1)).unflatten(0, (b, v))
         image_size = (2 * views.shape[-2], 2 * views.shape[-1])
-        uv, depth, visible = projections(g["anchors"], g["ref_C"], g["ref_R"], g["K"], image_size)
-        observed = sample_map(views, (uv + .5) / 2 - .5)
+        uv, depth, visible = self.anchor_projections(g["anchors"], g["ref_C"], g["ref_R"], g["K"], image_size)
+        observed, support = self.sample_depth(views, uv)
         tolerance = g["depth_tolerance"].reshape(b, 1, 1)
-        visible &= (observed[..., 1] > .5) & ((observed[..., 0] - depth).abs() <= tolerance)
+        visible &= (support > .5) & ((observed - depth).abs() <= tolerance)
         sampled = sample_map(features, (uv + .5) / 16 - .5)
         direction = F.normalize(g["ref_C"][:, :, None] - g["anchors"][:, None], dim=-1)
         score = self.view_score(torch.cat([sampled, direction, depth.unsqueeze(-1)], -1)).squeeze(-1)
@@ -66,9 +88,9 @@ class MultiViewStructureAdapter(nn.Module):
             raise ValueError("Target frames must have 4n+1 layout")
         depth_maps = g["target_depths"]
         height, width = 2 * depth_maps.shape[-2], 2 * depth_maps.shape[-1]
-        uv, depth, visible = projections(g["anchors"], g["target_C"], g["target_R"], g["K"], (height, width))
-        observed = sample_map(g["target_depths"], (uv + .5) / 2 - .5)
-        occluded = (observed[..., 1] > .5) & (depth > observed[..., 0] + g["depth_tolerance"].reshape(b, 1, 1))
+        uv, depth, visible = self.anchor_projections(g["anchors"], g["target_C"], g["target_R"], g["K"], (height, width))
+        observed, support = self.sample_depth(g["target_depths"], uv)
+        occluded = (support > .5) & (depth > observed + g["depth_tolerance"].reshape(b, 1, 1))
         visible &= ~occluded
         yy, xx = torch.meshgrid(torch.arange(height // 16, device=source.device),
                                 torch.arange(width // 16, device=source.device), indexing="ij")
@@ -90,4 +112,7 @@ class MultiViewStructureAdapter(nn.Module):
             scores = torch.cat([local_scores, scores[..., -1:]], -1)
             frames.append(torch.matmul(scores.softmax(-1).to(values.dtype), values))
         aligned = [frames[0]] + [torch.stack(frames[i:i + 4]).mean(0) for i in range(1, t, 4)]
-        return torch.stack(aligned, 1).flatten(1, 2)
+        tokens = torch.stack(aligned, 1).flatten(1, 2)
+        if self.parallax_proj is not None:
+            tokens = tokens + self.parallax_proj(g["parallax"]).to(tokens.dtype)
+        return tokens

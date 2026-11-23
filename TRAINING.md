@@ -961,3 +961,11 @@ GT V2 验证的 `validation_speed.py` 已将专用长序列 RMSNorm 加入既有
 ## 2026-11-21　V2 点纹分布补充复核
 
 现行 RGB 外观损失对每个 16×16 格内四个分散同色像素与相同面积的 2×2 块给出相同统计。点纹改进建议是原像素尺度、短程暗度相关，以及已知点对同帧观测的亮度保持。 [点形与分布复核](upload/20261120_GT视频V2_RGB辅助_041625_实验报告.md#point-texture-review)
+
+## 2026-11-22　V2 原尺寸视差组准备完成
+
+在 `outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/` 下手动执行 `./start.sh`。会话名为 `v2_parallax_20261122_035139`，`./stop.sh` 保存暂停，状态为 paused 后用 `./resume.sh` 续跑。本次仅准备和 CPU 检查，实际显存以首个正式 RGB 步和首个普通步为准。[启动与恢复说明](experiments/pointcloud_vace/adapter_gt_v2_parallax/README.md)
+
+## 2026-11-23　V2 原尺寸视差组暂停后的入口
+
+同一 run 已于东京时间 19:33:57 到 paused，`status.sh` 显示 active=false、0/32,241。直接在原 run 目录执行 `./resume.sh` 就会复用可读的 `checkpoints/shared.pt` 和原排程，从第 1 步开始。启动后用 `tmux attach -t v2_parallax_20261122_035139` 查看上栏进度和下栏日志。[启动与恢复说明](experiments/pointcloud_vace/adapter_gt_v2_parallax/README.md)

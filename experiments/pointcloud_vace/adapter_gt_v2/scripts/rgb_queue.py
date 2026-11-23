@@ -21,6 +21,8 @@ HERE = Path(__file__).resolve().parent
 
 
 def session_name(run):
+    if run.parent.name == "adapter_gt_v2_parallax":
+        return "v2_parallax_" + run.name.removeprefix("run_")
     return "v2_rgb_" + run.name.removeprefix("run_")
 
 
@@ -86,7 +88,10 @@ def supervise(run):
             if not (run / "validation_rendered.json").is_file():
                 raise RuntimeError("缺少八栋视频完成记录")
             mark(run, "reporting")
-            invoke(run, owner, "validate_rgb.py", "--phase", "report")
+            if run.parent.name == "adapter_gt_v2_parallax":
+                invoke(run, owner, str(HERE.parents[1] / "adapter_gt_v2_parallax" / "evaluate.py"))
+            else:
+                invoke(run, owner, "validate_rgb.py", "--phase", "report")
             if not (run / "validation_complete.json").is_file():
                 raise RuntimeError("缺少逐栋报告完成记录")
             mark(run, "complete")

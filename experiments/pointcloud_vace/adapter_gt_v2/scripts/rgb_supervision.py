@@ -33,6 +33,11 @@ RGB_CONFIG = {
     "known_partial_threshold_255": 239., "known_partial_halo_pixels": 1,
 }
 
+PARALLAX_FEATURES = dict(RGB_CONFIG, appearance=.05, pair=.03, keep=.02,
+                         pair_offsets=[1, 2, 4, 8], pair_tile=32,
+                         pair_directions=[[0, 1], [1, 0], [1, 1], [1, -1]],
+                         known_slack_255=3., point_luma_255=80., background_luma_255=240.)
+
 
 @lru_cache(maxsize=RGB_CONFIG["geometry_cache_buildings"])
 def _roof_segments(mesh_path):
@@ -171,7 +176,53 @@ def _appearance(pred, py, target, gy, missing):
     return .5 * (torch.stack(moments).mean() + torch.stack(fractions).mean())
 
 
-def rgb_losses(pred, gt, partial, edit_mask, structure, step):
+def known_contribution(y, observed, valid, config):
+    floor = config["point_luma_255"] / 255.
+    background = config["background_luma_255"] / 255.
+    slack = config["known_slack_255"] / 255.
+    weight = ((background - observed) / (background - floor)).clamp(0., 1.) * valid
+    # At a solid point both bounds meet. Partial coverage can darken when
+    # another point appears behind it, down to the renderer's solid point colour.
+    return _region_mean(F.relu(y - observed - slack) + F.relu(floor - y - slack), weight)
+
+
+def _pair_error(p, g, region, dy, dx, tile):
+    h, w = region.shape[-2:]
+    a = (..., slice(0, h - dy), slice(max(0, -dx), min(w, w - dx)))
+    b = (..., slice(dy, h), slice(max(0, dx), min(w, w + dx)))
+    valid = region[a] * region[b]
+    def pool(img):
+        return F.avg_pool2d(img, tile, stride=tile, ceil_mode=True, count_include_pad=False)
+    support = pool(valid)
+    def correlation(d):
+        x, y = d[a], d[b]
+        moments = pool(torch.cat((x, y, x.square(), y.square(), x*y), dim=1) * valid)
+        mx, my, xx, yy, xy = (moments / support.clamp_min(1.e-6)).unbind(1)
+        vx, vy = (xx - mx.square()).clamp_min(0), (yy - my.square()).clamp_min(0)
+        # Stabilize both factors individually, including flat predicted patches.
+        corr = (xy - mx*my) * torch.rsqrt((vx + 1.e-5) * (vy + 1.e-5))
+        return corr[:, None], torch.minimum(vx, vy)[:, None]
+    pc, _ = correlation(p)
+    gc, variance = correlation(g)
+    return _region_mean((pc - gc).abs(), support * (variance > 1.e-5))
+
+
+def point_pairs(py, gy, region, config):
+    background = config["background_luma_255"] / 255.
+    p, g = (background - py).relu(), (background - gy).relu()
+    errors = []
+    for r in config["pair_offsets"]:
+        for dy, dx in config["pair_directions"]:
+            args = (p, g, region, r * dy, r * dx, config["pair_tile"])
+            if p.requires_grad:
+                value = checkpoint(_pair_error, *args, use_reentrant=False, preserve_rng_state=False)
+            else:
+                value = _pair_error(*args)
+            errors.append(value)
+    return torch.stack(errors).mean()
+
+
+def rgb_losses(pred, gt, partial, edit_mask, structure, step, features=None):
     """Inputs are aligned T[×C]×H×W float images scaled to [0,1]."""
     pred = pred.float()
     gt, partial, edit_mask, structure = (
@@ -195,6 +246,10 @@ def rgb_losses(pred, gt, partial, edit_mask, structure, step):
     structure_loss = _region_mean(lowpass.abs(), band) + _region_mean(sobel.abs(), band)
     pair_region = torch.minimum(missing[1:], missing[:-1])
     temporal = _region_mean((lowpass[1:] - lowpass[:-1]).abs(), pair_region)
-    aux = ramp(step) * (RGB_CONFIG["appearance"] * appearance + RGB_CONFIG["structure"] * structure_loss
-                        + RGB_CONFIG["temp"] * temporal)
-    return dict(appearance=appearance, structure=structure_loss, temp=temporal, aux=aux)
+    cfg = RGB_CONFIG if features is None else features
+    losses = dict(appearance=appearance, structure=structure_loss, temp=temporal)
+    if "pair" in cfg:
+        losses["pair"] = point_pairs(py, gy, missing, cfg)
+        losses["keep"] = known_contribution(py, _luma(partial), edit_mask, cfg)
+    losses["aux"] = ramp(step) * sum(cfg[key] * value for key, value in losses.items())
+    return losses

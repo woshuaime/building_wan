@@ -22,6 +22,7 @@ from cache_encoder import normalized
 from common import atomic_torch_save, now, sha, write_json
 from training_compute_candidate import _direct_forward
 from validate_video import load_validation_model
+from rgb_recipe import PARALLAX_TASK
 from worker import PER_EPOCH, TOTAL, learning_rate, make_optimizer, region_loss, restore_rng, rng_state
 
 PREFETCH = 4
@@ -59,6 +60,12 @@ class Trainer:
         base = Path(config['source_weights']['adapter_final']).parents[1]
         self.pipe, core, pretrained = load_validation_model(base)
         pipe = self.pipe
+        self.native = config.get('task') == PARALLAX_TASK
+        self.features = config['rgb_features'] if self.native else None
+        self.size = (config['training']['height'], config['training']['width'])
+        self.core = core
+        if self.native:
+            pipe.structure_adapter.enable_parallax()
         pipe.structure_adapter.train().requires_grad_(True)
         pipe.vace.train()
         for name, parameter in pipe.vace.named_parameters():
@@ -79,15 +86,18 @@ class Trainer:
         else:
             with torch.no_grad():
                 context = WanVideoUnit_PromptEmbedder().process(pipe, prompt=pretrained['prompt'], positive=True)['context']
-                zero = torch.zeros((1, 3, 17, windows.SIDE, windows.SIDE), device=pipe.device, dtype=torch.bfloat16)
+                if self.native:
+                    pipe.text_encoder.to('cpu')
+                zero = torch.zeros((1, 3, 17, *self.size), device=pipe.device, dtype=torch.bfloat16)
                 inactive = pipe.vae.model.encode(zero, pipe.vae.scale)
             shared = dict(context=context.cpu(), inactive=inactive.cpu())
             atomic_torch_save(shared_path, shared)
             del zero, context, inactive
         self.context, self.inactive = (shared[key].to(pipe.device) for key in ('context', 'inactive'))
         self.mask = self.inactive.new_ones((1, 64, *self.inactive.shape[2:]))
-        self.valid = torch.zeros((5, windows.SIDE, windows.SIDE), device=pipe.device)
-        self.valid[:, windows.VALID_START:windows.VALID_STOP] = 1
+        self.valid = torch.ones((5, *self.size), device=pipe.device)
+        if not self.native:
+            self.valid[:, :windows.VALID_START] = self.valid[:, windows.VALID_STOP:] = 0
         pipe.text_encoder.to('cpu')
         pipe.vae.model.clear_cache()
         torch.cuda.empty_cache()
@@ -127,11 +137,17 @@ class Trainer:
         geometry = {key: torch.as_tensor(v, device=pipe.device)[None] for key, v in raw['geometry'].items()}
         occupancy = torch.as_tensor(raw['occupancy'], device=pipe.device)[None]
         active = self.bounds[0] <= float(sigma) <= self.bounds[1]
+        if self.native:
+            mode = 'full' if active else 'none'
+            if pipe.adapter_gt_v2_checkpointing['mode'] != mode:
+                integration.configure_checkpointing(pipe, mode)
+                forward = integration.structured_vace_forward if active else _direct_forward
+                self.core.forward = MethodType(forward, self.core)
         with torch.autocast('cuda', dtype=torch.bfloat16):
             tokens = pipe.structure_adapter(geometry)
             prediction = pipe.model_fn(
                 **self.models, latents=noisy, timestep=t, context=self.context,
-                vace_context=condition, vace_scale=1., use_gradient_checkpointing=False,
+                vace_context=condition, vace_scale=1., use_gradient_checkpointing=self.native and active,
                 structure_tokens=tokens, structure_mask=tokens.new_ones((*tokens.shape[:2], 1)),
                 structure_projection=pipe.structure_adapter.structure_proj)
         fm, _, _ = region_loss(prediction, target, occupancy, weight.to(pipe.device))
@@ -141,9 +157,11 @@ class Trainer:
             # and frame order are identical across RGB, GT, partial and bands.
             prefix = noisy[:, :, :2].float() - sigma * prediction[:, :, :2].float()
             estimate = rgb.decode_prefix(pipe.vae, prefix)
-            band = rgb.structure_weights(raw['mesh'], raw['camera'], raw['frame_ids'][:5], image_affine=windows.AFFINE)
+            affine = (1., 1., 0., 0.) if self.native else windows.AFFINE
+            band = rgb.structure_weights(raw['mesh'], raw['camera'], raw['frame_ids'][:5],
+                                         size=self.size, image_affine=affine)
             gt, partial = (torch.as_tensor(raw[k][:5], device=pipe.device).float() / 255. for k in ('target', 'partial'))
-            losses.update(rgb.rgb_losses(estimate, gt, partial, self.valid, band, step))
+            losses.update(rgb.rgb_losses(estimate, gt, partial, self.valid, band, step, self.features))
 
         loss = fm + losses['aux'] if active else fm
         confirmation = {}
@@ -158,6 +176,8 @@ class Trainer:
                 raise RuntimeError('The combined RGB term did not reach the trainable VACE LoRA.')
             confirmation.update(aux_probe=probe_name, aux_parameter_gradient_norm=proof)
             watched = dict(adapter=self.pipe.structure_adapter.structure_proj.weight, lora=probe)
+            if self.native:
+                watched['parallax'] = self.pipe.structure_adapter.parallax_proj.weight
             before = {k: p.detach().clone() for k, p in watched.items()}
 
         loss.backward()
@@ -203,7 +223,7 @@ class Trainer:
 
 
 def finalize(run, trainer, state):
-    out = run / '交付_训练完成'
+    out = run / ('交付' if trainer.native else '交付_训练完成')
     out.mkdir(exist_ok=True)
     done = dict(time=now(), status='completed', optimizer_updates=TOTAL, samples_consumed=TOTAL, epochs=3,
                 aux_updates=state['aux_updates'], elapsed_seconds=state['seconds'], peak_vram_bytes=state['peak'])
@@ -220,7 +240,10 @@ def finalize(run, trainer, state):
 def summarize(block, seconds):
     active = [v for v in block if v['rgb_active']]
     rows = {}
-    for key in ('fm', 'loss', 'appearance', 'structure', 'temp', 'aux'):
+    keys = ['fm', 'loss', 'appearance', 'structure', 'temp', 'aux']
+    if any('pair' in r for r in block):
+        keys.extend(('pair', 'keep'))
+    for key in keys:
         values = [r[key] for r in block if key in r]
         rows[key] = sum(values) / len(values) if values else None
     return dict(**rows, steps=len(block), aux_count=len(active), mean_seconds=seconds / len(block))
@@ -252,7 +275,7 @@ def train(run):
         def submit(i):
             if i < TOTAL:
                 building, frames = order[i]
-                pending[i] = pool.submit(windows.load_window, rows[building], frames)
+                pending[i] = pool.submit(windows.load_window, rows[building], frames, config['task'] == PARALLAX_TASK)
         for i in range(count, min(count + PREFETCH, TOTAL)):
             submit(i)
         trainer = Trainer(run, config)
@@ -261,6 +284,7 @@ def train(run):
             if count == 1 and not (run / 'first_update.json').exists():
                 write_json(run / 'first_update.json', state['first_update'])
         torch.cuda.reset_peak_memory_stats()
+        measure_fm = trainer.native and not (run / 'first_fm.json').is_file()
         start = last_save = block_start = time.monotonic()
         last_count = count
         with (run / 'loss.jsonl').open('a+b') as log:
@@ -291,6 +315,8 @@ def train(run):
                 progress(run, board, stage='caching', building=building, epoch=count // PER_EPOCH + 1)
                 raw = pending.pop(count).result()
                 submit(count + PREFETCH)
+                if measure_fm:
+                    torch.cuda.reset_peak_memory_stats()
                 encoded = trainer.encode(raw)
                 progress(run, board, stage='training', cache=count+1, cached=count+1)
                 record, confirmation = trainer.update(raw, encoded, count + 1)
@@ -299,6 +325,11 @@ def train(run):
                 aux_count += int(record['rgb_active'])
                 peak = max(peak, torch.cuda.max_memory_allocated())
                 block.append(record)
+                if measure_fm and not record['rgb_active']:
+                    write_json(run / 'first_fm.json', dict(updates=count, building=building,
+                               allocated_bytes=torch.cuda.max_memory_allocated(),
+                               reserved_bytes=torch.cuda.max_memory_reserved(), **record))
+                    measure_fm = False
                 samples.append(time.monotonic() - began)
                 if count == 1:
                     proof = dict(time=now(), updates=1, building=building, frame_ids=frames,

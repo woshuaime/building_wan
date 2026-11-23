@@ -26,7 +26,7 @@ def square_frames(gray):
     return result
 
 
-def read_window(path, frame_ids):
+def read_window(path, frame_ids, native=False):
     """Read both sides of a wrapped clip in one sequential pass; preserve requested order."""
     wanted = {number: index for index, number in enumerate(frame_ids)}
     original = np.empty((len(frame_ids), data.HEIGHT, data.WIDTH), dtype=np.uint8)
@@ -47,14 +47,16 @@ def read_window(path, frame_ids):
                 break
     if wanted:
         raise ValueError(f"Missing frames {sorted(wanted)} in {path}")
-    return square_frames(original)
+    return original if native else square_frames(original)
 
 
-def observed_geometry(row, camera, record, frame_ids):
+def observed_geometry(row, camera, record, frame_ids, native=False):
     points = data.selected_partial(row, camera, record)
     centers, rotations, K = data.camera_arrays(camera)
-    K[:2, :] *= SCALE
-    K[:2, 2] += AFFINE[2:]
+    size = (data.HEIGHT, data.WIDTH) if native else (SIDE, SIDE)
+    if not native:
+        K[:2, :] *= SCALE
+        K[:2, 2] += AFFINE[2:]
     scale = max(float(np.linalg.norm(points - (points.min(0) + points.max(0)) / 2, axis=1).max()), 1.)
     anchors = points[data.fps(points)]
     if len(anchors) < 128:
@@ -62,24 +64,28 @@ def observed_geometry(row, camera, record, frame_ids):
     density = cKDTree(points).query_ball_point(anchors, .5, return_length=True)
     refs = list(range(0, 80, 10))
     frames = list(frame_ids)
-    depths = {i: data.depth_view(points, centers[i], rotations[i], K, scale, (SIDE, SIDE))
+    depths = {i: data.depth_view(points, centers[i], rotations[i], K, scale, size)
               for i in dict.fromkeys([*refs, *frames])}
-    return dict(reference_views=np.stack([depths[i] for i in refs]),
+    geometry = dict(reference_views=np.stack([depths[i] for i in refs]),
                 anchors=(anchors / scale).astype(np.float32),
                 anchor_density=np.log1p(density).astype(np.float32),
                 ref_C=(centers[refs] / scale).astype(np.float32), ref_R=rotations[refs].astype(np.float32),
                 K=K.astype(np.float32), depth_tolerance=np.asarray(.45 / scale, np.float32),
                 target_depths=np.stack([depths[i] for i in frames]),
                 target_C=(centers[frames] / scale).astype(np.float32), target_R=rotations[frames].astype(np.float32))
+    if native:
+        from parallax_geometry import hints
+        geometry["parallax"] = hints(points, centers, rotations, K, frames, scale)
+    return geometry
 
 
-def load_window(row, frame_ids):
+def load_window(row, frame_ids, native=False):
     camera, record = (data.read_json(row[key]) for key in ("camera", "record"))
     data.validate_camera(camera, row["id"], "train")
     if str(record["id"]) != row["id"] or record['split_use'] != 'train':
         raise ValueError(f"Wrong training record: {row['id']}")
-    geometry = observed_geometry(row, camera, record, frame_ids)
-    target = read_window(row['GT_video'], frame_ids)
+    geometry = observed_geometry(row, camera, record, frame_ids, native)
+    target = read_window(row['GT_video'], frame_ids, native)
     return dict(id=row['id'], frame_ids=frame_ids, mesh=row["mesh"], camera=camera, geometry=geometry,
-                target=target, partial=read_window(row['partial_video'], frame_ids),
-                occupancy=data.occupancy_for(target, (SIDE, SIDE)))
+                target=target, partial=read_window(row['partial_video'], frame_ids, native),
+                occupancy=data.occupancy_for(target, target.shape[1:]))

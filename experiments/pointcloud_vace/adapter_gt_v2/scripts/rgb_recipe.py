@@ -12,6 +12,8 @@ import validation_delivery as delivery
 from common import ROOT, PYTHON, now, sha, write_json
 
 OUT = ROOT / "outputs/pointcloud_vace/adapter_gt_v2_rgb"
+PARALLAX_OUT = OUT.with_name("adapter_gt_v2_parallax")
+PARALLAX_TASK = "v2_native_parallax"
 IDS = ("358", "2825", "5954", "4850", "3538", "2016", "6485", "5466")
 TOTAL = data.TRAIN_COUNT * 3
 AUXILIARY = dict(appearance=.10, structure=.10, temporal=.02, warmup_updates=1000,
@@ -41,14 +43,14 @@ def train_rows():
     return rows
 
 
-def orbit_schedule(ids):
+def orbit_schedule(ids, offset=0):
     ids = list(ids)
     starts = {b: int(data.digest(f"{data.SEED}:{b}".encode()), 16) % 80 for b in ids}
     schedule = []
     for epoch in range(3):
         order = ids.copy()
         random.Random(data.SEED + epoch).shuffle(order)
-        schedule.extend((b, (starts[b] + 27 * epoch) % 80) for b in order)
+        schedule.extend((b, (starts[b] + offset + 27 * epoch) % 80) for b in order)
     return schedule
 
 
@@ -62,15 +64,16 @@ def load_schedule(run):
     return rows, order
 
 
-def prepare(run):
-    if run.parent != OUT or not run.name.startswith("run_"):
-        raise ValueError(f"Create run_* directly under {OUT}")
+def prepare(run, native=False):
+    parent = PARALLAX_OUT if native else OUT
+    if run.parent != parent or not run.name.startswith("run_"):
+        raise ValueError(f"Create run_* directly under {parent}")
     if run.exists() and any(run.iterdir()):
         raise FileExistsError(run)
     weights = delivery.final_weights(ROOT / "outputs/pointcloud_vace/adapter_gt_v2" / delivery.RUN_NAME)
     model = delivery.model_config()
     rows = train_rows()
-    schedule = orbit_schedule(rows)
+    schedule = orbit_schedule(rows, offset=13 if native else 0)
     building = schedule[0][0]
     data.validate_camera(data.read_json(rows[building]["camera"]), building, "train")
     run.mkdir(parents=True, exist_ok=True)
@@ -97,13 +100,24 @@ def prepare(run):
                recovery=dict(updates=200,seconds=300,keep=["latest","previous"],first_update=True))
     import rgb_supervision
     cfg["rgb_features"] = rgb_supervision.RGB_CONFIG
+    if native:
+        cfg.update(task=PARALLAX_TASK, schedule_rule="unique orbit 0..79, start=(u+13+27*epoch)%80",
+                   resize=dict(source=[832, 480], interpolation="identity"),
+                   rgb_features=rgb_supervision.PARALLAX_FEATURES,
+                   auxiliary=dict(AUXILIARY, appearance=.05, pair=.03, keep=.02),
+                   geometry=dict(cell_pixels=4, layer_transition_radii=[-.1, .1],
+                                 frame_slots=4, residual_channels=64),
+                   rgb_baseline=str(OUT / "run_20261120_041625"))
+        cfg["training"].update(width=832, height=480, checkpointing="full on RGB, none on FM",
+                               trainable="V2 eight-view Adapter + ordered depth residual, VACE q/k/v/o LoRA")
     cfg["config_id"] = data.digest(cfg)
-    (run / "references").mkdir(exist_ok=True)
-    for building in ("2825", "5954"):
-        matches = sorted(Path("/tmp").glob(f"scj-v2-roof-20261120_014636-*/vae_{building}.json"))
-        if matches:
-            shutil.copyfile(matches[-1], run / "references" / f"vae_{building}.json")
-    for name, action in (("stop","stop"), ("resume","resume"), ("status","status")):
+    if not native:
+        (run / "references").mkdir(exist_ok=True)
+        for building in ("2825", "5954"):
+            matches = sorted(Path("/tmp").glob(f"scj-v2-roof-20261120_014636-*/vae_{building}.json"))
+            if matches:
+                shutil.copyfile(matches[-1], run / "references" / f"vae_{building}.json")
+    for name, action in (("start","launch"), ("stop","stop"), ("resume","resume"), ("status","status")):
         script = run / f"{name}.sh"
         entry = Path(__file__).resolve().with_name("run.py")
         script.write_text("#!/usr/bin/env bash\nexec " + shlex.join([PYTHON, "-Bu", str(entry), action, str(run)]) + "\n")

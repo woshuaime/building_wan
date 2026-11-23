@@ -139,7 +139,8 @@ def parameter_groups(pipe):
         else:
             raise ValueError(f"Unauthorized trainable parameter: {name}")
     sizes = (sum(p.numel() for _, p in adapter), sum(p.numel() for _, p in lora))
-    if sizes != (142929, 2949120):
+    extra = 256 * 64 if getattr(pipe.structure_adapter, "parallax_proj", None) is not None else 0
+    if sizes != (142929 + extra, 2949120):
         raise ValueError(f"Wrong Adapter/LoRA parameter counts: {sizes}")
     return adapter, lora
 

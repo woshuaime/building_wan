@@ -92,13 +92,14 @@ def geometry_scores(prediction, targets, scale):
                 surface_coverage_distance_world=float(surface_coverage.mean()))
 
 
-def edge_image_support(clips, targets, observed, frames=VIEW_IDS):
+def edge_image_support(clips, targets, observed, frames=VIEW_IDS, common_support=False):
     """Measure detectable projected line support. RGB does not provide true XYZ."""
     ridges = targets["vertices"][targets["edges"][targets["kinds"] == RIDGE]]
     output = {role: dict(eligible=0, detected=0, views=[], offsets=[], curvature=[],
                          visible_px=0., matched_px=0., interior_gaps_px=0., transitions=0,
                          changes=0, previous={})
               for role in clips}
+    common_errors = {role: [] for role in clips}
     for frame in frames:
         responses = {role: ndimage.gaussian_filter((240. - y[frame]).clip(0) / 160, 2.)
                      for role, y in clips.items()}
@@ -132,12 +133,15 @@ def edge_image_support(clips, targets, observed, frames=VIEW_IDS):
             visible = (np.abs(truth_peak - 10) <= 3) & (truth_grad.max(1) >= .008)
             if int(visible.sum()) < 5:
                 continue
+            matched = {}
             for role, profile in profiles.items():
                 score = output[role]
                 score["eligible"] += 1
                 gradient = sign * np.gradient(profile, axis=1)
                 peak = gradient.argmax(1)
                 usable = visible & (gradient.max(1) >= .008) & (np.abs(peak - 10) <= 8)
+                if common_support:
+                    matched[role] = usable, offsets[peak]
                 # Integrate the linearly sampled, GT-readable central span. Interior
                 # gaps sit between two supported samples and exclude both endpoints.
                 unit_length = span * (along[-1] - along[0]) / len(along)
@@ -162,10 +166,23 @@ def edge_image_support(clips, targets, observed, frames=VIEW_IDS):
                 solution = np.polyfit(along[usable] * span, offsets[peak[usable]], 1)
                 residual = offsets[peak[usable]] - np.polyval(solution, along[usable] * span)
                 score["curvature"].append(float(np.quantile(np.abs(residual), .95)))
-    return {role: dict(eligible=score["eligible"], detected=score["detected"], views=sorted(set(score["views"])),
+            if common_support:
+                common = np.logical_and.reduce([v[0] for v in matched.values()])
+                if common.sum() >= 5:
+                    along_px = along[common] * span
+                    for role, (_, location) in matched.items():
+                        y = location[common]
+                        line = np.polyval(np.polyfit(along_px, y, 1), along_px)
+                        common_errors[role].append(float(np.quantile(np.abs(y-line), .95)))
+    results = {role: dict(eligible=score["eligible"], detected=score["detected"], views=sorted(set(score["views"])),
                        readable_length_px_ratio=score["matched_px"] / score["visible_px"] if score["visible_px"] else None,
                        interior_gap_ratio=score["interior_gaps_px"] / score["visible_px"] if score["visible_px"] else None,
                        visibility_flips=score["changes"], adjacent_eligible=score["transitions"],
                        position_px=float(np.mean(score["offsets"])) if score["offsets"] else None,
                        straightness_p95_px=float(np.mean(score["curvature"])) if score["curvature"] else None)
             for role, score in output.items()}
+    if common_support:
+        for role, errors in common_errors.items():
+            results[role].update(common_segments=len(errors),
+                                 common_straightness_px=float(np.mean(errors)) if errors else None)
+    return results

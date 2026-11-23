@@ -775,3 +775,11 @@ A6000 的默认长序列注意力已使用 Flash。新的 Triton 归一化保留
 ## 2026-11-21　V2 点纹分布补充复核
 
 按同机位、相同暗像素数复核八栋，屋面连片减少，墙面较大空隙在七栋增大。原像素尺度及区分离散点和连片的监督仍是优先方向。 [点形与分布复核](upload/20261120_GT视频V2_RGB辅助_041625_实验报告.md#point-texture-review)
+
+## 2026-11-22　V2 原尺寸视差组准备完成
+
+原尺寸点纹与视差组已准备独立 run `adapter_gt_v2_parallax/run_20261122_035139`，状态 prepared，正式更新 0。按用户要求由用户手动启动。训练从旧 V2 的最终 Adapter 和 LoRA 接续，前次 RGB 交付作为同机位对照。[启动与恢复说明](experiments/pointcloud_vace/adapter_gt_v2_parallax/README.md)
+
+## 2026-11-23　V2 原尺寸视差组已暂停
+
+用户于东京时间 19:31 手动启动 `run_20261122_035139`，随后请求暂停。19:33:57 队列标记 paused，训练进程按暂停退出码 75 退出，GPU 已释放。训练停在首个更新前，进度 0/32,241。旧 V2 初始化权重与排程校验通过，已用 CPU 读回 `checkpoints/shared.pt`。续跑使用原 run 的 `resume.sh`，从第 1 步开始。[运行状态](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/progress.json)

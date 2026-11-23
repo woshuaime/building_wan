@@ -42,7 +42,7 @@ def validation_row(run, building_id):
     return record
 
 
-def validation_geometry(row):
+def validation_geometry(row, native=False):
     """Build all reference and target views in RAM from the observed subset."""
     for key in ('camera', 'record'):
         if sha(row[key]) != row[key + '_sha256']:
@@ -51,6 +51,9 @@ def validation_geometry(row):
     data.validate_camera(camera, row['id'], 'validation')
     if str(record['id']) != row['id'] or record['split_use'] != 'validation':
         raise ValueError('Wrong partial selection or split')
+    if native:
+        from rgb_window import observed_geometry as build_geometry
+        return build_geometry(row, camera, record, range(FRAMES), native=True)
     points = data.selected_partial(row, camera, record)
     return observed_geometry(points, camera, range(FRAMES))
 
@@ -132,6 +135,9 @@ def load_validation_model(run, *, release=None):
     torch.set_num_threads(4)
     pipe = load_local_vace(cfg['models']['paths'], memory_mode='full')
     core = attach(pipe, cfg['seed'], checkpointing='none')
+    from rgb_recipe import PARALLAX_TASK
+    if cfg.get('task') == PARALLAX_TASK:
+        pipe.structure_adapter.enable_parallax()
     attention_identity()
     saved = [load_file(done[role + '_final']) for role in ('adapter', 'lora')]
     load_increments_state(pipe, *saved)
@@ -153,7 +159,10 @@ def predict_video(model, row, partial=None, speed=None, *, geometry=None, make_p
     if partial is None:
         partial = source_frames(row['partial_video'])
     if geometry is None:
-        geometry = validation_geometry(row)
+        if getattr(pipe.structure_adapter, "parallax_proj", None) is not None:
+            geometry = validation_geometry(row, native=True)
+        else:
+            geometry = validation_geometry(row)
     geometry = {k: torch.from_numpy(v)[None].to(pipe.device) for k, v in geometry.items()}
     with torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
         tokens = pipe.structure_adapter(geometry)

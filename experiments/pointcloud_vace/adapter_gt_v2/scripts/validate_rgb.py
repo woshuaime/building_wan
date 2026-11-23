@@ -14,7 +14,7 @@ import data
 from common import ROOT, now, sha, write_json
 import validate_video as video
 import validation_delivery as delivery
-from rgb_recipe import IDS, TOTAL
+from rgb_recipe import IDS, TOTAL, PARALLAX_OUT
 from validation_queue import verify_video
 
 BASE = ROOT / "outputs/pointcloud_vace/adapter_gt_v2" / delivery.RUN_NAME
@@ -40,7 +40,7 @@ def completion(run):
     if done["optimizer_updates"] != TOTAL:
         raise ValueError("Eight-building validation requires the 32,241-update weights")
     for role in ("adapter", "lora"):
-        path = run / "交付_训练完成" / f"{role}_final.safetensors"
+        path = run / ("交付" if run.parent == PARALLAX_OUT else "交付_训练完成") / f"{role}_final.safetensors"
         if sha(path) != done[f"{role}_sha256"]:
             raise ValueError(f"Incompatible final {role} weight")
         done[f"{role}_final"] = str(path)
@@ -48,7 +48,7 @@ def completion(run):
 
 
 def case_dir(run, i, building):
-    return run / OUTPUT / f"{i:02d}_ID{building}"
+    return run / ("交付" if run.parent == PARALLAX_OUT else OUTPUT) / f"{i:02d}_ID{building}"
 
 
 def identity(run, building, done):
@@ -65,12 +65,15 @@ def render(run):
     from validation_speed import ValidationSpeed
 
     done = completion(run)
-    out = run / OUTPUT
+    out = case_dir(run, 1, IDS[0]).parent
     out.mkdir(exist_ok=True)
     work = run / ".validation"
     work.mkdir(exist_ok=True)
     speed_file = work / "speed.json"
     speed_policy = data.read_json(speed_file) if speed_file.exists() else {}
+    if run.parent == PARALLAX_OUT and not speed_policy:
+        speed_policy = dict(selected="accelerated", source="V2 RGB 20261120 paired CFG release")
+        write_json(speed_file, speed_policy)
     model = None
     for i, building in enumerate(IDS, 1):
         stop_if_requested(run)
@@ -83,7 +86,8 @@ def render(run):
             continue
         progress(run, "loading", i - 1, building)
         if model is None:
-            model = video.load_validation_model(run, release=(delivery.model_config(), done))
+            cfg = data.read_json(run / "config.json") if run.parent == PARALLAX_OUT else delivery.model_config()
+            model = video.load_validation_model(run, release=(cfg, done))
         row = delivery.source_row(building)
         partial = video.source_frames(row["partial_video"])
         started = time.monotonic()
@@ -142,7 +146,7 @@ def scoring_modules():
     return mesh_labels, quality, roof
 
 
-def score(run, i, building):
+def score(run, i, building, *, rgb_baseline=None, extra_metrics=None):
     from scipy import ndimage
 
     labels, quality, roof = scoring_modules()
@@ -152,6 +156,8 @@ def score(run, i, building):
     partial = np.stack([np.asarray(f)[..., 0] for f in video.source_frames(row["partial_video"])])
     path = case_dir(run, i, building) / "Prediction.mp4"
     paths = {"new": path, "old": BASE / "Prediction_八栋" / f"{i:02d}_ID{building}_Prediction.mp4"}
+    if rgb_baseline is not None:
+        paths["rgb"] = rgb_baseline / "Prediction" / f"{i:02d}_ID{building}.mp4"
     gray = {"gt": gt.astype(np.float32)}
     appearance = {"gt": {}}
     known = partial < 220
@@ -185,8 +191,12 @@ def score(run, i, building):
     targets = labels.structural_edges(vertices - camera["world_to_local_origin"], faces, normals)
     centers, rotations, intrinsics = data.camera_arrays(camera)
     observed = dict(centers=centers, rotations=rotations, intrinsics=intrinsics)
-    ridges = quality.edge_image_support(gray, targets, observed, frames=range(81))
-    return dict(building=building, appearance=appearance, roof=roof_scores, ridges=ridges)
+    ridges = quality.edge_image_support(gray, targets, observed, frames=range(81),
+                                        common_support=rgb_baseline is not None)
+    results = dict(building=building, appearance=appearance, roof=roof_scores, ridges=ridges)
+    if extra_metrics is not None:
+        results.update(extra_metrics(row, camera, record, gray, partial, targets, roof))
+    return results
 
 
 def display(value, spec=".2f"):

@@ -729,3 +729,11 @@ CPU 就绪证据是新 run 的 `prepared.json`，东京 05:01:56 发布，数据
 ## 2026-11-21　V2 点纹分布补充复核
 
 本轮报告已追加屋面和墙面的等覆盖比较、局部明暗起伏和外观损失的反例。复核沿用原 16 条成片与旧 V2，后续训练建议尚未执行。 [点形与分布复核](upload/20261120_GT视频V2_RGB辅助_041625_实验报告.md#point-texture-review)
+
+## 2026-11-22　V2 原尺寸视差组准备完成
+
+已准备 `run_20261122_035139`，0 更新，无 GPU 队列或训练进程由本次启动。接手先读该 run 的 `status.sh`。八栋点集复核时已用各栋 GT_PLY_local_to_world_offset 和 world_to_local_origin 对齐到同一坐标系；16,336 个显示实测点中有 0 个在显示 GT 的 1 毫米以内。[启动与恢复说明](experiments/pointcloud_vace/adapter_gt_v2_parallax/README.md)
+
+## 2026-11-23　V2 原尺寸视差组暂停交接
+
+用户手动启动后请求暂停。东京时间 19:33:57 核实队列 paused，supervisor 和训练进程已退出，正式更新、缓存窗口和验证均为 0。保留 `stop.request`、原配置、排程及已读回的 `checkpoints/shared.pt`。首步前暂停时恢复入口读取旧 V2 初始化和共享缓存，第一次更新以后才生成 `latest.pt`。当前等待用户续跑。[运行目录](outputs/pointcloud_vace/adapter_gt_v2_parallax/run_20261122_035139/)
